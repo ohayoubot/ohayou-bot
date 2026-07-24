@@ -3,7 +3,7 @@ package bot
 import (
 	"strings"
 
-	irc "github.com/thoj/go-ircevent"
+	irc "github.com/ohayoubot/go-ircevent"
 )
 
 func (b *Bot) onPrivmsg(e *irc.Event) {

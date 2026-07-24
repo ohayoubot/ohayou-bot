@@ -3,7 +3,7 @@ package game
 import (
 	"strings"
 
-	irc "github.com/thoj/go-ircevent"
+	irc "github.com/ohayoubot/go-ircevent"
 
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
