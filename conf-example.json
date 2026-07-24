@@ -1,0 +1,34 @@
+{
+	"nick": "ohayoubot",
+	"user": "ohayoubot",
+	"nickPw": "",
+	"server": "irc.server.net",
+	"port": 6667,
+	"tls": false,
+	"sasl": {
+		"login": "",
+		"password": "",
+		"mechanism": "PLAIN"
+	},
+	"vhost": {
+		"service": "HostServ",
+		"command": "ON",
+		"timeout": 10000
+	},
+	"channels": [
+		"#chan",
+		"#channel2 key"
+	],
+	"debug": false,
+	"verbose": false,
+	"floodProtect": true,
+	"floodDelay": 500,
+	"admins": {
+		"adminNick": "vhost.or.host.name"
+	},
+	"commandPrefix": "!",
+	"ignoreList": {
+		"spammerNick": "spams the bot often"
+	},
+	"database": "ohayoubot.db"
+}

@@ -1,0 +1,38 @@
+[Unit]
+Description=ohayoubot IRC bot
+Documentation=https://github.com/ohayoubot/ohayou-bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ohayoubot
+Group=ohayoubot
+WorkingDirectory=/opt/ohayoubot
+ExecStart=/opt/ohayoubot/ohayoubot -config /opt/ohayoubot/conf.json -data /opt/ohayoubot/data
+
+# main handles SIGTERM and sends a clean IRC QUIT. give it a moment to close
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# restart on crashes, but not on a clean stop. go-ircevent reconnects on its
+# own so most network trouble never reaches systemd
+Restart=on-failure
+RestartSec=5
+
+# hardening. the bot only needs to write inside its own directory
+# (/opt/ohayoubot), use the network, and read the clock
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/ohayoubot
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+*~
+*.swp
+conf.json
+
+# sqlite
+*.db
+*.db-wal
+*.db-shm
+
+# built binary
+/ohayoubot
