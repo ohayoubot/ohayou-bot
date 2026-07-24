@@ -3,7 +3,9 @@ package bot
 import "strings"
 
 func (b *Bot) registerAdminCommands() {
-	admin := func(name string, h Handler) { b.Handle(Command{Name: name, Admin: true, Handler: h}) }
+	admin := func(name string, h Handler) {
+		b.Handle(Command{Name: name, Admin: true, Handler: h})
+	}
 
 	// say #chan hello   -> into #chan
 	// say hello         -> into the channel the command came from

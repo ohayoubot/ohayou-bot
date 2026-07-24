@@ -65,6 +65,7 @@ func New(cfg *config.Config, log *slog.Logger) *Bot {
 		channels: channelNames(cfg.Channels),
 		ignore:   cloneMap(cfg.IgnoreList),
 	}
+	b.registerBotCommands()
 	b.registerAdminCommands()
 	return b
 }
