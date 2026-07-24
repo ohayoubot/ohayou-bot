@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	irc "github.com/thoj/go-ircevent"
+	irc "github.com/ohayoubot/go-ircevent"
 )
 
 // stationPolice offers a robbery victim police protection and waits (up to a

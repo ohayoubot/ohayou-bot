@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	irc "github.com/thoj/go-ircevent"
+	irc "github.com/ohayoubot/go-ircevent"
 
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 )

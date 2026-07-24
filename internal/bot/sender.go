@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	irc "github.com/thoj/go-ircevent"
+	irc "github.com/ohayoubot/go-ircevent"
 )
 
 type sender struct {
