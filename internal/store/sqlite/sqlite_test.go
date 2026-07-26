@@ -475,6 +475,32 @@ func TestSuccessStealConservesValue(t *testing.T) {
 	}
 }
 
+func TestRemoveCatGuardsCount(t *testing.T) {
+	ctx := context.Background()
+	db := newTestDB(t)
+	seedCatalog(t, db)
+	mustCreate(t, db, "alice", 0)
+
+	// nobody owns a cat yet, so there's nothing for a dog to kill
+	if err := db.RemoveCat(ctx, "alice", 1); !errors.Is(err, store.ErrInsufficient) {
+		t.Fatalf("RemoveCat with no cats = %v, want ErrInsufficient", err)
+	}
+
+	if err := db.AddCat(ctx, "alice", 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.RemoveCat(ctx, "alice", 1); err != nil {
+		t.Fatalf("RemoveCat: %v", err)
+	}
+	if err := db.RemoveCat(ctx, "alice", 5); !errors.Is(err, store.ErrInsufficient) {
+		t.Fatalf("RemoveCat(5) of 1 = %v, want ErrInsufficient", err)
+	}
+	u, _ := db.GetUser(ctx, "alice")
+	if u.Items["cat"] != 1 {
+		t.Errorf("cats = %d, want 1", u.Items["cat"])
+	}
+}
+
 func mustCreate(t *testing.T, db *DB, nick string, ohayous int) {
 	t.Helper()
 	if err := db.CreateUser(context.Background(), nick, ohayous); err != nil {

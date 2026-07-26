@@ -24,12 +24,16 @@ const (
 func stealFine(u *store.User) int   { return stealFineMin + int(float64(u.Ohayous)*stealFinePct) }
 func stealAmount(u *store.User) int { return int(float64(u.Ohayous) * stealAmountPct) }
 
-func userDefense(u *store.User) int {
+func armorDefense(u *store.User) int {
 	var defense int
 	for _, item := range u.Equipped {
 		defense += item.Defense
 	}
 	return defense
+}
+
+func userDefense(u *store.User) int {
+	return armorDefense(u) + dogDefense(u)
 }
 
 func (g *Game) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw string) {
@@ -88,9 +92,13 @@ func (g *Game) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw str
 
 	switch {
 	case !ohayouOK && !catOK:
-		g.say(channel, fmt.Sprintf("%s attempts to steal from %s but is caught! "+
+		caught := "but is caught"
+		if victim.Items["dog"] > 0 {
+			caught = "but " + vicRaw + "'s dog barks and gives them away"
+		}
+		g.say(channel, fmt.Sprintf("%s attempts to steal from %s %s! "+
 			"%s is fined %d ohayous and is placed on probation for 24 hours.",
-			nickRaw, vicRaw, nickRaw, fine))
+			nickRaw, vicRaw, caught, nickRaw, fine))
 		g.failSteal(thief.Username, fine)
 	case ohayouOK && !catOK:
 		g.say(channel, fmt.Sprintf("%s attempts to steal from %s and succeeds! "+

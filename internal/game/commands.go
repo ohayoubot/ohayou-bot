@@ -314,13 +314,16 @@ func (g *Game) cmdQuarry(m *bot.Message) {
 		g.say(user.Username, msg)
 		return
 	}
-	if user.Items["quarry"] == 0 {
+	if user.Items["quarry"] == 0 && len(user.Quarry.Metals) == 0 {
 		g.say(m.Nick, "You don't have any quarries yet. Keep saving!")
 		return
 	}
 
-	inv := fmt.Sprintf("You have %d quarries and have mined these metals: ",
-		user.Items["quarry"])
+	inv := "You have no quarries, but you have these metals: "
+	if user.Items["quarry"] > 0 {
+		inv = fmt.Sprintf("You have %d quarries and have mined these metals: ",
+			user.Items["quarry"])
+	}
 	for _, amt := range amountsDesc(user.Quarry.Metals) {
 		if amt == 0 {
 			continue
