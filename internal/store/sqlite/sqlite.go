@@ -452,6 +452,12 @@ func (d *DB) AddCat(ctx context.Context, nick string, amt int) error {
 	})
 }
 
+func (d *DB) RemoveCat(ctx context.Context, nick string, amt int) error {
+	return guard(d.db.ExecContext(ctx,
+		`UPDATE user_items SET count=count-? WHERE username=? AND item='cat' AND count>=?`,
+		amt, nick, amt))
+}
+
 func (d *DB) AddOil(ctx context.Context, nick string, amt int) error {
 	return d.tx(ctx, func(tx *sql.Tx) error {
 		return incItem(ctx, tx, nick, "oilbarrel", amt)

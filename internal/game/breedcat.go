@@ -24,18 +24,25 @@ func (g *Game) breedCat(username string, cattery int) {
 		return
 	}
 
+	// reload so the cap and the dog roll below use the latest counts
+	user, err := g.store.GetUser(g.ctx(), username)
+	if err != nil {
+		g.log.Error("breed reload", "nick", username, "err", err)
+		return
+	}
+
+	if g.dogAttacksCat(user) {
+		g.say(username, "While the cats were busy, your dog got in among them and "+
+			"killed one! You are down a cat, "+username+".")
+	}
+
 	if randNum(0, 10) <= 3 {
 		g.say(username, "Darn! Looks like your cats didn't mate, "+username+
 			". Maybe next time!")
 		return
 	}
 
-	// Respect the land-based cap using the latest counts.
-	user, err := g.store.GetUser(g.ctx(), username)
-	if err != nil {
-		g.log.Error("breed reload", "nick", username, "err", err)
-		return
-	}
+	// Respect the land-based cap.
 	room := catsPerAcre*user.Items["acre"] - user.Items["cat"]
 	if room <= 0 {
 		g.say(username, "Your cats mated, but there's no room for kittens! Buy more "+

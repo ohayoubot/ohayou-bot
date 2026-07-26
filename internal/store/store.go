@@ -43,6 +43,7 @@ type Store interface {
 	AddItem(ctx context.Context, nick string, item Item, amt int) error
 	ConsumeItem(ctx context.Context, nick, item string) error
 	AddCat(ctx context.Context, nick string, amt int) error
+	RemoveCat(ctx context.Context, nick string, amt int) error
 	AddOil(ctx context.Context, nick string, amt int) error
 	AddMetals(ctx context.Context, nick string, yield map[string]int) error
 	Equip(ctx context.Context, nick string, item Item) error

@@ -16,6 +16,19 @@
     "purchase": true
   },
   {
+    "name": "dog",
+    "desc": "A loyal dog. Adds 3 to every ohayou and guards the place from thieves, though only your first three add defense. Use it to take it out digging once a day. Bad news for cats.",
+    "price": 250,
+    "add": 3,
+    "defense": 12,
+    "acrelimit": 1,
+    "useable": true,
+    "effect": "takes the dog out for a walk",
+    "hasFunction": "walkDog",
+    "category": "animals",
+    "purchase": true
+  },
+  {
     "name": "cattery",
     "desc": "Use it to breed your cats for a few hours. More catteries mean bigger litters. Needs its own acre.",
     "price": 4000,

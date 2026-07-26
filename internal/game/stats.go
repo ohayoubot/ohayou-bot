@@ -27,9 +27,9 @@ func (g *Game) stats(u *store.User) {
 		itemsAddOhayous += (item.Add * amt) * multiplier
 	}
 
-	equippedDefense := userDefense(u)
-	defenseOhayous := int(100 * (1 - float64(stealOhayouSuccess-(equippedDefense/9))/stealOhayouSuccess))
-	defenseCats := int(100 * (1 - float64(stealCatSuccess-(equippedDefense/9))/stealCatSuccess))
+	totalDefense := userDefense(u)
+	defenseOhayous := int(100 * (1 - float64(stealOhayouSuccess-(totalDefense/9))/stealOhayouSuccess))
+	defenseCats := int(100 * (1 - float64(stealCatSuccess-(totalDefense/9))/stealCatSuccess))
 
 	if ohyBonus, catBonus, protected := g.police.bonus(u.Username); protected {
 		defenseOhayous += int(100 * (float64(ohyBonus) / stealOhayouSuccess))
@@ -46,9 +46,14 @@ func (g *Game) stats(u *store.User) {
 			u.Vault.Level+1, u.Vault.Ohayous, vaultCap(u.Vault.Level)))
 	}
 
-	g.say(u.Username, fmt.Sprintf(
-		"Defense: %d from %d equipped items, cutting ohayou theft by %d%% and cat theft by %d%%.",
-		equippedDefense, len(u.Equipped), defenseOhayous, defenseCats))
+	defense := fmt.Sprintf("Defense: %d from %d equipped items",
+		armorDefense(u), len(u.Equipped))
+	if dogs := dogDefense(u); dogs > 0 {
+		defense += fmt.Sprintf(" and %d from %d %s", dogs, u.Items["dog"],
+			plural(u.Items["dog"], "dog"))
+	}
+	g.say(u.Username, fmt.Sprintf("%s, cutting ohayou theft by %d%% and cat theft by %d%%.",
+		defense, defenseOhayous, defenseCats))
 
 	g.say(u.Username, fmt.Sprintf(
 		"Stealing: %d of %d attempts landed, %d ohayous taken. Probation: %d %s served. Robbed for %d ohayous.",

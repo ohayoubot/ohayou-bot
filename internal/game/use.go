@@ -69,6 +69,8 @@ func (g *Game) runItemFunc(name string, u *store.User, itm string) string {
 		return g.startMining(u)
 	case "startPumping":
 		return g.startPumping(u)
+	case "walkDog":
+		return g.walkDog(u, itm)
 	default:
 		return ""
 	}
