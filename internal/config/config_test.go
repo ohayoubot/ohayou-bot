@@ -159,3 +159,106 @@ func TestLoadSASL(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadDeerkins(t *testing.T) {
+	const configured = `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"}
+	}`
+
+	t.Run("off unless configured", func(t *testing.T) {
+		t.Setenv("DEERKINS_API_TOKEN", "")
+		cfg, err := Load(writeConfig(t, `{"nick": "ohayoubot", "server": "irc.example.net"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Deerkins.Use() {
+			t.Error("deerkins came up without a database")
+		}
+	})
+
+	t.Run("defaults", func(t *testing.T) {
+		t.Setenv("DEERKINS_API_TOKEN", "")
+		cfg, err := Load(writeConfig(t, configured))
+		if err != nil {
+			t.Fatal(err)
+		}
+		d := cfg.Deerkins
+		if !d.Use() {
+			t.Fatal("deerkins did not come up from a complete config")
+		}
+		if d.Wait() != 300*time.Second {
+			t.Errorf("Wait = %v, want 5m", d.Wait())
+		}
+		if d.MissWait() != 15*time.Second {
+			t.Errorf("MissWait = %v, want 15s", d.MissWait())
+		}
+		if d.RequestTimeout() != 10*time.Second {
+			t.Errorf("RequestTimeout = %v, want 10s", d.RequestTimeout())
+		}
+		if d.TimeoutPunish != 1.7 || d.MaxLines != 30 || d.Editor == "" {
+			t.Errorf("defaults not applied: %+v", d)
+		}
+		if !d.MatchNick() || !d.MatchHost() {
+			t.Error("privileged nicks should have to match on both nick and host by default")
+		}
+	})
+
+	t.Run("token comes from the environment", func(t *testing.T) {
+		t.Setenv("DEERKINS_API_TOKEN", "from-env")
+		cfg, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db"}
+		}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !cfg.Deerkins.Use() || cfg.Deerkins.APIToken != "from-env" {
+			t.Errorf("APIToken = %q, want the environment's", cfg.Deerkins.APIToken)
+		}
+	})
+
+	t.Run("half a config is an error", func(t *testing.T) {
+		t.Setenv("DEERKINS_API_TOKEN", "")
+		_, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"enabled": true, "accountId": "acct"}
+		}`))
+		if err == nil {
+			t.Fatal("expected an error for a database that can't be reached")
+		}
+	})
+
+	t.Run("enabled false wins", func(t *testing.T) {
+		t.Setenv("DEERKINS_API_TOKEN", "")
+		cfg, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"enabled": false, "accountId": "acct", "databaseId": "db", "apiToken": "t"}
+		}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Deerkins.Use() {
+			t.Error("deerkins ignored enabled:false")
+		}
+	})
+
+	t.Run("privileged nicks are lower-cased", func(t *testing.T) {
+		t.Setenv("DEERKINS_API_TOKEN", "")
+		cfg, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "t",
+				"privileged": {"SvaJ": {"host": "wizard.of.the.night", "timeout": -10}}}
+		}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		user, ok := cfg.Deerkins.Privileged["svaj"]
+		if !ok {
+			t.Fatalf("privileged key not lower-cased: %v", cfg.Deerkins.Privileged)
+		}
+		if user.Timeout == nil || *user.Timeout != -10 {
+			t.Errorf("Timeout = %v, want -10", user.Timeout)
+		}
+	})
+}

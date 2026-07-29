@@ -9,3 +9,6 @@ conf.json
 
 # built binary
 /ohayoubot
+
+# deerkins
+deerkins.env

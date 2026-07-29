@@ -27,6 +27,7 @@ type Config struct {
 	CommandPrefix string            `json:"commandPrefix"`
 	IgnoreList    map[string]string `json:"ignoreList"`
 	Database      string            `json:"database"` // path to the sqlite .db file
+	Deerkins      DeerkinsConfig    `json:"deerkins"`
 }
 
 type SASLConfig struct {
@@ -79,6 +80,89 @@ func (v VHostConfig) Use(server string) bool {
 		return *v.Enabled
 	}
 	return strings.Contains(strings.ToLower(server), "rizon")
+}
+
+// DeerkinsConfig configures the deerkins plugin, which reads pixel art out of
+// a cloudflare D1 database over the HTTP API and paints it into a channel.
+type DeerkinsConfig struct {
+	Enabled    *bool  `json:"enabled"`
+	AccountID  string `json:"accountId"`
+	DatabaseID string `json:"databaseId"`
+	// APIToken needs the D1:Read permission on the account. The
+	// DEERKINS_API_TOKEN environment variable overrides it so the token need
+	// not be written to disk.
+	APIToken string `json:"apiToken"`
+	// Editor is the url of the drawing app, quoted in help and 404s.
+	Editor string `json:"editor"`
+	// Timeout is the seconds a channel must wait between deer.
+	Timeout int `json:"timeout"`
+	// TimeoutPunish multiplies Timeout when the same nick or the same deer
+	// comes up twice in a row.
+	TimeoutPunish float64 `json:"timeoutPunish"`
+	// MissTimeout is the (shorter) seconds to wait after a lookup that found
+	// nothing, so typos don't cost a channel the full Timeout.
+	MissTimeout int `json:"missTimeout"`
+	// MaxLines caps how many lines one deer may paint.
+	MaxLines int `json:"maxLines"`
+	// RequestTimeoutMS bounds a single D1 request.
+	RequestTimeoutMS int `json:"requestTimeout"`
+	// PrivilegedMatch is which of "nick" and "host" must match for Privileged
+	// to apply. Both are required when both are listed.
+	PrivilegedMatch []string                `json:"privilegedMatch"`
+	Privileged      map[string]DeerkinsUser `json:"privileged"`
+	IgnoreNicks     []string                `json:"ignoreNicks"`
+	IgnoreHosts     []string                `json:"ignoreHosts"`
+	IgnoreChannels  []string                `json:"ignoreChannels"`
+}
+
+// DeerkinsUser is a nick that deers on easier terms than everyone else.
+type DeerkinsUser struct {
+	Host string `json:"host"`
+	// Timeout overrides the channel timeout in seconds when set. Zero or
+	// negative means no wait at all.
+	Timeout *int `json:"timeout"`
+}
+
+// Configured returns whether the plugin has everything it needs to reach D1.
+func (d DeerkinsConfig) Configured() bool {
+	return d.AccountID != "" && d.DatabaseID != "" && d.APIToken != ""
+}
+
+// Use returns whether the deerkins plugin should be registered. An explicit
+// Enabled wins; otherwise it comes up whenever it is configured.
+func (d DeerkinsConfig) Use() bool {
+	if d.Enabled != nil {
+		return *d.Enabled
+	}
+	return d.Configured()
+}
+
+// Wait is the normal spacing between deer in a channel.
+func (d DeerkinsConfig) Wait() time.Duration {
+	return time.Duration(d.Timeout) * time.Second
+}
+
+// MissWait is the spacing after a deer that could not be fetched.
+func (d DeerkinsConfig) MissWait() time.Duration {
+	return time.Duration(d.MissTimeout) * time.Second
+}
+
+// RequestTimeout bounds a single D1 request.
+func (d DeerkinsConfig) RequestTimeout() time.Duration {
+	return time.Duration(d.RequestTimeoutMS) * time.Millisecond
+}
+
+// MatchNick and MatchHost report which fields privileged entries are keyed on.
+func (d DeerkinsConfig) MatchNick() bool { return d.matches("nick") }
+func (d DeerkinsConfig) MatchHost() bool { return d.matches("host") }
+
+func (d DeerkinsConfig) matches(field string) bool {
+	for _, f := range d.PrivilegedMatch {
+		if strings.EqualFold(strings.TrimSpace(f), field) {
+			return true
+		}
+	}
+	return false
 }
 
 // VHostEnabled returns whether the vhost gate should run for this config.
@@ -152,6 +236,9 @@ func Load(path string) (*Config, error) {
 	if cfg.Database == "" {
 		cfg.Database = "ohayoubot.db"
 	}
+	if err := cfg.loadDeerkins(); err != nil {
+		return nil, err
+	}
 	// Normalize nicks to lower case for admins
 	admins := make(map[string]string, len(cfg.Admins))
 	for nick, host := range cfg.Admins {
@@ -162,4 +249,58 @@ func Load(path string) (*Config, error) {
 		cfg.IgnoreList = map[string]string{}
 	}
 	return cfg, nil
+}
+
+// loadDeerkins applies the environment override and fills in the defaults. A
+// half-configured plugin is an error rather than a plugin that quietly never
+// answers.
+func (c *Config) loadDeerkins() error {
+	d := &c.Deerkins
+	if token := os.Getenv("DEERKINS_API_TOKEN"); token != "" {
+		d.APIToken = token
+	}
+	if !d.Use() {
+		return nil
+	}
+	switch {
+	case d.AccountID == "":
+		return fmt.Errorf("config: deerkins accountId is required")
+	case d.DatabaseID == "":
+		return fmt.Errorf("config: deerkins databaseId is required")
+	case d.APIToken == "":
+		return fmt.Errorf("config: deerkins apiToken (or DEERKINS_API_TOKEN) is required")
+	}
+	if d.Editor == "" {
+		d.Editor = "https://hemera.day/deerkins/"
+	}
+	if d.Timeout == 0 {
+		d.Timeout = 300
+	}
+	if d.TimeoutPunish == 0 {
+		d.TimeoutPunish = 1.7
+	}
+	if d.MissTimeout == 0 {
+		d.MissTimeout = 15
+	}
+	if d.MaxLines == 0 {
+		d.MaxLines = 30
+	}
+	if d.RequestTimeoutMS == 0 {
+		d.RequestTimeoutMS = 10000
+	}
+	if len(d.PrivilegedMatch) == 0 {
+		d.PrivilegedMatch = []string{"nick", "host"}
+	}
+	if d.TimeoutPunish < 1 {
+		return fmt.Errorf("config: deerkins timeoutPunish must be at least 1")
+	}
+	if d.Timeout < 0 || d.MissTimeout < 0 || d.MaxLines < 1 || d.RequestTimeoutMS < 1 {
+		return fmt.Errorf("config: deerkins timeout, missTimeout, maxLines and requestTimeout must be positive")
+	}
+	privileged := make(map[string]DeerkinsUser, len(d.Privileged))
+	for nick, user := range d.Privileged {
+		privileged[strings.ToLower(nick)] = user
+	}
+	d.Privileged = privileged
+	return nil
 }

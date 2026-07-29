@@ -30,5 +30,26 @@
 	"ignoreList": {
 		"spammerNick": "spams the bot often"
 	},
-	"database": "ohayoubot.db"
+	"database": "ohayoubot.db",
+	"deerkins": {
+		"accountId": "",
+		"databaseId": "",
+		"apiToken": "",
+		"editor": "https://hemera.day/deerkins/",
+		"timeout": 300,
+		"timeoutPunish": 1.7,
+		"missTimeout": 15,
+		"maxLines": 30,
+		"requestTimeout": 10000,
+		"privilegedMatch": ["nick", "host"],
+		"privileged": {
+			"someNick": {
+				"host": "vhost.or.host.name",
+				"timeout": 0
+			}
+		},
+		"ignoreNicks": [],
+		"ignoreHosts": [],
+		"ignoreChannels": []
+	}
 }
