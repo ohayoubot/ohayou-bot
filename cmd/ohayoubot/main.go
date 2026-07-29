@@ -14,6 +14,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/game"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/catfact"
+	"github.com/ohayoubot/ohayou-bot/internal/plugins/deerkins"
 	"github.com/ohayoubot/ohayou-bot/internal/seed"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
@@ -69,6 +70,11 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 
 	b := bot.New(cfg, log)
 	catfact.New(b).Register()
+
+	if cfg.Deerkins.Use() {
+		deerkins.New(b, cfg.Deerkins).Register()
+		log.Info("deerkins enabled", "database", cfg.Deerkins.DatabaseID, "editor", cfg.Deerkins.Editor)
+	}
 
 	g, err := game.New(b, db, fortunes, log)
 	if err != nil {

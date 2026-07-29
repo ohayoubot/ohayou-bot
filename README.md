@@ -26,6 +26,8 @@
      between outbound messages
    - `admins` - map of `nick` -> `host` allowed to run admin commands
    - `database` - path to the sqlite file (default `ohayoubot.db`)
+   - `deerkins` - the pixel art gallery. Off unless `accountId`, `databaseId`
+     and a token are all present. See [Deerkins](#deerkins).
 2. Build and run:
    ```sh
    go build ./cmd/ohayoubot
@@ -35,6 +37,60 @@
 On first run the item catalog in `data/items.json` is seeded into the database.
 Running `sudo deploy/install.sh` will update prices/descriptions/etc if run
 against an already seeded database.
+
+## Deerkins
+
+`!deerme` paints art from the [deerkins](https://github.com/ohayoubot/deerkins)
+gallery into the channel. The drawings live in a Cloudflare D1 database that the
+web app writes. The bot just reads from it.
+
+```
+!deerme                     the deer named "deer"
+!deerme senordeer           by name
+!deerme random              one at random, credited
+!deerme latest              the newest one, credited
+!deerme iu|senordeer        stack modifiers before a pipe
+!deerme x|senordeer         let it pick the modifiers
+!deerme help                how to deer, plus how long until the next one
+!deerme help modifiers      list the modifiers
+!prevdeer                   what walked the earth last
+```
+
+Modifiers are `i` invert, `m` mirror, `n` unitinu, `d` divide, `r` reverse, `u`
+upsidedown, `s` square, `f` flip, `t` transpose, and `x` for a random pile of
+the rest.
+
+### Access
+
+The bot talks to the D1 HTTP API, so it needs three things:
+
+- `accountId` - Cloudflare account id, on the right of the dashboard overview.
+- `databaseId` - from `npx wrangler d1 info deerkins`, or the `database_id`
+  already in the gallery's `wrangler.toml`.
+- an API token with **Account → D1 → Read** and nothing else. Create it under
+  My Profile → API Tokens → Create Token → Create Custom Token, scoped to the
+  one account. `Read` is enough because the bot only runs `SELECT`s; a token
+  that cannot write cannot deface the gallery if the bot is ever compromised.
+
+Keep the token out of the config file by exporting `DEERKINS_API_TOKEN`, which
+overrides `apiToken`. Under systemd that means an `EnvironmentFile`:
+
+```sh
+install -m 600 /dev/null /opt/ohayoubot/deerkins.env
+echo 'DEERKINS_API_TOKEN=...' > /opt/ohayoubot/deerkins.env
+chown ohayoubot:ohayoubot /opt/ohayoubot/deerkins.env
+```
+
+`deploy/ohayoubot.service` reads that file if it exists. Check it works with:
+
+```sh
+curl -sS -H "Authorization: Bearer $DEERKINS_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"sql":"SELECT COUNT(*) AS n FROM deer","params":[]}' \
+  "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/d1/database/$DATABASE/query"
+```
+
+Requests are also subject to the bot-wide `ignoreList` and `floodDelay`.
 
 ## Running as a service
 
