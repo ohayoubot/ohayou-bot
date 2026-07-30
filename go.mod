@@ -3,7 +3,7 @@ module github.com/ohayoubot/ohayou-bot
 go 1.26.5
 
 require (
-	github.com/ohayoubot/go-ircevent v0.1.0
+	github.com/ohayoubot/go-ircevent v0.1.1
 	modernc.org/sqlite v1.54.0
 )
 
