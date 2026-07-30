@@ -118,11 +118,11 @@ func (p *Plugin) cmdDeerme(m *bot.Message) {
 		name = defaultDeer
 	}
 
-	if wait, ok := p.claim(to, m.Nick, name, mods, user, privileged); !ok {
+	if wait, timeout, ok := p.claim(to, m.Nick, name, mods, user, privileged); !ok {
 		// Only the first refusal is answered. Repeating it would turn asking
 		// too often into the flood the timeout exists to prevent.
 		if p.maySpeak("wait:" + m.Nick) {
-			p.bot.Notice(m.Nick, p.waitMessage(wait, user, privileged))
+			p.bot.Say(m.Nick, p.waitMessage(wait, timeout, user, privileged))
 		}
 		return
 	}
@@ -206,21 +206,23 @@ func (p *Plugin) fetch(ctx context.Context, name string) (*row, error) {
 	}
 }
 
-func (p *Plugin) claim(target, nick, name string, mods []byte, user config.DeerkinsUser, privileged bool) (time.Duration, bool) {
+// claim takes the target's deer slot. When it is still warm it returns how long
+// is left and the timeout that decided it, which is what the refusal quotes.
+func (p *Plugin) claim(target, nick, name string, mods []byte, user config.DeerkinsUser, privileged bool) (wait, timeout time.Duration, ok bool) {
 	now := time.Now()
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	timeout := p.timeoutFor(target, nick, name, mods)
+	timeout = p.timeoutFor(target, nick, name, mods)
 	if privileged && user.Timeout != nil {
 		timeout = time.Duration(*user.Timeout) * time.Second
 	}
 	if ready := p.used[target].Add(timeout); now.Before(ready) {
-		return ready.Sub(now), false
+		return ready.Sub(now), timeout, false
 	}
 	p.used[target] = now
-	return 0, true
+	return 0, timeout, true
 }
 
 func (p *Plugin) timeoutFor(target, nick, name string, mods []byte) time.Duration {
@@ -273,7 +275,10 @@ func (p *Plugin) remember(target string, s sighting) {
 	p.latest = s
 }
 
-func (p *Plugin) waitMessage(wait time.Duration, user config.DeerkinsUser, privileged bool) string {
+// waitMessage explains a refusal. timeout is the one claim actually applied,
+// which is not always the configured one: a privileged nick has its own, and a
+// repeated nick or deer is punished with a longer one.
+func (p *Plugin) waitMessage(wait, timeout time.Duration, user config.DeerkinsUser, privileged bool) string {
 	seconds := int(wait.Seconds()) + 1
 	normal := p.cfg.Timeout
 	if privileged && user.Timeout != nil {
@@ -282,9 +287,13 @@ func (p *Plugin) waitMessage(wait time.Duration, user config.DeerkinsUser, privi
 			return fmt.Sprintf("You are privileged! You have a LOWER timeout than others (-%d seconds), which is like %d seconds from now, bro.",
 				normal-*user.Timeout, seconds)
 		case *user.Timeout > normal:
-			return fmt.Sprintf("You have somehow been punished! You have a HIGHER timeout than others (+%d seconds), which is like <CENSORED> seconds from now, bro.",
-				*user.Timeout-normal)
+			return fmt.Sprintf("You have somehow been punished! You have a HIGHER timeout than others (+%d seconds), which is like %d seconds from now, bro.",
+				*user.Timeout-normal, seconds)
 		}
+	}
+	if applied := int(timeout.Round(time.Second).Seconds()); applied > normal {
+		return fmt.Sprintf("Deer called, but deer not so fast :( Asking again yourself, or for the same deer, stretches the usual %d seconds to %d, which is like %d seconds from now, bro.",
+			normal, applied, seconds)
 	}
 	return fmt.Sprintf("Deer called, but deer not so fast :( It only walks the earth every %d seconds, which is like %d seconds from now, bro.",
 		normal, seconds)
@@ -308,7 +317,7 @@ func (p *Plugin) sayHelp(m *bot.Message, to string) {
 		total = fmt.Sprintf("(%d deer total) ", n)
 	}
 
-	p.bot.Notice(m.Nick, boldCode+"How to deer:"+boldCode+" Type "+prefix+
+	p.bot.Say(m.Nick, boldCode+"How to deer:"+boldCode+" Type "+prefix+
 		"deerme <mods>|<deer> to deer, "+prefix+"deerme random or "+prefix+
 		"deerme latest to take what you are given, or "+prefix+
 		"deerme help modifiers for the available mods. "+total+
@@ -325,7 +334,7 @@ func (p *Plugin) sayModifiers(m *bot.Message) {
 		}
 		mods = append(mods, string(c)+"(="+name+")")
 	}
-	p.bot.Notice(m.Nick, boldCode+"Available modifiers: "+boldCode+strings.Join(mods, ", ")+
+	p.bot.Say(m.Nick, boldCode+"Available modifiers: "+boldCode+strings.Join(mods, ", ")+
 		". Stack them before a pipe, like "+p.bot.Prefix()+"deerme iu|senordeer.")
 }
 
