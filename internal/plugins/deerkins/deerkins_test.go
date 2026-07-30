@@ -11,6 +11,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -371,11 +373,11 @@ func TestDeermeThrottlesAChannel(t *testing.T) {
 	h.plugin.cmdDeerme(message("pihl", "#pank", "!deerme senordeer"))
 	lines := h.collect(t)
 
-	if len(lines) != 1 || !strings.HasPrefix(lines[0], "NOTICE pihl :") {
-		t.Fatalf("lines = %q, want a notice to the asker", lines)
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "PRIVMSG pihl :") {
+		t.Fatalf("lines = %q, want a private message to the asker", lines)
 	}
 	if !strings.Contains(lines[0], "not so fast") {
-		t.Errorf("notice = %q", lines[0])
+		t.Errorf("refusal = %q", lines[0])
 	}
 	if n := len(h.d1.statements()); n != 1 {
 		t.Errorf("%d queries reached d1, want the throttled one to be dropped first", n)
@@ -563,8 +565,8 @@ func TestHelp(t *testing.T) {
 	h.plugin.cmdDeerme(message("mallow", "#pank", "!deerme help"))
 	lines := h.collect(t)
 
-	if len(lines) != 1 || !strings.HasPrefix(lines[0], "NOTICE mallow :") {
-		t.Fatalf("lines = %q, want one notice", lines)
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "PRIVMSG mallow :") {
+		t.Fatalf("lines = %q, want one private message", lines)
 	}
 	for _, want := range []string{"How to deer", "!deerme <mods>|<deer>", "1640 deer total", "Ready to deer!", "hemera.day"} {
 		if !strings.Contains(lines[0], want) {
@@ -585,7 +587,7 @@ func TestHelpModifiers(t *testing.T) {
 	h.plugin.cmdDeerme(message("mallow", "#pank", "!deerme help modifiers"))
 	lines := h.collect(t)
 
-	if len(lines) != 1 || !strings.HasPrefix(lines[0], "NOTICE mallow :") {
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "PRIVMSG mallow :") {
 		t.Fatalf("lines = %q", lines)
 	}
 	for _, c := range modifierOrder {
@@ -650,6 +652,72 @@ func TestRepeatedRefusalsAreNotRepeated(t *testing.T) {
 	}
 	if lines := h.collect(t); len(lines) != 1 {
 		t.Errorf("got %d refusals for 5 requests, want 1: %q", len(lines), lines)
+	}
+}
+
+func TestWaitMessageQuotesTheTimeoutThatApplied(t *testing.T) {
+	cfg := testConfig(t)
+	p := &Plugin{cfg: cfg}
+	normal := cfg.Wait()
+	punished := time.Duration(float64(normal) * cfg.TimeoutPunish)
+
+	got := p.waitMessage(290*time.Second, normal, config.DeerkinsUser{}, false)
+	for _, want := range []string{"every 300 seconds", "291 seconds from now"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("ordinary refusal = %q, want %q", got, want)
+		}
+	}
+
+	// The punished timeout is the one that refused, so quoting the configured
+	// 300 would put a countdown longer than the wait it claims to explain.
+	got = p.waitMessage(499*time.Second, punished, config.DeerkinsUser{}, false)
+	for _, want := range []string{"usual 300 seconds to 510", "500 seconds from now"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("punished refusal = %q, want %q", got, want)
+		}
+	}
+
+	higher := 600
+	got = p.waitMessage(500*time.Second, 600*time.Second, config.DeerkinsUser{Timeout: &higher}, true)
+	for _, want := range []string{"+300 seconds", "501 seconds from now"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("privileged punishment = %q, want %q", got, want)
+		}
+	}
+}
+
+func TestRefusalCountdownFitsTheTimeoutItQuotes(t *testing.T) {
+	cfg := testConfig(t)
+	h := newHarness(t, cfg)
+	h.d1.rows = []map[string]any{{"deer": "slime", "creator": "svaj", "kinskode": "A"}}
+
+	h.plugin.cmdDeerme(message("mallow", "#pank", "!deerme slime"))
+	h.collect(t)
+
+	// The same nick asking for the same deer is punished, so the refusal has to
+	// carry the punished timeout down from claim.
+	h.plugin.cmdDeerme(message("mallow", "#pank", "!deerme slime"))
+	lines := h.collect(t)
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "PRIVMSG mallow :") {
+		t.Fatalf("lines = %q, want one refusal to the asker", lines)
+	}
+
+	punished := int(float64(cfg.Timeout) * cfg.TimeoutPunish)
+	if !strings.Contains(lines[0], strconv.Itoa(punished)) {
+		t.Errorf("refusal = %q, want the %d second timeout it applied", lines[0], punished)
+	}
+
+	m := regexp.MustCompile(`like (\d+) seconds from now`).FindStringSubmatch(lines[0])
+	if m == nil {
+		t.Fatalf("refusal has no countdown: %q", lines[0])
+	}
+	left, err := strconv.Atoi(m[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left > punished || left <= cfg.Timeout {
+		t.Errorf("countdown = %d seconds, want between %d and %d: %q",
+			left, cfg.Timeout, punished, lines[0])
 	}
 }
 
