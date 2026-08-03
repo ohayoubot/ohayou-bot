@@ -130,7 +130,7 @@ type DropConfig struct {
 	APIToken string `json:"apiToken"`
 	// Secret signs the grant links. It has no config field on purpose, so it
 	// cannot be committed by accident: it comes from OHAYOU_DROP_SECRET only.
-	// The worker holds the same value as DROP_HMAC_SECRET, and both sides key
+	// The worker holds the same value as UPLOAD_HMAC_SECRET, and both sides key
 	// on its utf-8 bytes rather than decoding the hex.
 	Secret string `json:"-"`
 	// URL is the upload site, e.g. "https://hemera.day/drop/".
