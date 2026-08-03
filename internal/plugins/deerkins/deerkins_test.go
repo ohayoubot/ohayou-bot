@@ -176,7 +176,7 @@ func newHarness(t *testing.T, cfg config.DeerkinsConfig) *harness {
 	srv := fake.start(t)
 
 	p := New(b, cfg)
-	p.db = newD1(srv.URL, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout())
+	p.db = newGallery(srv.URL, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout())
 	p.roll = func(int) int { return 0 }
 
 	return &harness{plugin: p, d1: fake, lines: lines}
