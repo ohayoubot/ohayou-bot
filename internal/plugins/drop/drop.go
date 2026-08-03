@@ -76,15 +76,11 @@ func (p *Plugin) Start(ctx context.Context) {
 func (p *Plugin) Wait() { p.wg.Wait() }
 
 func (p *Plugin) poll(ctx context.Context) {
-	cursor, err := p.startAt(ctx)
-	if err != nil {
-		p.log.Error("drop poller not started", "err", err)
-		return
-	}
-	p.log.Info("announcing uploads", "from", cursor, "every", p.cfg.PollWait())
-
 	ticker := time.NewTicker(p.cfg.PollWait())
 	defer ticker.Stop()
+
+	var cursor int64
+	var started bool
 
 	for {
 		select {
@@ -92,6 +88,20 @@ func (p *Plugin) poll(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
+
+		// Finding the starting point is retried rather than fatal. The table
+		// may not exist yet, or d1 may be briefly unreachable, and neither is
+		// a reason to stay silent until someone restarts the bot.
+		if !started {
+			from, err := p.startAt(ctx)
+			if err != nil {
+				p.log.Warn("waiting to announce uploads", "err", err)
+				continue
+			}
+			cursor, started = from, true
+			p.log.Info("announcing uploads", "from", cursor, "every", p.cfg.PollWait())
+		}
+
 		cursor = p.announce(ctx, cursor)
 	}
 }
