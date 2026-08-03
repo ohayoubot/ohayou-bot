@@ -4,13 +4,16 @@ package drop
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
+	"github.com/ohayoubot/ohayou-bot/internal/d1"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
@@ -22,13 +25,23 @@ const whoisWait = 15 * time.Second
 // it without bound.
 const maxTracked = 1000
 
+// pollBatch bounds one round of announcements, so a backlog is spread over
+// several polls rather than flooding a channel in one go.
+const pollBatch = 20
+
+// cursorKey is where the last announced upload id is kept between restarts.
+const cursorKey = "drop.cursor"
+
 type Plugin struct {
 	bot   *bot.Bot
 	cfg   config.DropConfig
 	log   *slog.Logger
 	store store.Store
+	db    *queue
 
 	now func() time.Time
+
+	wg sync.WaitGroup
 
 	mu     sync.Mutex
 	minted map[string]time.Time // lowercased nick -> when it last got a link
@@ -40,6 +53,7 @@ func New(b *bot.Bot, cfg config.DropConfig, st store.Store) *Plugin {
 		cfg:    cfg,
 		log:    b.Logger().With("plugin", "drop"),
 		store:  st,
+		db:     newQueue(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
 		now:    time.Now,
 		minted: map[string]time.Time{},
 	}
@@ -47,6 +61,100 @@ func New(b *bot.Bot, cfg config.DropConfig, st store.Store) *Plugin {
 
 func (p *Plugin) Register() {
 	p.bot.HandleFunc("upload", false, p.cmdUpload)
+}
+
+// Start begins announcing uploads. Wait drains it, so the cursor's final write
+// lands before the store is closed.
+func (p *Plugin) Start(ctx context.Context) {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		p.poll(ctx)
+	}()
+}
+
+func (p *Plugin) Wait() { p.wg.Wait() }
+
+func (p *Plugin) poll(ctx context.Context) {
+	cursor, err := p.startAt(ctx)
+	if err != nil {
+		p.log.Error("drop poller not started", "err", err)
+		return
+	}
+	p.log.Info("announcing uploads", "from", cursor, "every", p.cfg.PollWait())
+
+	ticker := time.NewTicker(p.cfg.PollWait())
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		cursor = p.announce(ctx, cursor)
+	}
+}
+
+// startAt resumes from the stored cursor, or begins at the end of the queue.
+// A bot enabled against a database that already has uploads in it should say
+// nothing about them, not recite the lot.
+func (p *Plugin) startAt(ctx context.Context) (int64, error) {
+	saved, err := p.store.GetKV(ctx, cursorKey)
+	switch {
+	case err == nil:
+		return strconv.ParseInt(saved, 10, 64)
+	case !errors.Is(err, store.ErrNotFound):
+		return 0, err
+	}
+
+	newest, err := p.db.newest(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if err := p.store.SetKV(ctx, cursorKey, strconv.FormatInt(newest, 10)); err != nil {
+		return 0, err
+	}
+	return newest, nil
+}
+
+// announce says what has arrived since the cursor and returns the new one. A
+// failure to read leaves the cursor where it was, so nothing is skipped.
+func (p *Plugin) announce(ctx context.Context, cursor int64) int64 {
+	rows, err := p.db.since(ctx, cursor, pollBatch)
+	if err != nil {
+		p.log.Warn("reading the upload queue", "err", err)
+		return cursor
+	}
+
+	for _, row := range rows {
+		// The grant named a channel the bot was in when it was minted. It may
+		// have been parted since, and an upload is not a way back in.
+		if p.inChannel(row.Channel) {
+			p.bot.Say(row.Channel, row.Nick+" uploaded: "+p.cfg.Image(row.Key))
+			p.log.Info("announced", "id", row.ID, "nick", row.Nick, "channel", row.Channel)
+		} else {
+			p.log.Info("upload dropped", "reason", "not in channel",
+				"id", row.ID, "channel", row.Channel)
+		}
+
+		// Saved per row rather than per batch: a crash mid-batch then repeats
+		// at most one line instead of the whole run.
+		cursor = row.ID
+		if err := p.store.SetKV(ctx, cursorKey, strconv.FormatInt(cursor, 10)); err != nil {
+			p.log.Error("saving the upload cursor", "id", cursor, "err", err)
+		}
+	}
+	return cursor
+}
+
+func (p *Plugin) inChannel(name string) bool {
+	for _, joined := range p.bot.Channels() {
+		if strings.EqualFold(joined, name) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Plugin) cmdUpload(m *bot.Message) {
