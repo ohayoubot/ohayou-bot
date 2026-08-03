@@ -52,6 +52,25 @@ func (d *DB) Init(ctx context.Context) error {
 
 func (d *DB) Close() error { return d.db.Close() }
 
+func (d *DB) GetKV(ctx context.Context, key string) (string, error) {
+	var value string
+	err := d.db.QueryRowContext(ctx, `SELECT value FROM kv WHERE key=?`, key).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", store.ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+func (d *DB) SetKV(ctx context.Context, key, value string) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO kv (key,value) VALUES (?,?)
+		 ON CONFLICT(key) DO UPDATE SET value=excluded.value`, key, value)
+	return err
+}
+
 func unix(t time.Time) int64 {
 	if t.IsZero() {
 		return 0

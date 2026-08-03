@@ -83,3 +83,10 @@ CREATE TABLE IF NOT EXISTS items (
 
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
 CREATE INDEX IF NOT EXISTS idx_users_ohayous ON users(ohayous DESC);
+
+-- Small pieces of bot state that outlive a restart and belong to no user, such
+-- as how far the drop plugin has read through the upload queue.
+CREATE TABLE IF NOT EXISTS kv (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);

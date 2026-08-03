@@ -507,3 +507,69 @@ func mustCreate(t *testing.T, db *DB, nick string, ohayous int) {
 		t.Fatalf("create %s: %v", nick, err)
 	}
 }
+
+func TestKV(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	if _, err := db.GetKV(ctx, "drop.cursor"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("GetKV on a fresh database = %v, want ErrNotFound", err)
+	}
+
+	if err := db.SetKV(ctx, "drop.cursor", "12"); err != nil {
+		t.Fatalf("SetKV: %v", err)
+	}
+	if got, err := db.GetKV(ctx, "drop.cursor"); err != nil || got != "12" {
+		t.Fatalf("GetKV = %q, %v; want 12", got, err)
+	}
+
+	// Setting again overwrites rather than failing on the primary key, which is
+	// what a cursor advancing on every poll needs.
+	if err := db.SetKV(ctx, "drop.cursor", "34"); err != nil {
+		t.Fatalf("SetKV over an existing key: %v", err)
+	}
+	if got, _ := db.GetKV(ctx, "drop.cursor"); got != "34" {
+		t.Errorf("GetKV = %q, want 34", got)
+	}
+
+	// Keys are independent.
+	if err := db.SetKV(ctx, "other", "x"); err != nil {
+		t.Fatalf("SetKV: %v", err)
+	}
+	if got, _ := db.GetKV(ctx, "drop.cursor"); got != "34" {
+		t.Errorf("a second key disturbed the first: %q", got)
+	}
+	if got, _ := db.GetKV(ctx, "other"); got != "x" {
+		t.Errorf("GetKV(other) = %q, want x", got)
+	}
+}
+
+func TestKVSurvivesReopen(t *testing.T) {
+	ctx := context.Background()
+	path := t.TempDir() + "/bot.db"
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.Init(ctx); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if err := db.SetKV(ctx, "drop.cursor", "99"); err != nil {
+		t.Fatalf("SetKV: %v", err)
+	}
+	db.Close()
+
+	// Init runs the schema again on a database that already has the table.
+	again, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	t.Cleanup(func() { again.Close() })
+	if err := again.Init(ctx); err != nil {
+		t.Fatalf("re-init: %v", err)
+	}
+	if got, err := again.GetKV(ctx, "drop.cursor"); err != nil || got != "99" {
+		t.Fatalf("GetKV after restart = %q, %v; want 99", got, err)
+	}
+}

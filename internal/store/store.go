@@ -22,6 +22,11 @@ type Store interface {
 	SeedItems(ctx context.Context, items []Item) (int, error)
 	Close() error
 
+	// Bot state that belongs to no user. GetKV returns ErrNotFound when the key
+	// has never been set.
+	GetKV(ctx context.Context, key string) (string, error)
+	SetKV(ctx context.Context, key, value string) error
+
 	// Users.
 	GetUser(ctx context.Context, nick string) (*User, error)
 	CreateUser(ctx context.Context, nick string, ohayous int) error
