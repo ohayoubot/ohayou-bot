@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -100,6 +101,7 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 	h.plugin = New(b, config.DropConfig{
 		Secret:      testSecret,
 		URL:         "https://hemera.day/drop/",
+		ImageBase:   "https://img.hemera.day",
 		GrantTTL:    300,
 		Cooldown:    60,
 		PollSeconds: 10,
@@ -432,4 +434,135 @@ func said(lines []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// announceHarness swaps the plugin's queue for a fake and hands back both.
+func announceHarness(t *testing.T) (*harness, *fakeQueue) {
+	t.Helper()
+	h := newHarness(t)
+	fake := &fakeQueue{}
+	h.plugin.db = fake.start(t)
+	return h, fake
+}
+
+func TestAnnouncePostsUploadsInOrder(t *testing.T) {
+	h, fake := announceHarness(t)
+	fake.set(
+		map[string]any{"id": 1, "nick": "mallow", "channel": "#chan", "key": "abc.png"},
+		map[string]any{"id": 2, "nick": "svaj", "channel": "#Other", "key": "def.gif"},
+	)
+
+	if got := h.plugin.announce(context.Background(), 0); got != 2 {
+		t.Errorf("cursor = %d, want 2", got)
+	}
+
+	lines := h.collect(t)
+	if len(lines) != 2 {
+		t.Fatalf("said %d lines, want 2: %v", len(lines), lines)
+	}
+	if !strings.HasPrefix(lines[0], "PRIVMSG #chan :mallow uploaded: https://img.hemera.day/abc.png") {
+		t.Errorf("first line = %q", lines[0])
+	}
+	if !strings.HasPrefix(lines[1], "PRIVMSG #Other :svaj uploaded: https://img.hemera.day/def.gif") {
+		t.Errorf("second line = %q", lines[1])
+	}
+}
+
+func TestAnnounceSkipsChannelsTheBotHasLeft(t *testing.T) {
+	h, fake := announceHarness(t)
+	fake.set(
+		map[string]any{"id": 5, "nick": "mallow", "channel": "#gone", "key": "abc.png"},
+		map[string]any{"id": 6, "nick": "svaj", "channel": "#chan", "key": "def.png"},
+	)
+
+	// The skipped row still advances the cursor, or it would be retried forever.
+	if got := h.plugin.announce(context.Background(), 0); got != 6 {
+		t.Errorf("cursor = %d, want 6", got)
+	}
+
+	lines := h.collect(t)
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "PRIVMSG #chan :svaj") {
+		t.Fatalf("said %v, want only the #chan line", lines)
+	}
+}
+
+func TestAnnounceHoldsTheCursorWhenD1Fails(t *testing.T) {
+	h, fake := announceHarness(t)
+	fake.mu.Lock()
+	fake.status = http.StatusUnauthorized
+	fake.mu.Unlock()
+
+	if got := h.plugin.announce(context.Background(), 4); got != 4 {
+		t.Errorf("cursor = %d, want it left at 4 so nothing is skipped", got)
+	}
+}
+
+func TestAnnounceSavesTheCursor(t *testing.T) {
+	h, fake := announceHarness(t)
+	fake.set(map[string]any{"id": 9, "nick": "mallow", "channel": "#chan", "key": "a.png"})
+
+	h.plugin.announce(context.Background(), 0)
+	h.collect(t)
+
+	got, err := h.plugin.store.GetKV(context.Background(), cursorKey)
+	if err != nil || got != "9" {
+		t.Errorf("stored cursor = %q, %v; want 9", got, err)
+	}
+}
+
+// Switching the plugin on against a database that already holds uploads must
+// not recite them all into the channels.
+func TestStartAtBeginsAtTheEndOfTheQueue(t *testing.T) {
+	h, fake := announceHarness(t)
+	fake.newest = 120
+
+	got, err := h.plugin.startAt(context.Background())
+	if err != nil {
+		t.Fatalf("startAt: %v", err)
+	}
+	if got != 120 {
+		t.Errorf("startAt = %d, want 120", got)
+	}
+
+	saved, err := h.plugin.store.GetKV(context.Background(), cursorKey)
+	if err != nil || saved != "120" {
+		t.Errorf("stored cursor = %q, %v; want 120", saved, err)
+	}
+}
+
+func TestStartAtResumesFromTheStoredCursor(t *testing.T) {
+	h, fake := announceHarness(t)
+	fake.newest = 999
+	if err := h.plugin.store.SetKV(context.Background(), cursorKey, "12"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := h.plugin.startAt(context.Background())
+	if err != nil {
+		t.Fatalf("startAt: %v", err)
+	}
+	if got != 12 {
+		t.Errorf("startAt = %d, want the stored 12, not the newest id", got)
+	}
+}
+
+func TestPollStopsWithTheContext(t *testing.T) {
+	h, fake := announceHarness(t)
+	fake.newest = 3
+
+	ctx, cancel := context.WithCancel(context.Background())
+	h.plugin.Start(ctx)
+
+	done := make(chan struct{})
+	go func() {
+		h.plugin.Wait()
+		close(done)
+	}()
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the poller did not stop when the context was cancelled")
+	}
 }

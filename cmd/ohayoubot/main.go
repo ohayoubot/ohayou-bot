@@ -77,8 +77,11 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 		log.Info("deerkins enabled", "database", cfg.Deerkins.DatabaseID, "editor", cfg.Deerkins.Editor)
 	}
 
+	var drops *drop.Plugin
 	if cfg.Drop.Use() {
-		drop.New(b, cfg.Drop, db).Register()
+		drops = drop.New(b, cfg.Drop, db)
+		drops.Register()
+		drops.Start(ctx)
 		log.Info("drop enabled", "database", cfg.Drop.DatabaseID, "url", cfg.Drop.URL)
 	}
 
@@ -95,5 +98,8 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 	// final store writes before the deferred db.Close runs.
 	err = b.Run(ctx)
 	g.Wait()
+	if drops != nil {
+		drops.Wait()
+	}
 	return err
 }

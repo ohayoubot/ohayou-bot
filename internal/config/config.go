@@ -135,6 +135,10 @@ type DropConfig struct {
 	Secret string `json:"-"`
 	// URL is the upload site, e.g. "https://hemera.day/drop/".
 	URL string `json:"url"`
+	// ImageBase is where the bucket is served, e.g. "https://img.hemera.day".
+	// It must match the worker's PUBLIC_IMAGE_BASE: the two are the same value
+	// held in two places, and disagreeing means announcing dead links.
+	ImageBase string `json:"imageBase"`
 	// GrantTTL is how many seconds a link stays good for. The worker refuses
 	// anything reaching more than maxGrantTTL ahead, so this cannot exceed it.
 	GrantTTL int `json:"grantTtl"`
@@ -189,6 +193,11 @@ func (d DropConfig) RequestTimeout() time.Duration {
 // never reaches the server's logs.
 func (d DropConfig) Link(grant string) string {
 	return strings.TrimSuffix(d.URL, "#") + "#" + grant
+}
+
+// Image is where an uploaded object is served from.
+func (d DropConfig) Image(key string) string {
+	return strings.TrimRight(d.ImageBase, "/") + "/" + key
 }
 
 // DeerkinsUser is a nick that deers on easier terms than everyone else.
@@ -415,6 +424,8 @@ func (c *Config) loadDrop() error {
 		return fmt.Errorf("config: drop needs OHAYOU_DROP_SECRET")
 	case d.URL == "":
 		return fmt.Errorf("config: drop url is required")
+	case d.ImageBase == "":
+		return fmt.Errorf("config: drop imageBase is required")
 	case d.AccountID == "":
 		return fmt.Errorf("config: drop accountId is required")
 	case d.DatabaseID == "":

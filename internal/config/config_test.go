@@ -268,7 +268,7 @@ func TestLoadDrop(t *testing.T) {
 	const configured = `{
 		"nick": "ohayoubot", "server": "irc.example.net",
 		"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-		"drop": {"url": "https://hemera.day/drop/"}
+		"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
 	}`
 
 	clearEnv := func(t *testing.T) {
@@ -348,7 +348,7 @@ func TestLoadDrop(t *testing.T) {
 		cfg, err := Load(writeConfig(t, `{
 			"nick": "ohayoubot", "server": "irc.example.net",
 			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"url": "https://hemera.day/drop/", "databaseId": "other", "apiToken": "own"}
+			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "databaseId": "other", "apiToken": "own"}
 		}`))
 		if err != nil {
 			t.Fatal(err)
@@ -366,7 +366,7 @@ func TestLoadDrop(t *testing.T) {
 		cfg, err := Load(writeConfig(t, `{
 			"nick": "ohayoubot", "server": "irc.example.net",
 			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"url": "https://hemera.day/drop/", "secret": "committed-by-mistake"}
+			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "secret": "committed-by-mistake"}
 		}`))
 		if err != nil {
 			t.Fatal(err)
@@ -394,7 +394,7 @@ func TestLoadDrop(t *testing.T) {
 		_, err := Load(writeConfig(t, `{
 			"nick": "ohayoubot", "server": "irc.example.net",
 			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"enabled": true, "url": "https://hemera.day/drop/"}
+			"drop": {"enabled": true, "url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
 		}`))
 		if err == nil {
 			t.Fatal("expected an error for a drop plugin that cannot sign")
@@ -407,7 +407,7 @@ func TestLoadDrop(t *testing.T) {
 		cfg, err := Load(writeConfig(t, `{
 			"nick": "ohayoubot", "server": "irc.example.net",
 			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"enabled": false, "url": "https://hemera.day/drop/"}
+			"drop": {"enabled": false, "url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
 		}`))
 		if err != nil {
 			t.Fatal(err)
@@ -424,7 +424,7 @@ func TestLoadDrop(t *testing.T) {
 			_, err := Load(writeConfig(t, `{
 				"nick": "ohayoubot", "server": "irc.example.net",
 				"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-				"drop": {"url": "https://hemera.day/drop/", "grantTtl": `+strconv.Itoa(ttl)+`}
+				"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "grantTtl": `+strconv.Itoa(ttl)+`}
 			}`))
 			if err == nil {
 				t.Errorf("grantTtl %d was accepted", ttl)
@@ -438,7 +438,7 @@ func TestLoadDrop(t *testing.T) {
 		_, err := Load(writeConfig(t, `{
 			"nick": "ohayoubot", "server": "irc.example.net",
 			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"url": "https://hemera.day/drop/", "poll": 1}
+			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "poll": 1}
 		}`))
 		if err == nil {
 			t.Fatal("expected an error for a 1 second poll")
@@ -450,10 +450,23 @@ func TestLoadDrop(t *testing.T) {
 		t.Setenv("OHAYOU_DROP_SECRET", "s")
 		_, err := Load(writeConfig(t, `{
 			"nick": "ohayoubot", "server": "irc.example.net",
-			"drop": {"url": "https://hemera.day/drop/"}
+			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
 		}`))
 		if err == nil {
 			t.Fatal("expected an error for a drop plugin with no database to read")
+		}
+	})
+
+	t.Run("no image host is an error", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		_, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+			"drop": {"url": "https://hemera.day/drop/"}
+		}`))
+		if err == nil {
+			t.Fatal("expected an error: without imageBase every announced link is dead")
 		}
 	})
 
@@ -465,6 +478,15 @@ func TestLoadDrop(t *testing.T) {
 		d.URL = "https://hemera.day/drop/#"
 		if got := d.Link("v1.a.b"); got != "https://hemera.day/drop/#v1.a.b" {
 			t.Errorf("Link with a trailing hash = %q", got)
+		}
+	})
+
+	t.Run("the image url joins base and key once", func(t *testing.T) {
+		for _, base := range []string{"https://img.hemera.day", "https://img.hemera.day/"} {
+			d := DropConfig{ImageBase: base}
+			if got := d.Image("abc.png"); got != "https://img.hemera.day/abc.png" {
+				t.Errorf("Image(%q) = %q", base, got)
+			}
 		}
 	})
 }
