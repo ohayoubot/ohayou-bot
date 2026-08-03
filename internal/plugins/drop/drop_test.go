@@ -566,3 +566,37 @@ func TestPollStopsWithTheContext(t *testing.T) {
 		t.Fatal("the poller did not stop when the context was cancelled")
 	}
 }
+
+// A poller that cannot find its starting point must keep trying: the upload
+// table may not exist yet, which is exactly the state a first deploy is in.
+func TestPollRetriesAFailedStart(t *testing.T) {
+	h, fake := announceHarness(t)
+	h.plugin.cfg.PollSeconds = 1
+
+	fake.mu.Lock()
+	fake.status = http.StatusInternalServerError
+	fake.mu.Unlock()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	h.plugin.Start(ctx)
+
+	// Two ticks with d1 unreachable. The old behaviour returned here for good.
+	time.Sleep(2500 * time.Millisecond)
+	if lines := h.drain(200 * time.Millisecond); len(lines) != 0 {
+		t.Fatalf("said something while d1 was down: %v", lines)
+	}
+
+	fake.set(map[string]any{"id": 1, "nick": "whatapath", "channel": "#chan", "key": "a.png"})
+	fake.mu.Lock()
+	fake.status = 0
+	fake.mu.Unlock()
+
+	lines := h.drain(5 * time.Second)
+	if len(lines) != 1 || !strings.Contains(lines[0], "whatapath uploaded: https://img.hemera.day/a.png") {
+		t.Fatalf("did not recover once d1 came back: %v", lines)
+	}
+
+	cancel()
+	h.plugin.Wait()
+}
