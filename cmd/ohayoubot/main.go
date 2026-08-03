@@ -15,6 +15,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/game"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/catfact"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/deerkins"
+	"github.com/ohayoubot/ohayou-bot/internal/plugins/drop"
 	"github.com/ohayoubot/ohayou-bot/internal/seed"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
@@ -74,6 +75,11 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 	if cfg.Deerkins.Use() {
 		deerkins.New(b, cfg.Deerkins).Register()
 		log.Info("deerkins enabled", "database", cfg.Deerkins.DatabaseID, "editor", cfg.Deerkins.Editor)
+	}
+
+	if cfg.Drop.Use() {
+		drop.New(b, cfg.Drop, db).Register()
+		log.Info("drop enabled", "database", cfg.Drop.DatabaseID, "url", cfg.Drop.URL)
 	}
 
 	g, err := game.New(b, db, fortunes, log)
