@@ -102,7 +102,7 @@ drop there is announced in a channel the two of you share.
 Two environment variables, neither in `conf.json`:
 
 - `OHAYOU_DROP_SECRET` signs the links. The site holds the same value as
-  `DROP_HMAC_SECRET`. Both sides key on the string's bytes, so it is used
+  `UPLOAD_HMAC_SECRET`. Both sides key on the string's bytes, so it is used
   as written and not decoded from hex. `openssl rand -hex 32`.
 - `OHAYOU_DROP_TOKEN` is optional; without it the deerkins **D1 Read** token is
   used, which is right while both read one database.
