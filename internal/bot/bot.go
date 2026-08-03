@@ -31,6 +31,9 @@ type Bot struct {
 	mu       sync.RWMutex // guards channels and ignore
 	channels []string     // channel names currently joined. can differ from config if !join used
 	ignore   map[string]string
+
+	whoisMu sync.Mutex // guards whois
+	whois   map[string]*whoisPending
 }
 
 func New(cfg *config.Config, log *slog.Logger) *Bot {
@@ -64,9 +67,11 @@ func New(cfg *config.Config, log *slog.Logger) *Bot {
 		commands: map[string]Command{},
 		channels: channelNames(cfg.Channels),
 		ignore:   cloneMap(cfg.IgnoreList),
+		whois:    map[string]*whoisPending{},
 	}
 	b.registerBotCommands()
 	b.registerAdminCommands()
+	b.registerWhois()
 	return b
 }
 
