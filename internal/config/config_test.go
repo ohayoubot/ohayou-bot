@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -489,4 +490,36 @@ func TestLoadDrop(t *testing.T) {
 			}
 		}
 	})
+}
+
+// conf-example.json is what an operator copies, so it has to load.
+func TestExampleConfigLoads(t *testing.T) {
+	t.Setenv("DEERKINS_API_TOKEN", "")
+	t.Setenv("OHAYOU_DROP_SECRET", "")
+	t.Setenv("OHAYOU_DROP_TOKEN", "")
+
+	cfg, err := Load("../../conf-example.json")
+	if err != nil {
+		t.Fatalf("conf-example.json does not load: %v", err)
+	}
+
+	// Both plugins ship off: the example has no credentials in it.
+	if cfg.Deerkins.Use() {
+		t.Error("the example config turns deerkins on")
+	}
+	if cfg.Drop.Use() {
+		t.Error("the example config turns drop on")
+	}
+}
+
+// The example must not carry a secret, even an empty one: the field does not
+// exist, and a reader who fills it in would get silence rather than a link.
+func TestExampleConfigHasNoSecretField(t *testing.T) {
+	raw, err := os.ReadFile("../../conf-example.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "secret") {
+		t.Error("conf-example.json mentions a secret; it comes from the environment")
+	}
 }

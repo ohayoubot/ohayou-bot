@@ -28,6 +28,8 @@
    - `database` - path to the sqlite file (default `ohayoubot.db`)
    - `deerkins` - the pixel art gallery. Off unless `accountId`, `databaseId`
      and a token are all present. See [Deerkins](#deerkins).
+   - `drop` - image uploads. Off unless `OHAYOU_DROP_SECRET` is set and `url`
+     is filled in. See [Drop](#drop).
 2. Build and run:
    ```sh
    go build ./cmd/ohayoubot
@@ -91,6 +93,24 @@ curl -sS -H "Authorization: Bearer $DEERKINS_API_TOKEN" \
 ```
 
 Requests are also subject to the bot-wide `ignoreList` and `floodDelay`.
+
+## Drop
+
+`!upload` PMs an identified user a one-shot link to the upload site. What they
+drop there is announced in a channel the two of you share.
+
+Two environment variables, neither in `conf.json`:
+
+- `OHAYOU_DROP_SECRET` signs the links. The site holds the same value as
+  `DROP_HMAC_SECRET`. Both sides key on the string's bytes, so it is used
+  as written and not decoded from hex. `openssl rand -hex 32`.
+- `OHAYOU_DROP_TOKEN` is optional; without it the deerkins **D1 Read** token is
+  used, which is right while both read one database.
+
+In the `drop` block, `url` is the site and `imageBase` is where the bucket is
+served. `imageBase` must match the site's `PUBLIC_IMAGE_BASE` or every link the
+bot announces is dead. `accountId` and `databaseId` default to the deerkins
+block; set them once the upload tables move to their own database.
 
 ## Running as a service
 

@@ -51,5 +51,16 @@
 		"ignoreNicks": [],
 		"ignoreHosts": [],
 		"ignoreChannels": []
+	},
+	"drop": {
+		"url": "https://hemera.day/drop/",
+		"imageBase": "https://img.hemera.day",
+		"accountId": "",
+		"databaseId": "",
+		"apiToken": "",
+		"grantTtl": 300,
+		"poll": 10,
+		"cooldown": 60,
+		"requestTimeout": 10000
 	}
 }

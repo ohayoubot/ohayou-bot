@@ -11,8 +11,10 @@ Group=ohayoubot
 WorkingDirectory=/opt/ohayoubot
 ExecStart=/opt/ohayoubot/ohayoubot -config /opt/ohayoubot/conf.json -data /opt/ohayoubot/data
 
-# optional secrets that are better kept out of conf.json, e.g.
-# DEERKINS_API_TOKEN for the deerkins gallery
+# optional secrets that are better kept out of conf.json:
+# DEERKINS_API_TOKEN, OHAYOU_DROP_SECRET, OHAYOU_DROP_TOKEN.
+# deerkins.env is the old name for the same file, read if it is still there.
+EnvironmentFile=-/opt/ohayoubot/ohayoubot.env
 EnvironmentFile=-/opt/ohayoubot/deerkins.env
 
 # main handles SIGTERM and sends a clean IRC QUIT. give it a moment to close
