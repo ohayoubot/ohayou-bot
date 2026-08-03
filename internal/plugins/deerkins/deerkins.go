@@ -15,6 +15,7 @@ import (
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
+	"github.com/ohayoubot/ohayou-bot/internal/d1"
 )
 
 const (
@@ -34,7 +35,7 @@ type Plugin struct {
 	bot *bot.Bot
 	cfg config.DeerkinsConfig
 	log *slog.Logger
-	db  *d1
+	db  *gallery
 
 	banNicks    map[string]bool
 	banHosts    map[string]bool
@@ -68,7 +69,7 @@ func New(b *bot.Bot, cfg config.DeerkinsConfig) *Plugin {
 		bot:         b,
 		cfg:         cfg,
 		log:         b.Logger().With("plugin", "deerkins"),
-		db:          newD1(apiBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
+		db:          newGallery(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
 		banNicks:    lowerSet(cfg.IgnoreNicks),
 		banHosts:    lowerSet(cfg.IgnoreHosts),
 		banChannels: lowerSet(cfg.IgnoreChannels),
