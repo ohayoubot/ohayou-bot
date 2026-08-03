@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -259,6 +260,211 @@ func TestLoadDeerkins(t *testing.T) {
 		}
 		if user.Timeout == nil || *user.Timeout != -10 {
 			t.Errorf("Timeout = %v, want -10", user.Timeout)
+		}
+	})
+}
+
+func TestLoadDrop(t *testing.T) {
+	const configured = `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+		"drop": {"url": "https://hemera.day/drop/"}
+	}`
+
+	clearEnv := func(t *testing.T) {
+		t.Helper()
+		t.Setenv("DEERKINS_API_TOKEN", "")
+		t.Setenv("OHAYOU_DROP_SECRET", "")
+		t.Setenv("OHAYOU_DROP_TOKEN", "")
+	}
+
+	t.Run("off without a secret", func(t *testing.T) {
+		clearEnv(t)
+		cfg, err := Load(writeConfig(t, configured))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Drop.Use() {
+			t.Error("drop came up with no signing secret")
+		}
+	})
+
+	t.Run("off without a url", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		cfg, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"}
+		}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Drop.Use() {
+			t.Error("drop came up with nowhere to send anyone")
+		}
+	})
+
+	t.Run("defaults", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		cfg, err := Load(writeConfig(t, configured))
+		if err != nil {
+			t.Fatal(err)
+		}
+		d := cfg.Drop
+		if !d.Use() {
+			t.Fatal("drop did not come up from a complete config")
+		}
+		if d.GrantWait() != 300*time.Second {
+			t.Errorf("GrantWait = %v, want 5m", d.GrantWait())
+		}
+		if d.PollWait() != 10*time.Second {
+			t.Errorf("PollWait = %v, want 10s", d.PollWait())
+		}
+		if d.CooldownWait() != 60*time.Second {
+			t.Errorf("CooldownWait = %v, want 1m", d.CooldownWait())
+		}
+		if d.RequestTimeout() != 10*time.Second {
+			t.Errorf("RequestTimeout = %v, want 10s", d.RequestTimeout())
+		}
+	})
+
+	t.Run("database borrowed from deerkins", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		cfg, err := Load(writeConfig(t, configured))
+		if err != nil {
+			t.Fatal(err)
+		}
+		d := cfg.Drop
+		if d.AccountID != "acct" || d.DatabaseID != "db" || d.APIToken != "token" {
+			t.Errorf("did not inherit the deerkins database: %+v", d)
+		}
+	})
+
+	t.Run("its own database wins", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		cfg, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+			"drop": {"url": "https://hemera.day/drop/", "databaseId": "other", "apiToken": "own"}
+		}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Drop.DatabaseID != "other" || cfg.Drop.APIToken != "own" {
+			t.Errorf("drop should keep its own database: %+v", cfg.Drop)
+		}
+		if cfg.Drop.AccountID != "acct" {
+			t.Errorf("AccountID = %q, want the inherited one", cfg.Drop.AccountID)
+		}
+	})
+
+	t.Run("the secret is never read from the config file", func(t *testing.T) {
+		clearEnv(t)
+		cfg, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+			"drop": {"url": "https://hemera.day/drop/", "secret": "committed-by-mistake"}
+		}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Drop.Secret != "" {
+			t.Errorf("Secret = %q, want it ignored in json", cfg.Drop.Secret)
+		}
+	})
+
+	t.Run("token comes from the environment", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		t.Setenv("OHAYOU_DROP_TOKEN", "from-env")
+		cfg, err := Load(writeConfig(t, configured))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Drop.APIToken != "from-env" {
+			t.Errorf("APIToken = %q, want the environment's", cfg.Drop.APIToken)
+		}
+	})
+
+	t.Run("enabled without a secret is an error", func(t *testing.T) {
+		clearEnv(t)
+		_, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+			"drop": {"enabled": true, "url": "https://hemera.day/drop/"}
+		}`))
+		if err == nil {
+			t.Fatal("expected an error for a drop plugin that cannot sign")
+		}
+	})
+
+	t.Run("enabled false wins", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		cfg, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+			"drop": {"enabled": false, "url": "https://hemera.day/drop/"}
+		}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Drop.Use() {
+			t.Error("enabled false should keep drop off")
+		}
+	})
+
+	t.Run("a grant that outlives what the worker accepts is an error", func(t *testing.T) {
+		for _, ttl := range []int{20, 901} {
+			clearEnv(t)
+			t.Setenv("OHAYOU_DROP_SECRET", "s")
+			_, err := Load(writeConfig(t, `{
+				"nick": "ohayoubot", "server": "irc.example.net",
+				"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+				"drop": {"url": "https://hemera.day/drop/", "grantTtl": `+strconv.Itoa(ttl)+`}
+			}`))
+			if err == nil {
+				t.Errorf("grantTtl %d was accepted", ttl)
+			}
+		}
+	})
+
+	t.Run("polling too fast is an error", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		_, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
+			"drop": {"url": "https://hemera.day/drop/", "poll": 1}
+		}`))
+		if err == nil {
+			t.Fatal("expected an error for a 1 second poll")
+		}
+	})
+
+	t.Run("no database anywhere is an error, not silence", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("OHAYOU_DROP_SECRET", "s")
+		_, err := Load(writeConfig(t, `{
+			"nick": "ohayoubot", "server": "irc.example.net",
+			"drop": {"url": "https://hemera.day/drop/"}
+		}`))
+		if err == nil {
+			t.Fatal("expected an error for a drop plugin with no database to read")
+		}
+	})
+
+	t.Run("the link puts the grant in the fragment", func(t *testing.T) {
+		d := DropConfig{URL: "https://hemera.day/drop/"}
+		if got := d.Link("v1.a.b"); got != "https://hemera.day/drop/#v1.a.b" {
+			t.Errorf("Link = %q", got)
+		}
+		d.URL = "https://hemera.day/drop/#"
+		if got := d.Link("v1.a.b"); got != "https://hemera.day/drop/#v1.a.b" {
+			t.Errorf("Link with a trailing hash = %q", got)
 		}
 	})
 }

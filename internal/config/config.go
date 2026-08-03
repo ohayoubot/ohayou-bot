@@ -28,6 +28,7 @@ type Config struct {
 	IgnoreList    map[string]string `json:"ignoreList"`
 	Database      string            `json:"database"` // path to the sqlite .db file
 	Deerkins      DeerkinsConfig    `json:"deerkins"`
+	Drop          DropConfig        `json:"drop"`
 }
 
 type SASLConfig struct {
@@ -113,6 +114,81 @@ type DeerkinsConfig struct {
 	IgnoreNicks     []string                `json:"ignoreNicks"`
 	IgnoreHosts     []string                `json:"ignoreHosts"`
 	IgnoreChannels  []string                `json:"ignoreChannels"`
+}
+
+// DropConfig configures the drop plugin, which hands a user a signed link to
+// the upload site and announces what they upload.
+type DropConfig struct {
+	Enabled *bool `json:"enabled"`
+	// AccountID and DatabaseID default to the deerkins block, whose database
+	// currently holds the upload tables too. Set them to split the two apart.
+	AccountID  string `json:"accountId"`
+	DatabaseID string `json:"databaseId"`
+	// APIToken needs D1:Read and nothing more: the worker makes every write.
+	// OHAYOU_DROP_TOKEN overrides it, and it falls back to the deerkins token
+	// while both plugins read one database.
+	APIToken string `json:"apiToken"`
+	// Secret signs the grant links. It has no config field on purpose, so it
+	// cannot be committed by accident: it comes from OHAYOU_DROP_SECRET only.
+	// The worker holds the same value as DROP_HMAC_SECRET, and both sides key
+	// on its utf-8 bytes rather than decoding the hex.
+	Secret string `json:"-"`
+	// URL is the upload site, e.g. "https://hemera.day/drop/".
+	URL string `json:"url"`
+	// GrantTTL is how many seconds a link stays good for. The worker refuses
+	// anything reaching more than maxGrantTTL ahead, so this cannot exceed it.
+	GrantTTL int `json:"grantTtl"`
+	// PollSeconds is how often to ask D1 for uploads to announce.
+	PollSeconds int `json:"poll"`
+	// Cooldown is the seconds a nick waits between links.
+	Cooldown int `json:"cooldown"`
+	// RequestTimeoutMS bounds a single D1 request.
+	RequestTimeoutMS int `json:"requestTimeout"`
+}
+
+// maxGrantTTL matches the ceiling the worker enforces when it verifies a grant.
+const maxGrantTTL = 900
+
+// Configured returns whether the operator asked for the plugin at all. The
+// database it reads is not part of the question: missing that is an error from
+// loadDrop, not a plugin that quietly never answers.
+func (d DropConfig) Configured() bool {
+	return d.Secret != "" && d.URL != ""
+}
+
+// Use returns whether the drop plugin should be registered. An explicit Enabled
+// wins; otherwise it comes up whenever it is configured.
+func (d DropConfig) Use() bool {
+	if d.Enabled != nil {
+		return *d.Enabled
+	}
+	return d.Configured()
+}
+
+// GrantWait is how long a minted link stays valid.
+func (d DropConfig) GrantWait() time.Duration {
+	return time.Duration(d.GrantTTL) * time.Second
+}
+
+// PollWait is the gap between checks for new uploads.
+func (d DropConfig) PollWait() time.Duration {
+	return time.Duration(d.PollSeconds) * time.Second
+}
+
+// CooldownWait is the gap a nick must leave between links.
+func (d DropConfig) CooldownWait() time.Duration {
+	return time.Duration(d.Cooldown) * time.Second
+}
+
+// RequestTimeout bounds a single D1 request.
+func (d DropConfig) RequestTimeout() time.Duration {
+	return time.Duration(d.RequestTimeoutMS) * time.Millisecond
+}
+
+// Link is the url to send a user, with the grant in the fragment. A fragment
+// never reaches the server's logs.
+func (d DropConfig) Link(grant string) string {
+	return strings.TrimSuffix(d.URL, "#") + "#" + grant
 }
 
 // DeerkinsUser is a nick that deers on easier terms than everyone else.
@@ -239,6 +315,9 @@ func Load(path string) (*Config, error) {
 	if err := cfg.loadDeerkins(); err != nil {
 		return nil, err
 	}
+	if err := cfg.loadDrop(); err != nil {
+		return nil, err
+	}
 	// Normalize nicks to lower case for admins
 	admins := make(map[string]string, len(cfg.Admins))
 	for nick, host := range cfg.Admins {
@@ -302,5 +381,71 @@ func (c *Config) loadDeerkins() error {
 		privileged[strings.ToLower(nick)] = user
 	}
 	d.Privileged = privileged
+	return nil
+}
+
+// loadDrop applies the environment, borrows what the deerkins block already
+// knows about the database, and fills in the defaults. As with deerkins, a
+// half-configured plugin is an error rather than one that quietly never
+// answers: a nick asking for a link and getting silence is worse than a
+// refusal at startup.
+func (c *Config) loadDrop() error {
+	d := &c.Drop
+	d.Secret = os.Getenv("OHAYOU_DROP_SECRET")
+	if token := os.Getenv("OHAYOU_DROP_TOKEN"); token != "" {
+		d.APIToken = token
+	}
+
+	// One database for now, so an unset field means "wherever deerkins reads".
+	if d.AccountID == "" {
+		d.AccountID = c.Deerkins.AccountID
+	}
+	if d.DatabaseID == "" {
+		d.DatabaseID = c.Deerkins.DatabaseID
+	}
+	if d.APIToken == "" {
+		d.APIToken = c.Deerkins.APIToken
+	}
+
+	if !d.Use() {
+		return nil
+	}
+	switch {
+	case d.Secret == "":
+		return fmt.Errorf("config: drop needs OHAYOU_DROP_SECRET")
+	case d.URL == "":
+		return fmt.Errorf("config: drop url is required")
+	case d.AccountID == "":
+		return fmt.Errorf("config: drop accountId is required")
+	case d.DatabaseID == "":
+		return fmt.Errorf("config: drop databaseId is required")
+	case d.APIToken == "":
+		return fmt.Errorf("config: drop apiToken (or OHAYOU_DROP_TOKEN) is required")
+	}
+
+	if d.GrantTTL == 0 {
+		d.GrantTTL = 300
+	}
+	if d.PollSeconds == 0 {
+		d.PollSeconds = 10
+	}
+	if d.Cooldown == 0 {
+		d.Cooldown = 60
+	}
+	if d.RequestTimeoutMS == 0 {
+		d.RequestTimeoutMS = 10000
+	}
+
+	if d.GrantTTL < 30 || d.GrantTTL > maxGrantTTL {
+		return fmt.Errorf("config: drop grantTtl must be between 30 and %d seconds", maxGrantTTL)
+	}
+	// Polling faster than this buys a second of latency and spends the D1 read
+	// budget on empty answers.
+	if d.PollSeconds < 5 {
+		return fmt.Errorf("config: drop poll must be at least 5 seconds")
+	}
+	if d.Cooldown < 0 || d.RequestTimeoutMS < 1 {
+		return fmt.Errorf("config: drop cooldown and requestTimeout must be positive")
+	}
 	return nil
 }
