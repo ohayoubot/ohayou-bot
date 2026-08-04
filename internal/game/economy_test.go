@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
@@ -23,12 +25,18 @@ func testGame(t *testing.T) (*Game, *sqlite.DB) {
 	if err := db.Init(context.Background()); err != nil {
 		t.Fatalf("init store: %v", err)
 	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	g := &Game{
-		store:      db,
-		log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		est:        time.UTC,
-		baseCtx:    context.Background(),
-		identified: map[string]bool{},
+		bot: bot.New(&config.Config{
+			Nick: "ohayoubot", User: "ohayoubot", Server: "127.0.0.1",
+			CommandPrefix: "!",
+			Admins:        map[string]string{},
+			IgnoreList:    map[string]string{},
+		}, log),
+		store:   db,
+		log:     log,
+		est:     time.UTC,
+		baseCtx: context.Background(),
 	}
 	return g, db
 }

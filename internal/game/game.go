@@ -23,10 +23,6 @@ type Game struct {
 
 	baseCtx context.Context
 
-	mu            sync.RWMutex
-	identified    map[string]bool
-	watchingNicks bool
-
 	police *policeRegistry
 
 	// event state
@@ -42,15 +38,14 @@ func New(b *bot.Bot, st store.Store, fortunes []string, log *slog.Logger) (*Game
 		return nil, fmt.Errorf("load timezone: %w", err)
 	}
 	return &Game{
-		bot:        b,
-		store:      st,
-		log:        log,
-		est:        est,
-		fortunes:   fortunes,
-		baseCtx:    context.Background(),
-		identified: map[string]bool{},
-		police:     newPoliceRegistry(),
-		catAdopt:   make(chan string),
+		bot:      b,
+		store:    st,
+		log:      log,
+		est:      est,
+		fortunes: fortunes,
+		baseCtx:  context.Background(),
+		police:   newPoliceRegistry(),
+		catAdopt: make(chan string),
 	}, nil
 }
 
@@ -112,26 +107,10 @@ func plural(n int, unit string) string {
 	return unit + "s"
 }
 
-func (g *Game) isIdentified(nick string) bool {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.identified[nick]
-}
-
-func (g *Game) setIdentified(nick string, v bool) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if v {
-		g.identified[nick] = true
-	} else {
-		delete(g.identified, nick)
-	}
-}
-
 // mustIdentify returns the standard "please identify" message to a user registered
 // with _the bot_, but without having identified to the bot yet.
 func (g *Game) mustIdentify(u *store.User) (string, bool) {
-	if u.Registered && !g.isIdentified(u.Username) {
+	if u.Registered && !g.bot.Identified(u.Username) {
 		return u.Username + ": You must be identified with me to do that. Make sure " +
 			"you are identified with the network and then type " + g.p() + "identify.", true
 	}

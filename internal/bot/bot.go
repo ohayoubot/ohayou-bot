@@ -37,6 +37,9 @@ type Bot struct {
 
 	whoisMu sync.Mutex // guards whois
 	whois   map[string]*whoisPending
+
+	identMu    sync.RWMutex // guards identified
+	identified map[string]bool
 }
 
 func New(cfg *config.Config, log *slog.Logger) *Bot {
@@ -71,10 +74,13 @@ func New(cfg *config.Config, log *slog.Logger) *Bot {
 		channels: channelNames(cfg.Channels),
 		ignore:   cloneMap(cfg.IgnoreList),
 		whois:    map[string]*whoisPending{},
+
+		identified: map[string]bool{},
 	}
 	b.registerBotCommands()
 	b.registerAdminCommands()
 	b.registerWhois()
+	b.registerIdentity()
 	return b
 }
 
