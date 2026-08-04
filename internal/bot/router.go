@@ -32,7 +32,7 @@ func (b *Bot) onPrivmsg(e *irc.Event) {
 		// terms as a command: nothing from an ignored nick reaches them.
 		if !b.isIgnored(e.Nick) {
 			for _, w := range b.watchers {
-				go w(m)
+				b.Go(func() { w(m) })
 			}
 		}
 		return
@@ -57,7 +57,7 @@ func (b *Bot) onPrivmsg(e *irc.Event) {
 
 	b.log.Debug("dispatch", "command", cmd.Name, "nick", e.Nick, "target", e.Arguments[0], "admin", admin)
 
-	go cmd.Handler(m)
+	b.Go(func() { cmd.Handler(m) })
 }
 
 // lookup resolves the first word of a message to a command.

@@ -104,18 +104,18 @@ func (g *Game) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw str
 		g.say(channel, fmt.Sprintf("%s attempts to steal from %s and succeeds! "+
 			"%s steals %d ohayous from %s.", nickRaw, vicRaw, nickRaw, amount, vicRaw))
 		g.successSteal(thief.Username, victim.Username, 0, amount)
-		g.goDo(func() { g.stationPolice(victim.Username, userDefense(victim)) })
+		g.bot.Go(func() { g.stationPolice(victim.Username, userDefense(victim)) })
 	case !ohayouOK && catOK:
 		g.say(channel, fmt.Sprintf("%s attempts to steal from %s and succeeds! "+
 			"%s steals a cat from %s.", nickRaw, vicRaw, nickRaw, vicRaw))
 		g.successSteal(thief.Username, victim.Username, 1, 0)
-		g.goDo(func() { g.stationPolice(victim.Username, userDefense(victim)) })
+		g.bot.Go(func() { g.stationPolice(victim.Username, userDefense(victim)) })
 	default: // both succeed
 		g.say(channel, fmt.Sprintf("%s attempts to steal from %s and succeeds! "+
 			"%s steals a cat and %d ohayous from %s.",
 			nickRaw, vicRaw, nickRaw, amount, vicRaw))
 		g.successSteal(thief.Username, victim.Username, 1, amount)
-		g.goDo(func() { g.stationPolice(victim.Username, userDefense(victim)) })
+		g.bot.Go(func() { g.stationPolice(victim.Username, userDefense(victim)) })
 	}
 }
 

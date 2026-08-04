@@ -133,7 +133,7 @@ func (g *Game) cmdSteal(m *bot.Message) {
 		g.log.Error("get victim", "nick", target, "err", err)
 		return
 	}
-	g.goDo(func() { g.stealFrom(user, victim, m.Target, m.Nick, m.Arg(1)) })
+	g.bot.Go(func() { g.stealFrom(user, victim, m.Target, m.Nick, m.Arg(1)) })
 }
 
 func (g *Game) cmdEquip(m *bot.Message) {
@@ -268,7 +268,7 @@ func (g *Game) cmdStats(m *bot.Message) {
 	if !ok {
 		return
 	}
-	g.goDo(func() { g.stats(user) })
+	g.bot.Go(func() { g.stats(user) })
 }
 
 func (g *Game) cmdInventory(m *bot.Message) {

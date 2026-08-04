@@ -83,9 +83,8 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 		log.Info("youtube previews enabled", "cooldown", cfg.YouTube.CooldownWait())
 	}
 
-	var drops *drop.Plugin
 	if cfg.Drop.Use() {
-		drops = drop.New(b, cfg.Drop, db)
+		drops := drop.New(b, cfg.Drop, db)
 		drops.Register()
 		drops.Start(ctx)
 		log.Info("drop enabled", "database", cfg.Drop.DatabaseID, "url", cfg.Drop.URL)
@@ -100,12 +99,9 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 
 	// Run blocks until the context is cancelled (SIGINT/SIGTERM) and the IRC
 	// loop exits. Once it returns the base context is already cancelled, so the
-	// game's background goroutines are unblocking; wait for them to finish their
-	// final store writes before the deferred db.Close runs.
+	// tracked goroutines are unblocking; wait for them to finish their final
+	// store writes before the deferred db.Close runs.
 	err = b.Run(ctx)
-	g.Wait()
-	if drops != nil {
-		drops.Wait()
-	}
+	b.Wait()
 	return err
 }

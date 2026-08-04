@@ -29,6 +29,8 @@ type Bot struct {
 
 	joined atomic.Bool // set once channels have been joined
 
+	wg sync.WaitGroup // tracks goroutines so shutdown can drain them
+
 	mu       sync.RWMutex // guards channels and ignore
 	channels []string     // channel names currently joined. can differ from config if !join used
 	ignore   map[string]string
@@ -88,6 +90,22 @@ func (b *Bot) HandleFunc(name string, admin bool, h Handler) {
 // own goroutine. Like Handle it is for startup: the list is read without a lock
 // once the connection is up.
 func (b *Bot) Watch(w Watcher) { b.watchers = append(b.watchers, w) }
+
+// Go runs fn in a tracked goroutine. Every goroutine that touches the store
+// goes through here so Wait can drain them on shutdown before the database is
+// closed. Otherwise a final write races db.Close and fails with "database is
+// closed".
+func (b *Bot) Go(fn func()) {
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		fn()
+	}()
+}
+
+// Wait blocks until everything started with Go has finished. Callers cancel
+// the context they gave Run first, or it waits for work that will not stop.
+func (b *Bot) Wait() { b.wg.Wait() }
 
 func (b *Bot) Say(target, msg string)    { b.send.Privmsg(target, msg) }
 func (b *Bot) Notice(target, msg string) { b.send.Notice(target, msg) }
