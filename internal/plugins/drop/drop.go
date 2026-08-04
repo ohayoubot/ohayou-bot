@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
@@ -38,8 +37,6 @@ type Plugin struct {
 
 	now func() time.Time
 
-	wg sync.WaitGroup
-
 	minted *ratelimit.Limiter // when a nick last got a link
 }
 
@@ -62,17 +59,11 @@ func (p *Plugin) Register() {
 	p.bot.HandleFunc("upload", false, p.cmdUpload)
 }
 
-// Start begins announcing uploads. Wait drains it, so the cursor's final write
-// lands before the store is closed.
+// Start begins announcing uploads. The bot drains the poller on shutdown, so
+// the cursor's final write lands before the store is closed.
 func (p *Plugin) Start(ctx context.Context) {
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		p.poll(ctx)
-	}()
+	p.bot.Go(func() { p.poll(ctx) })
 }
-
-func (p *Plugin) Wait() { p.wg.Wait() }
 
 func (p *Plugin) poll(ctx context.Context) {
 	ticker := time.NewTicker(p.cfg.PollWait())

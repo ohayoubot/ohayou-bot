@@ -114,7 +114,7 @@ func (g *Game) attemptBreedCat(u *store.User) string {
 	if u.Status["breeding"] {
 		return " but already has cats in there! You must wait until they are finished."
 	}
-	g.goDo(func() { g.breedCat(u.Username, u.Items["cattery"]) })
+	g.bot.Go(func() { g.breedCat(u.Username, u.Items["cattery"]) })
 	return " for a few hours."
 }
 
@@ -122,7 +122,7 @@ func (g *Game) startMining(u *store.User) string {
 	if u.Status["mining"] {
 		return " but is already mining! Wait until it's finished and try again."
 	}
-	g.goDo(func() { g.mine(u.Username, u.Items["quarry"]) })
+	g.bot.Go(func() { g.mine(u.Username, u.Items["quarry"]) })
 	return " for a few hours."
 }
 
@@ -130,7 +130,7 @@ func (g *Game) startPumping(u *store.User) string {
 	if u.Status["pumping"] {
 		return " but is already pumping oil! Wait until it's finished and try again."
 	}
-	g.goDo(func() { g.pumpOil(u.Username, u.Items["oilwell"]) })
+	g.bot.Go(func() { g.pumpOil(u.Username, u.Items["oilwell"]) })
 	return " for a few hours."
 }
 

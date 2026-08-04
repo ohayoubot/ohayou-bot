@@ -555,7 +555,7 @@ func TestPollStopsWithTheContext(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		h.plugin.Wait()
+		h.plugin.bot.Wait()
 		close(done)
 	}()
 
@@ -598,5 +598,5 @@ func TestPollRetriesAFailedStart(t *testing.T) {
 	}
 
 	cancel()
-	h.plugin.Wait()
+	h.plugin.bot.Wait()
 }

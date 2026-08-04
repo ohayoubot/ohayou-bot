@@ -23,8 +23,6 @@ type Game struct {
 
 	baseCtx context.Context
 
-	wg sync.WaitGroup // tracks background goroutines so shutdown can drain them
-
 	mu            sync.RWMutex
 	identified    map[string]bool
 	watchingNicks bool
@@ -85,23 +83,9 @@ func (g *Game) Start(ctx context.Context) {
 		g.log.Error("reset status", "err", err)
 	}
 	g.log.Info("game events started")
-	g.goDo(func() { g.catEvent(ctx) })
-	g.goDo(func() { g.doubleOhayouEvent(ctx) })
+	g.bot.Go(func() { g.catEvent(ctx) })
+	g.bot.Go(func() { g.doubleOhayouEvent(ctx) })
 }
-
-// goDo runs fn in a tracked goroutine. Every background goroutine that touches
-// the store goes through here so Wait can drain them on shutdown before the
-// database is closed. otherwise a goroutine's final write (like a deferred
-// status reset) races db.Close and fails with "database is closed".
-func (g *Game) goDo(fn func()) {
-	g.wg.Add(1)
-	go func() {
-		defer g.wg.Done()
-		fn()
-	}()
-}
-
-func (g *Game) Wait() { g.wg.Wait() }
 
 func (g *Game) p() string              { return g.bot.Prefix() }
 func (g *Game) say(target, msg string) { g.bot.Say(target, msg) }
