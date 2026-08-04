@@ -13,6 +13,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
+	"github.com/ohayoubot/ohayou-bot/internal/task"
 )
 
 func testGame(t *testing.T) (*Plugin, *sqlite.DB) {
@@ -31,19 +32,33 @@ func testGame(t *testing.T) (*Plugin, *sqlite.DB) {
 		t.Fatalf("migrate: %v", err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	b := testBot(t)
 	g := &Plugin{
-		bot: bot.New(&config.Config{
-			Nick: "ohayoubot", User: "ohayoubot", Server: "127.0.0.1",
-			CommandPrefix: "!",
-			Admins:        map[string]string{},
-			IgnoreList:    map[string]string{},
-		}, log),
+		tasks:   task.NewRunner(db, b, log).For("ohayou"),
+		bot:     b,
 		store:   db,
 		log:     log,
 		est:     time.UTC,
 		baseCtx: context.Background(),
 	}
 	return g, db
+}
+
+// testGameOn builds a second plugin over a store that already exists, standing
+// in for the process restarting.
+func testGameOn(t *testing.T, db *sqlite.DB) (*Plugin, *sqlite.DB) {
+	t.Helper()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	b := testBot(t)
+	return &Plugin{
+		tasks:   task.NewRunner(db, b, log).For("ohayou"),
+		kv:      store.Namespace(db, "ohayou"),
+		bot:     b,
+		store:   db,
+		log:     log,
+		est:     time.UTC,
+		baseCtx: context.Background(),
+	}, db
 }
 
 // A negative deposit or withdraw must be rejected outright, or "!deposit

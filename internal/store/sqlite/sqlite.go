@@ -102,9 +102,16 @@ func (d *DB) DeleteTask(ctx context.Context, plugin, kind, key string) error {
 }
 
 func (d *DB) DueTasks(ctx context.Context, at time.Time) ([]store.Task, error) {
+	return d.tasks(ctx, `WHERE due<=? ORDER BY due`, at.Unix())
+}
+
+func (d *DB) PluginTasks(ctx context.Context, plugin string) ([]store.Task, error) {
+	return d.tasks(ctx, `WHERE plugin=? ORDER BY due`, plugin)
+}
+
+func (d *DB) tasks(ctx context.Context, where string, arg any) ([]store.Task, error) {
 	rows, err := d.db.QueryContext(ctx,
-		`SELECT plugin,kind,key,due,interval,payload FROM tasks WHERE due<=? ORDER BY due`,
-		at.Unix())
+		`SELECT plugin,kind,key,due,interval,payload FROM tasks `+where, arg)
 	if err != nil {
 		return nil, err
 	}

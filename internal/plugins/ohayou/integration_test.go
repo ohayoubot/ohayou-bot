@@ -17,6 +17,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/ohayou"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
+	"github.com/ohayoubot/ohayou-bot/internal/task"
 )
 
 func TestOhayouEndToEnd(t *testing.T) {
@@ -58,7 +59,7 @@ func TestOhayouEndToEnd(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("configure: %v", err)
 	}
-	deps := plugin.Deps{Bot: b, Store: db, Log: log}
+	deps := plugin.Deps{Bot: b, Store: db, Log: log, Runner: task.NewRunner(db, b, log)}
 	if err := g.Register(deps.For("ohayou")); err != nil {
 		t.Fatalf("register: %v", err)
 	}

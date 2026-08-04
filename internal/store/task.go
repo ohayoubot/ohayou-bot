@@ -31,4 +31,7 @@ type TaskStore interface {
 	DeleteTask(ctx context.Context, plugin, kind, key string) error
 	// DueTasks returns the tasks due at or before at, soonest first.
 	DueTasks(ctx context.Context, at time.Time) ([]Task, error)
+	// PluginTasks returns everything queued for one plugin, due or not, so it
+	// can reconcile its own state against what is still outstanding.
+	PluginTasks(ctx context.Context, plugin string) ([]Task, error)
 }

@@ -20,17 +20,12 @@ var metalChance = map[string]int{
 	"gold":     15,
 }
 
-// mine start a mining action. quarries is how many quarries the user owns (as a yield multiplier)
+// miningTime is how long a quarry run takes.
+const miningTime = 8 * time.Hour
+
+// mine pays out a finished mining run. quarries is how many the user owned when
+// it started, as a yield multiplier.
 func (g *Plugin) mine(username string, quarries int) {
-	g.setStatus(username, "mining", true)
-	defer g.setStatus(username, "mining", false)
-
-	select {
-	case <-time.After(8 * time.Hour):
-	case <-g.baseCtx.Done():
-		return
-	}
-
 	yield := make(map[string]int)
 	var sb strings.Builder
 	sb.WriteString("You mined ")

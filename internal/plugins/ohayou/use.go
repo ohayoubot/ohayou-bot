@@ -114,7 +114,10 @@ func (g *Plugin) attemptBreedCat(u *store.User) string {
 	if u.Status["breeding"] {
 		return " but already has cats in there! You must wait until they are finished."
 	}
-	g.bot.Go(func() { g.breedCat(u.Username, u.Items["cattery"]) })
+	if err := g.startRun(taskBreeding, u.Username, u.Items["cattery"], breedingTime()); err != nil {
+		g.log.Error("queue breeding", "nick", u.Username, "err", err)
+		return " but something went wrong. Try again."
+	}
 	return " for a few hours."
 }
 
@@ -122,7 +125,10 @@ func (g *Plugin) startMining(u *store.User) string {
 	if u.Status["mining"] {
 		return " but is already mining! Wait until it's finished and try again."
 	}
-	g.bot.Go(func() { g.mine(u.Username, u.Items["quarry"]) })
+	if err := g.startRun(taskMining, u.Username, u.Items["quarry"], miningTime); err != nil {
+		g.log.Error("queue mining", "nick", u.Username, "err", err)
+		return " but something went wrong. Try again."
+	}
 	return " for a few hours."
 }
 
@@ -130,7 +136,10 @@ func (g *Plugin) startPumping(u *store.User) string {
 	if u.Status["pumping"] {
 		return " but is already pumping oil! Wait until it's finished and try again."
 	}
-	g.bot.Go(func() { g.pumpOil(u.Username, u.Items["oilwell"]) })
+	if err := g.startRun(taskPumping, u.Username, u.Items["oilwell"], pumpingTime); err != nil {
+		g.log.Error("queue pumping", "nick", u.Username, "err", err)
+		return " but something went wrong. Try again."
+	}
 	return " for a few hours."
 }
 
