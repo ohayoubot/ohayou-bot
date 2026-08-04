@@ -373,7 +373,7 @@ func (g *Game) cmdIdentify(m *bot.Message) {
 			"register to be PM'd information about registering.")
 		return
 	}
-	if g.isIdentified(user.Username) {
+	if g.bot.Identified(user.Username) {
 		g.say(to, user.Username+": You are already identified.")
 		return
 	}
