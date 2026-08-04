@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,6 +47,19 @@ func (p *Plugin) Register(deps plugin.Deps) error {
 	p.spoke.Now, p.said.Now = clock, clock
 
 	p.bot.Watch(p.onLine)
+	p.bot.Help(bot.Topic{
+		Name:    "youtube",
+		Summary: "naming the videos linked here",
+		Aliases: []string{"video", "videos"},
+		Lines: []string{
+			"When somebody links a youtube video I say what it is called and who " +
+				"made it. Nothing to type; I am reading along.",
+			"One channel gets a preview every " + p.cfg.CooldownWait().String() +
+				" at most, the same video is not named twice within " +
+				p.cfg.RepeatWait().String() + ", and one message can name " +
+				strconv.Itoa(p.cfg.MaxLinks) + " at most.",
+		},
+	})
 	p.log.Info("enabled", "cooldown", p.cfg.CooldownWait())
 	return nil
 }

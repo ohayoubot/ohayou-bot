@@ -52,6 +52,17 @@ func (p *Plugin) Register(deps plugin.Deps) error {
 	p.minted.Now = func() time.Time { return p.now() }
 
 	p.bot.HandleFunc("upload", false, p.cmdUpload)
+	p.bot.Help(bot.Topic{
+		Name:    "upload",
+		Summary: "sharing an image here",
+		Aliases: []string{"drop", "image", "images"},
+		Lines: []string{
+			"Type " + p.bot.Prefix() + "upload and I will PM you a link to the " +
+				"upload site, good once and for " + humanWait(p.cfg.GrantWait()) + ".",
+			"You must be identified with services, and we must share a channel: " +
+				"whatever you upload is announced in the channels we both sit in.",
+		},
+	})
 	p.log.Info("enabled", "database", p.cfg.DatabaseID, "url", p.cfg.URL)
 	return nil
 }

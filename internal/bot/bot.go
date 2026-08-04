@@ -27,6 +27,9 @@ type Bot struct {
 	commands map[string]Command
 	watchers []Watcher
 
+	topics     []Topic
+	topicAlias map[string]string
+
 	joined atomic.Bool // set once channels have been joined
 
 	wg sync.WaitGroup // tracks goroutines so shutdown can drain them
@@ -76,8 +79,10 @@ func New(cfg *config.Config, log *slog.Logger) *Bot {
 		whois:    map[string]*whoisPending{},
 
 		identified: map[string]bool{},
+		topicAlias: map[string]string{},
 	}
 	b.registerBotCommands()
+	b.registerHelpCommands()
 	b.registerAdminCommands()
 	b.registerWhois()
 	b.registerIdentity()
