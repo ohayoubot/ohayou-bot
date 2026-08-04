@@ -25,6 +25,11 @@ func testGame(t *testing.T) (*Plugin, *sqlite.DB) {
 	if err := db.Init(context.Background()); err != nil {
 		t.Fatalf("init store: %v", err)
 	}
+	// The game owns its tables now, so a test store needs them installed the
+	// same way Start does.
+	if err := db.Migrate(context.Background(), "ohayou", schema); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	g := &Plugin{
 		bot: bot.New(&config.Config{
