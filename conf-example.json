@@ -31,44 +31,45 @@
 		"spammerNick": "spams the bot often"
 	},
 	"database": "ohayoubot.db",
-	"deerkins": {
+	"cloudflare": {
 		"accountId": "",
 		"databaseId": "",
-		"apiToken": "",
-		"editor": "https://hemera.day/deerkins/",
-		"timeout": 300,
-		"timeoutPunish": 1.7,
-		"missTimeout": 15,
-		"maxLines": 30,
-		"requestTimeout": 10000,
-		"privilegedMatch": ["nick", "host"],
-		"privileged": {
-			"someNick": {
-				"host": "vhost.or.host.name",
-				"timeout": 0
-			}
+		"apiToken": ""
+	},
+	"plugins": {
+		"deerkins": {
+			"editor": "https://hemera.day/deerkins/",
+			"timeout": 300,
+			"timeoutPunish": 1.7,
+			"missTimeout": 15,
+			"maxLines": 30,
+			"requestTimeout": 10000,
+			"privilegedMatch": ["nick", "host"],
+			"privileged": {
+				"someNick": {
+					"host": "vhost.or.host.name",
+					"timeout": 0
+				}
+			},
+			"ignoreNicks": [],
+			"ignoreHosts": [],
+			"ignoreChannels": []
 		},
-		"ignoreNicks": [],
-		"ignoreHosts": [],
-		"ignoreChannels": []
-	},
-	"youtube": {
-		"enabled": true,
-		"maxLinks": 2,
-		"cooldown": 10,
-		"repeat": 600,
-		"requestTimeout": 8000,
-		"ignoreChannels": []
-	},
-	"drop": {
-		"url": "https://hemera.day/drop/",
-		"imageBase": "https://img.hemera.day",
-		"accountId": "",
-		"databaseId": "",
-		"apiToken": "",
-		"grantTtl": 300,
-		"poll": 10,
-		"cooldown": 60,
-		"requestTimeout": 10000
+		"youtube": {
+			"enabled": true,
+			"maxLinks": 2,
+			"cooldown": 10,
+			"repeat": 600,
+			"requestTimeout": 8000,
+			"ignoreChannels": []
+		},
+		"drop": {
+			"url": "https://hemera.day/drop/",
+			"imageBase": "https://img.hemera.day",
+			"grantTtl": 300,
+			"poll": 10,
+			"cooldown": 60,
+			"requestTimeout": 10000
+		}
 	}
 }

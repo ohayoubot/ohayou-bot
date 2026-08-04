@@ -27,10 +27,33 @@ type Config struct {
 	CommandPrefix string            `json:"commandPrefix"`
 	IgnoreList    map[string]string `json:"ignoreList"`
 	Database      string            `json:"database"` // path to the sqlite .db file
-	Deerkins      DeerkinsConfig    `json:"deerkins"`
-	Drop          DropConfig        `json:"drop"`
-	YouTube       YouTubeConfig     `json:"youtube"`
+	Cloudflare    Cloudflare        `json:"cloudflare"`
+	// Plugins holds each plugin's block unparsed. The bot does not know what is
+	// in them; the plugin that owns one reads it.
+	Plugins map[string]json.RawMessage `json:"plugins"`
 }
+
+// Cloudflare is the D1 database the plugins that need one share. A plugin may
+// override any of it in its own block once it wants a database of its own.
+type Cloudflare struct {
+	AccountID  string `json:"accountId"`
+	DatabaseID string `json:"databaseId"`
+	// APIToken needs the D1:Read permission on the account. OHAYOU_CF_API_TOKEN
+	// overrides it so the token need not be written to disk.
+	APIToken string `json:"apiToken"`
+}
+
+// On resolves an optional toggle against what it defaults to when unset.
+func On(flag *bool, byDefault bool) bool {
+	if flag != nil {
+		return *flag
+	}
+	return byDefault
+}
+
+// Secs and MS turn the integers a config file carries into durations.
+func Secs(n int) time.Duration { return time.Duration(n) * time.Second }
+func MS(n int) time.Duration   { return time.Duration(n) * time.Millisecond }
 
 type SASLConfig struct {
 	Enabled   *bool  `json:"enabled"`
@@ -82,216 +105,6 @@ func (v VHostConfig) Use(server string) bool {
 		return *v.Enabled
 	}
 	return strings.Contains(strings.ToLower(server), "rizon")
-}
-
-// DeerkinsConfig configures the deerkins plugin, which reads pixel art out of
-// a cloudflare D1 database over the HTTP API and paints it into a channel.
-type DeerkinsConfig struct {
-	Enabled    *bool  `json:"enabled"`
-	AccountID  string `json:"accountId"`
-	DatabaseID string `json:"databaseId"`
-	// APIToken needs the D1:Read permission on the account. The
-	// DEERKINS_API_TOKEN environment variable overrides it so the token need
-	// not be written to disk.
-	APIToken string `json:"apiToken"`
-	// Editor is the url of the drawing app, quoted in help and 404s.
-	Editor string `json:"editor"`
-	// Timeout is the seconds a channel must wait between deer.
-	Timeout int `json:"timeout"`
-	// TimeoutPunish multiplies Timeout when the same nick or the same deer
-	// comes up twice in a row.
-	TimeoutPunish float64 `json:"timeoutPunish"`
-	// MissTimeout is the (shorter) seconds to wait after a lookup that found
-	// nothing, so typos don't cost a channel the full Timeout.
-	MissTimeout int `json:"missTimeout"`
-	// MaxLines caps how many lines one deer may paint.
-	MaxLines int `json:"maxLines"`
-	// RequestTimeoutMS bounds a single D1 request.
-	RequestTimeoutMS int `json:"requestTimeout"`
-	// PrivilegedMatch is which of "nick" and "host" must match for Privileged
-	// to apply. Both are required when both are listed.
-	PrivilegedMatch []string                `json:"privilegedMatch"`
-	Privileged      map[string]DeerkinsUser `json:"privileged"`
-	IgnoreNicks     []string                `json:"ignoreNicks"`
-	IgnoreHosts     []string                `json:"ignoreHosts"`
-	IgnoreChannels  []string                `json:"ignoreChannels"`
-}
-
-// DropConfig configures the drop plugin, which hands a user a signed link to
-// the upload site and announces what they upload.
-type DropConfig struct {
-	Enabled *bool `json:"enabled"`
-	// AccountID and DatabaseID default to the deerkins block, whose database
-	// currently holds the upload tables too. Set them to split the two apart.
-	AccountID  string `json:"accountId"`
-	DatabaseID string `json:"databaseId"`
-	// APIToken needs D1:Read and nothing more: the worker makes every write.
-	// OHAYOU_DROP_TOKEN overrides it, and it falls back to the deerkins token
-	// while both plugins read one database.
-	APIToken string `json:"apiToken"`
-	// Secret signs the grant links. It has no config field on purpose, so it
-	// cannot be committed by accident: it comes from OHAYOU_DROP_SECRET only.
-	// The worker holds the same value as UPLOAD_HMAC_SECRET, and both sides key
-	// on its utf-8 bytes rather than decoding the hex.
-	Secret string `json:"-"`
-	// URL is the upload site, e.g. "https://hemera.day/drop/".
-	URL string `json:"url"`
-	// ImageBase is where the bucket is served, e.g. "https://img.hemera.day".
-	// It must match the worker's PUBLIC_IMAGE_BASE: the two are the same value
-	// held in two places, and disagreeing means announcing dead links.
-	ImageBase string `json:"imageBase"`
-	// GrantTTL is how many seconds a link stays good for. The worker refuses
-	// anything reaching more than maxGrantTTL ahead, so this cannot exceed it.
-	GrantTTL int `json:"grantTtl"`
-	// PollSeconds is how often to ask D1 for uploads to announce.
-	PollSeconds int `json:"poll"`
-	// Cooldown is the seconds a nick waits between links.
-	Cooldown int `json:"cooldown"`
-	// RequestTimeoutMS bounds a single D1 request.
-	RequestTimeoutMS int `json:"requestTimeout"`
-}
-
-// YouTubeConfig configures the youtube plugin, which names the videos linked
-// in a channel. It reads youtube's public oembed endpoint, so unlike the other
-// plugins it needs no account, key or quota, and is therefore on unless the
-// operator says otherwise.
-type YouTubeConfig struct {
-	Enabled *bool `json:"enabled"`
-	// MaxLinks caps how many videos one message may name, so a paste of a
-	// playlist's worth of links costs a channel a line or two and no more.
-	MaxLinks int `json:"maxLinks"`
-	// Cooldown is the seconds a channel waits between previews.
-	Cooldown int `json:"cooldown"`
-	// Repeat is the seconds before the same video is worth naming again in the
-	// same channel.
-	Repeat int `json:"repeat"`
-	// RequestTimeoutMS bounds a single oembed request.
-	RequestTimeoutMS int      `json:"requestTimeout"`
-	IgnoreChannels   []string `json:"ignoreChannels"`
-}
-
-// Use returns whether the youtube plugin should be registered. It needs no
-// credentials, so it is on unless it is explicitly turned off.
-func (y YouTubeConfig) Use() bool {
-	if y.Enabled != nil {
-		return *y.Enabled
-	}
-	return true
-}
-
-// CooldownWait is the gap between previews in one channel.
-func (y YouTubeConfig) CooldownWait() time.Duration {
-	return time.Duration(y.Cooldown) * time.Second
-}
-
-// RepeatWait is how long a video stays "already said" in a channel.
-func (y YouTubeConfig) RepeatWait() time.Duration {
-	return time.Duration(y.Repeat) * time.Second
-}
-
-// RequestTimeout bounds a single oembed request.
-func (y YouTubeConfig) RequestTimeout() time.Duration {
-	return time.Duration(y.RequestTimeoutMS) * time.Millisecond
-}
-
-// maxGrantTTL matches the ceiling the worker enforces when it verifies a grant.
-const maxGrantTTL = 900
-
-// Configured returns whether the operator asked for the plugin at all. The
-// database it reads is not part of the question: missing that is an error from
-// loadDrop, not a plugin that quietly never answers.
-func (d DropConfig) Configured() bool {
-	return d.Secret != "" && d.URL != ""
-}
-
-// Use returns whether the drop plugin should be registered. An explicit Enabled
-// wins; otherwise it comes up whenever it is configured.
-func (d DropConfig) Use() bool {
-	if d.Enabled != nil {
-		return *d.Enabled
-	}
-	return d.Configured()
-}
-
-// GrantWait is how long a minted link stays valid.
-func (d DropConfig) GrantWait() time.Duration {
-	return time.Duration(d.GrantTTL) * time.Second
-}
-
-// PollWait is the gap between checks for new uploads.
-func (d DropConfig) PollWait() time.Duration {
-	return time.Duration(d.PollSeconds) * time.Second
-}
-
-// CooldownWait is the gap a nick must leave between links.
-func (d DropConfig) CooldownWait() time.Duration {
-	return time.Duration(d.Cooldown) * time.Second
-}
-
-// RequestTimeout bounds a single D1 request.
-func (d DropConfig) RequestTimeout() time.Duration {
-	return time.Duration(d.RequestTimeoutMS) * time.Millisecond
-}
-
-// Link is the url to send a user, with the grant in the fragment. A fragment
-// never reaches the server's logs.
-func (d DropConfig) Link(grant string) string {
-	return strings.TrimSuffix(d.URL, "#") + "#" + grant
-}
-
-// Image is where an uploaded object is served from.
-func (d DropConfig) Image(key string) string {
-	return strings.TrimRight(d.ImageBase, "/") + "/" + key
-}
-
-// DeerkinsUser is a nick that deers on easier terms than everyone else.
-type DeerkinsUser struct {
-	Host string `json:"host"`
-	// Timeout overrides the channel timeout in seconds when set. Zero or
-	// negative means no wait at all.
-	Timeout *int `json:"timeout"`
-}
-
-// Configured returns whether the plugin has everything it needs to reach D1.
-func (d DeerkinsConfig) Configured() bool {
-	return d.AccountID != "" && d.DatabaseID != "" && d.APIToken != ""
-}
-
-// Use returns whether the deerkins plugin should be registered. An explicit
-// Enabled wins; otherwise it comes up whenever it is configured.
-func (d DeerkinsConfig) Use() bool {
-	if d.Enabled != nil {
-		return *d.Enabled
-	}
-	return d.Configured()
-}
-
-// Wait is the normal spacing between deer in a channel.
-func (d DeerkinsConfig) Wait() time.Duration {
-	return time.Duration(d.Timeout) * time.Second
-}
-
-// MissWait is the spacing after a deer that could not be fetched.
-func (d DeerkinsConfig) MissWait() time.Duration {
-	return time.Duration(d.MissTimeout) * time.Second
-}
-
-// RequestTimeout bounds a single D1 request.
-func (d DeerkinsConfig) RequestTimeout() time.Duration {
-	return time.Duration(d.RequestTimeoutMS) * time.Millisecond
-}
-
-// MatchNick and MatchHost report which fields privileged entries are keyed on.
-func (d DeerkinsConfig) MatchNick() bool { return d.matches("nick") }
-func (d DeerkinsConfig) MatchHost() bool { return d.matches("host") }
-
-func (d DeerkinsConfig) matches(field string) bool {
-	for _, f := range d.PrivilegedMatch {
-		if strings.EqualFold(strings.TrimSpace(f), field) {
-			return true
-		}
-	}
-	return false
 }
 
 // VHostEnabled returns whether the vhost gate should run for this config.
@@ -365,14 +178,8 @@ func Load(path string) (*Config, error) {
 	if cfg.Database == "" {
 		cfg.Database = "ohayoubot.db"
 	}
-	if err := cfg.loadDeerkins(); err != nil {
-		return nil, err
-	}
-	if err := cfg.loadDrop(); err != nil {
-		return nil, err
-	}
-	if err := cfg.loadYouTube(); err != nil {
-		return nil, err
+	if token := os.Getenv("OHAYOU_CF_API_TOKEN"); token != "" {
+		cfg.Cloudflare.APIToken = token
 	}
 	// Normalize nicks to lower case for admins
 	admins := make(map[string]string, len(cfg.Admins))
@@ -384,154 +191,4 @@ func Load(path string) (*Config, error) {
 		cfg.IgnoreList = map[string]string{}
 	}
 	return cfg, nil
-}
-
-// loadDeerkins applies the environment override and fills in the defaults. A
-// half-configured plugin is an error rather than a plugin that quietly never
-// answers.
-func (c *Config) loadDeerkins() error {
-	d := &c.Deerkins
-	if token := os.Getenv("DEERKINS_API_TOKEN"); token != "" {
-		d.APIToken = token
-	}
-	if !d.Use() {
-		return nil
-	}
-	switch {
-	case d.AccountID == "":
-		return fmt.Errorf("config: deerkins accountId is required")
-	case d.DatabaseID == "":
-		return fmt.Errorf("config: deerkins databaseId is required")
-	case d.APIToken == "":
-		return fmt.Errorf("config: deerkins apiToken (or DEERKINS_API_TOKEN) is required")
-	}
-	if d.Editor == "" {
-		d.Editor = "https://hemera.day/deerkins/"
-	}
-	if d.Timeout == 0 {
-		d.Timeout = 300
-	}
-	if d.TimeoutPunish == 0 {
-		d.TimeoutPunish = 1.7
-	}
-	if d.MissTimeout == 0 {
-		d.MissTimeout = 15
-	}
-	if d.MaxLines == 0 {
-		d.MaxLines = 30
-	}
-	if d.RequestTimeoutMS == 0 {
-		d.RequestTimeoutMS = 10000
-	}
-	if len(d.PrivilegedMatch) == 0 {
-		d.PrivilegedMatch = []string{"nick", "host"}
-	}
-	if d.TimeoutPunish < 1 {
-		return fmt.Errorf("config: deerkins timeoutPunish must be at least 1")
-	}
-	if d.Timeout < 0 || d.MissTimeout < 0 || d.MaxLines < 1 || d.RequestTimeoutMS < 1 {
-		return fmt.Errorf("config: deerkins timeout, missTimeout, maxLines and requestTimeout must be positive")
-	}
-	privileged := make(map[string]DeerkinsUser, len(d.Privileged))
-	for nick, user := range d.Privileged {
-		privileged[strings.ToLower(nick)] = user
-	}
-	d.Privileged = privileged
-	return nil
-}
-
-// loadDrop applies the environment, borrows what the deerkins block already
-// knows about the database, and fills in the defaults. As with deerkins, a
-// half-configured plugin is an error rather than one that quietly never
-// answers: a nick asking for a link and getting silence is worse than a
-// refusal at startup.
-func (c *Config) loadDrop() error {
-	d := &c.Drop
-	d.Secret = os.Getenv("OHAYOU_DROP_SECRET")
-	if token := os.Getenv("OHAYOU_DROP_TOKEN"); token != "" {
-		d.APIToken = token
-	}
-
-	// One database for now, so an unset field means "wherever deerkins reads".
-	if d.AccountID == "" {
-		d.AccountID = c.Deerkins.AccountID
-	}
-	if d.DatabaseID == "" {
-		d.DatabaseID = c.Deerkins.DatabaseID
-	}
-	if d.APIToken == "" {
-		d.APIToken = c.Deerkins.APIToken
-	}
-
-	if !d.Use() {
-		return nil
-	}
-	switch {
-	case d.Secret == "":
-		return fmt.Errorf("config: drop needs OHAYOU_DROP_SECRET")
-	case d.URL == "":
-		return fmt.Errorf("config: drop url is required")
-	case d.ImageBase == "":
-		return fmt.Errorf("config: drop imageBase is required")
-	case d.AccountID == "":
-		return fmt.Errorf("config: drop accountId is required")
-	case d.DatabaseID == "":
-		return fmt.Errorf("config: drop databaseId is required")
-	case d.APIToken == "":
-		return fmt.Errorf("config: drop apiToken (or OHAYOU_DROP_TOKEN) is required")
-	}
-
-	if d.GrantTTL == 0 {
-		d.GrantTTL = 300
-	}
-	if d.PollSeconds == 0 {
-		d.PollSeconds = 10
-	}
-	if d.Cooldown == 0 {
-		d.Cooldown = 60
-	}
-	if d.RequestTimeoutMS == 0 {
-		d.RequestTimeoutMS = 10000
-	}
-
-	if d.GrantTTL < 30 || d.GrantTTL > maxGrantTTL {
-		return fmt.Errorf("config: drop grantTtl must be between 30 and %d seconds", maxGrantTTL)
-	}
-	// Polling faster than this buys a second of latency and spends the D1 read
-	// budget on empty answers.
-	if d.PollSeconds < 5 {
-		return fmt.Errorf("config: drop poll must be at least 5 seconds")
-	}
-	if d.Cooldown < 0 || d.RequestTimeoutMS < 1 {
-		return fmt.Errorf("config: drop cooldown and requestTimeout must be positive")
-	}
-	return nil
-}
-
-// loadYouTube fills in the defaults. There is nothing to authenticate, so the
-// only way to get this wrong is a nonsense number.
-func (c *Config) loadYouTube() error {
-	y := &c.YouTube
-	if !y.Use() {
-		return nil
-	}
-	if y.MaxLinks == 0 {
-		y.MaxLinks = 2
-	}
-	if y.Cooldown == 0 {
-		y.Cooldown = 10
-	}
-	if y.Repeat == 0 {
-		y.Repeat = 600
-	}
-	if y.RequestTimeoutMS == 0 {
-		y.RequestTimeoutMS = 8000
-	}
-	if y.MaxLinks < 1 {
-		return fmt.Errorf("config: youtube maxLinks must be at least 1")
-	}
-	if y.Cooldown < 0 || y.Repeat < 0 || y.RequestTimeoutMS < 1 {
-		return fmt.Errorf("config: youtube cooldown, repeat and requestTimeout must be positive")
-	}
-	return nil
 }

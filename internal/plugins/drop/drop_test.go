@@ -104,14 +104,17 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 		t.Fatalf("init store: %v", err)
 	}
 
-	h.plugin = New(config.DropConfig{
-		Secret:      testSecret,
-		URL:         "https://hemera.day/drop/",
-		ImageBase:   "https://img.hemera.day",
-		GrantTTL:    300,
-		Cooldown:    60,
-		PollSeconds: 10,
-	})
+	t.Setenv("OHAYOU_DROP_SECRET", testSecret)
+	h.plugin = New()
+	if _, err := h.plugin.Configure(plugin.Config{
+		Block: json.RawMessage(`{
+			"url": "https://hemera.day/drop/",
+			"imageBase": "https://img.hemera.day"
+		}`),
+		Cloudflare: config.Cloudflare{AccountID: "acct", DatabaseID: "db", APIToken: "token"},
+	}); err != nil {
+		t.Fatalf("configure: %v", err)
+	}
 	deps := testDeps(b)
 	deps.Store = db
 	if err := h.plugin.Register(deps); err != nil {

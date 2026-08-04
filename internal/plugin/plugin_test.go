@@ -2,11 +2,14 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"strings"
 	"testing"
+
+	"github.com/ohayoubot/ohayou-bot/internal/config"
 )
 
 type fake struct {
@@ -130,5 +133,103 @@ func TestStartReportsAFailure(t *testing.T) {
 	err := r.Start(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "busy") {
 		t.Errorf("err = %v, want it to name the plugin that failed", err)
+	}
+}
+
+type configurable struct {
+	name string
+	on   bool
+	err  error
+	got  Config
+}
+
+func (c *configurable) Name() string             { return c.name }
+func (c *configurable) Register(deps Deps) error { return nil }
+func (c *configurable) Configure(pc Config) (bool, error) {
+	c.got = pc
+	return c.on, c.err
+}
+
+func TestConfigureDropsThePluginsNobodyAskedFor(t *testing.T) {
+	r := NewRegistry(testDeps())
+	r.Add(&configurable{name: "wanted", on: true})
+	r.Add(&configurable{name: "unwanted"})
+
+	if err := r.Configure(&config.Config{}); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	if got := strings.Join(r.Names(), " "); got != "wanted" {
+		t.Errorf("kept %q, want only the plugin that came up", got)
+	}
+}
+
+// A plugin with no Configure is always kept: it has nothing to turn off.
+func TestConfigureKeepsPluginsWithoutABlock(t *testing.T) {
+	var order []string
+	r := NewRegistry(testDeps())
+	r.Add(&fake{name: "always", order: &order})
+
+	if err := r.Configure(&config.Config{}); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	if got := strings.Join(r.Names(), " "); got != "always" {
+		t.Errorf("kept %q", got)
+	}
+}
+
+func TestConfigureHandsOverTheBlockAndTheSharedSettings(t *testing.T) {
+	p := &configurable{name: "reader", on: true}
+	r := NewRegistry(testDeps())
+	r.Add(p)
+
+	cfg := &config.Config{
+		Cloudflare: config.Cloudflare{AccountID: "acct"},
+		Plugins:    map[string]json.RawMessage{"reader": json.RawMessage(`{"x": 1}`)},
+	}
+	if err := r.Configure(cfg); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	if string(p.got.Block) != `{"x": 1}` {
+		t.Errorf("Block = %q", p.got.Block)
+	}
+	if p.got.Cloudflare.AccountID != "acct" {
+		t.Errorf("Cloudflare = %+v, want the shared block passed through", p.got.Cloudflare)
+	}
+}
+
+func TestConfigureReportsABadBlock(t *testing.T) {
+	r := NewRegistry(testDeps())
+	r.Add(&configurable{name: "broken", err: errors.New("url is required")})
+
+	err := r.Configure(&config.Config{})
+	if err == nil {
+		t.Fatal("Configure accepted a plugin that refused its own config")
+	}
+	if !strings.Contains(err.Error(), "broken") || !strings.Contains(err.Error(), "url is required") {
+		t.Errorf("err = %v, want it to name the plugin and the cause", err)
+	}
+}
+
+// A block naming nothing is a typo the operator wants told about, not silently
+// ignored while they wonder why the plugin never answers.
+func TestConfigureRejectsABlockForNobody(t *testing.T) {
+	r := NewRegistry(testDeps())
+	r.Add(&configurable{name: "real", on: true})
+
+	cfg := &config.Config{Plugins: map[string]json.RawMessage{"typo": json.RawMessage(`{}`)}}
+	err := r.Configure(cfg)
+	if err == nil || !strings.Contains(err.Error(), "typo") {
+		t.Errorf("err = %v, want it to name the block nothing owns", err)
+	}
+}
+
+// A block for a plugin the operator then turned off is not a typo.
+func TestABlockForADisabledPluginIsFine(t *testing.T) {
+	r := NewRegistry(testDeps())
+	r.Add(&configurable{name: "off"})
+
+	cfg := &config.Config{Plugins: map[string]json.RawMessage{"off": json.RawMessage(`{"enabled": false}`)}}
+	if err := r.Configure(cfg); err != nil {
+		t.Errorf("Configure: %v", err)
 	}
 }

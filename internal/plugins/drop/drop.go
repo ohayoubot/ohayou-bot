@@ -12,7 +12,6 @@ import (
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
-	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
@@ -31,7 +30,7 @@ const cursorKey = "drop.cursor"
 
 type Plugin struct {
 	bot   *bot.Bot
-	cfg   config.DropConfig
+	cfg   Config
 	log   *slog.Logger
 	store store.Store
 	db    *queue
@@ -41,22 +40,17 @@ type Plugin struct {
 	minted *ratelimit.Limiter // when a nick last got a link
 }
 
-func New(cfg config.DropConfig) *Plugin {
-	p := &Plugin{
-		cfg:    cfg,
-		db:     newQueue(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
-		now:    time.Now,
-		minted: ratelimit.New(cfg.CooldownWait()),
-	}
-	// Read through p.now so a test can wind the clock after construction.
-	p.minted.Now = func() time.Time { return p.now() }
-	return p
-}
+func New() *Plugin { return &Plugin{now: time.Now} }
 
 func (p *Plugin) Name() string { return "drop" }
 
 func (p *Plugin) Register(deps plugin.Deps) error {
 	p.bot, p.log, p.store = deps.Bot, deps.Log, deps.Store
+	p.db = newQueue(d1.APIBase, p.cfg.AccountID, p.cfg.DatabaseID, p.cfg.APIToken, p.cfg.RequestTimeout())
+	p.minted = ratelimit.New(p.cfg.CooldownWait())
+	// Read through p.now so a test can wind the clock after construction.
+	p.minted.Now = func() time.Time { return p.now() }
+
 	p.bot.HandleFunc("upload", false, p.cmdUpload)
 	p.log.Info("enabled", "database", p.cfg.DatabaseID, "url", p.cfg.URL)
 	return nil
