@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 // catEvent periodically spawns a stray cat in every channel that players can
 // adopt with a burger or pancake.
-func (g *Game) catEvent(ctx context.Context) {
+func (g *Plugin) catEvent(ctx context.Context) {
 	for {
 		delay := time.Duration(randNum(7200, 28800)) * time.Second // 2-8 hours
 		select {
@@ -28,7 +28,7 @@ func (g *Game) catEvent(ctx context.Context) {
 
 // waitCatAdopt opens the adoption window and awaits the first taker (or a
 // timeout).
-func (g *Game) waitCatAdopt(ctx context.Context) {
+func (g *Plugin) waitCatAdopt(ctx context.Context) {
 	g.setCanAdopt(true)
 	defer g.setCanAdopt(false)
 

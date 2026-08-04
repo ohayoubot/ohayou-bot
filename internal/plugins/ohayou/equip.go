@@ -1,8 +1,8 @@
-package game
+package ohayou
 
 import "github.com/ohayoubot/ohayou-bot/internal/store"
 
-func (g *Game) equip(u *store.User, itm string) string {
+func (g *Plugin) equip(u *store.User, itm string) string {
 	if msg, blocked := g.mustIdentify(u); blocked {
 		return msg
 	}
@@ -33,7 +33,7 @@ func (g *Game) equip(u *store.User, itm string) string {
 		" and equipped " + item.Name + "."
 }
 
-func (g *Game) unequip(u *store.User, itm string) string {
+func (g *Plugin) unequip(u *store.User, itm string) string {
 	if msg, blocked := g.mustIdentify(u); blocked {
 		return msg
 	}

@@ -1,17 +1,17 @@
-package game
+package ohayou
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/ohayoubot/ohayou-bot/internal/seed"
+	"github.com/ohayoubot/ohayou-bot/internal/plugins/ohayou/seed"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
 // TestCatalogConsistency guards against drift between the crafting recipes,
 // the hard-coded balance constants, and the shipped item catalog.
 func TestCatalogConsistency(t *testing.T) {
-	items, err := seed.LoadItems("../../data/items.json")
+	items, err := seed.LoadItems("../../../data/items.json")
 	if err != nil {
 		t.Fatalf("load catalog: %v", err)
 	}

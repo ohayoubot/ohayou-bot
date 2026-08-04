@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
-func (g *Game) stats(u *store.User) {
+func (g *Plugin) stats(u *store.User) {
 	if msg, blocked := g.mustIdentify(u); blocked {
 		g.say(u.Username, msg)
 		return

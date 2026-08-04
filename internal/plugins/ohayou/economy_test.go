@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
 
-func testGame(t *testing.T) (*Game, *sqlite.DB) {
+func testGame(t *testing.T) (*Plugin, *sqlite.DB) {
 	t.Helper()
 	db, err := sqlite.Open(":memory:")
 	if err != nil {
@@ -26,7 +26,7 @@ func testGame(t *testing.T) (*Game, *sqlite.DB) {
 		t.Fatalf("init store: %v", err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	g := &Game{
+	g := &Plugin{
 		bot: bot.New(&config.Config{
 			Nick: "ohayoubot", User: "ohayoubot", Server: "127.0.0.1",
 			CommandPrefix: "!",
@@ -217,4 +217,16 @@ func TestOhayouCumulativeTracksGainOnly(t *testing.T) {
 	if cumDelta != gain {
 		t.Errorf("cum grew by %d, want %d (the ration only)", cumDelta, gain)
 	}
+}
+
+func discardLog() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+
+func testBot(t *testing.T) *bot.Bot {
+	t.Helper()
+	return bot.New(&config.Config{
+		Nick: "ohayoubot", User: "ohayoubot", Server: "127.0.0.1",
+		CommandPrefix: "!",
+		Admins:        map[string]string{},
+		IgnoreList:    map[string]string{},
+	}, discardLog())
 }

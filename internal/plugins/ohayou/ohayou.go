@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"errors"
@@ -14,7 +14,7 @@ var adjectives = [...]string{
 	"Splendid", "Exquisite", "Impressive", "Outstanding", "Wonderful",
 }
 
-func (g *Game) Ohayou(nick string) string {
+func (g *Plugin) Ohayou(nick string) string {
 	ctx := g.ctx()
 
 	ohayous := randNum(0, 6)

@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ func userDefense(u *store.User) int {
 	return armorDefense(u) + dogDefense(u)
 }
 
-func (g *Game) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw string) {
+func (g *Plugin) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw string) {
 	if msg, blocked := g.mustIdentify(thief); blocked {
 		g.say(channel, msg)
 		return
@@ -119,14 +119,14 @@ func (g *Game) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw str
 	}
 }
 
-func (g *Game) failSteal(nick string, fine int) {
+func (g *Plugin) failSteal(nick string, fine int) {
 	probation := time.Now().Add(24 * time.Hour).In(g.est)
 	if err := g.store.SaveFailSteal(g.ctx(), nick, fine, probation); err != nil {
 		g.log.Error("save fail steal", "nick", nick, "err", err)
 	}
 }
 
-func (g *Game) successSteal(thief, victim string, cat, ohy int) {
+func (g *Plugin) successSteal(thief, victim string, cat, ohy int) {
 	if err := g.store.SaveSuccessSteal(g.ctx(), thief, victim, cat, ohy); err != nil {
 		g.log.Error("save success steal", "thief", thief, "victim", victim, "err", err)
 	}

@@ -1,8 +1,9 @@
-package game_test
+package ohayou_test
 
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,7 +14,8 @@ import (
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
-	"github.com/ohayoubot/ohayou-bot/internal/game"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
+	"github.com/ohayoubot/ohayou-bot/internal/plugins/ohayou"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
 
@@ -50,15 +52,22 @@ func TestOhayouEndToEnd(t *testing.T) {
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	b := bot.New(cfg, log)
-	g, err := game.New(b, db, []string{"a fortune"}, log)
-	if err != nil {
-		t.Fatalf("new game: %v", err)
+	g := ohayou.New()
+	if _, err := g.Configure(plugin.Config{
+		Block: json.RawMessage(`{"dataDir": "../../../data"}`),
+	}); err != nil {
+		t.Fatalf("configure: %v", err)
 	}
-	g.Register()
+	deps := plugin.Deps{Bot: b, Store: db, Log: log}
+	if err := g.Register(deps.For("ohayou")); err != nil {
+		t.Fatalf("register: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	g.Start(ctx)
+	if err := g.Start(ctx); err != nil {
+		t.Fatalf("start: %v", err)
+	}
 
 	done := make(chan error, 1)
 	go func() { done <- b.Run(ctx) }()

@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ const catsPerAcre = 20
 
 // breedCat runs the multi-hour cat breeding activity for a user. cattery is the
 // number of catteries the user owns (the litter multiplier).
-func (g *Game) breedCat(username string, cattery int) {
+func (g *Plugin) breedCat(username string, cattery int) {
 	g.setStatus(username, "breeding", true)
 	defer g.setStatus(username, "breeding", false)
 
@@ -63,7 +63,7 @@ func (g *Game) breedCat(username string, cattery int) {
 }
 
 // setStatus is a logging wrapper around the store call.
-func (g *Game) setStatus(username, action string, active bool) {
+func (g *Plugin) setStatus(username, action string, active bool) {
 	if err := g.store.SetStatus(g.ctx(), username, action, active); err != nil {
 		g.log.Error("set status", "nick", username, "action", action, "err", err)
 	}

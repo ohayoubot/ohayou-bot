@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ var metalChance = map[string]int{
 }
 
 // mine start a mining action. quarries is how many quarries the user owns (as a yield multiplier)
-func (g *Game) mine(username string, quarries int) {
+func (g *Plugin) mine(username string, quarries int) {
 	g.setStatus(username, "mining", true)
 	defer g.setStatus(username, "mining", false)
 

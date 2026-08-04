@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"strings"
@@ -10,7 +10,7 @@ import (
 // stationPolice offers a robbery victim police protection and waits (up to a
 // minute) for them to !report. defense is the victim's equipped defense at the
 // time of the theft.
-func (g *Game) stationPolice(username string, defense int) {
+func (g *Plugin) stationPolice(username string, defense int) {
 	if !g.police.reserve(username) {
 		return
 	}
@@ -51,7 +51,7 @@ func (g *Game) stationPolice(username string, defense int) {
 }
 
 // protect activates and slowly decays anti-theft protection for a user.
-func (g *Game) protect(username string, defense int) {
+func (g *Plugin) protect(username string, defense int) {
 	// The user's chance of being stolen from after their own defensive items.
 	ohayouChance := stealOhayouSuccess - defense/9
 	catChance := stealCatSuccess - defense/9

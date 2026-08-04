@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ func vaultCap(level int) int { return int(math.Pow(10, 3+float64(level))) }
 // upgradeVault is the item function for the vaultupgrade item. It raises the
 // user's vault level (multiplying its capacity by ten) and consumes the upgrade
 // item only on success.
-func (g *Game) upgradeVault(u *store.User) string {
+func (g *Plugin) upgradeVault(u *store.User) string {
 	if !u.Vault.Installed {
 		return " but doesn't have a vault to upgrade! Buy and use a vault first."
 	}
@@ -31,7 +31,7 @@ func (g *Game) upgradeVault(u *store.User) string {
 		newLevel+1, vaultCap(newLevel))
 }
 
-func (g *Game) deposit(u *store.User, amt int) string {
+func (g *Plugin) deposit(u *store.User, amt int) string {
 	if msg, blocked := g.mustIdentify(u); blocked {
 		return msg
 	}
@@ -72,7 +72,7 @@ func (g *Game) deposit(u *store.User, amt int) string {
 	return fmt.Sprintf("%s deposited %d ohayous to their vault.", u.Username, amt)
 }
 
-func (g *Game) withdraw(u *store.User, amt int) string {
+func (g *Plugin) withdraw(u *store.User, amt int) string {
 	if msg, blocked := g.mustIdentify(u); blocked {
 		return msg
 	}

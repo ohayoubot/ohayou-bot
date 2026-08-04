@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 // doubleOhayouEvent periodically "malfunctions" the ohayou distributor,
 // temporarily multiplying rations, then repairs it.
-func (g *Game) doubleOhayouEvent(ctx context.Context) {
+func (g *Plugin) doubleOhayouEvent(ctx context.Context) {
 	for {
 		delay := time.Duration(randNum(43200, 129600)) * time.Second // 12-36 hours
 		select {
