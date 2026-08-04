@@ -13,6 +13,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/game"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/catfact"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/deerkins"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/drop"
@@ -71,23 +72,23 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 	log.Info("loaded fortunes", "count", len(fortunes))
 
 	b := bot.New(cfg, log)
-	catfact.New(b).Register()
 
+	reg := plugin.NewRegistry(plugin.Deps{Bot: b, Store: db, Log: log})
+	reg.Add(catfact.New())
 	if cfg.Deerkins.Use() {
-		deerkins.New(b, cfg.Deerkins).Register()
-		log.Info("deerkins enabled", "database", cfg.Deerkins.DatabaseID, "editor", cfg.Deerkins.Editor)
+		reg.Add(deerkins.New(cfg.Deerkins))
 	}
-
 	if cfg.YouTube.Use() {
-		youtube.New(b, cfg.YouTube).Register()
-		log.Info("youtube previews enabled", "cooldown", cfg.YouTube.CooldownWait())
+		reg.Add(youtube.New(cfg.YouTube))
 	}
-
 	if cfg.Drop.Use() {
-		drops := drop.New(b, cfg.Drop, db)
-		drops.Register()
-		drops.Start(ctx)
-		log.Info("drop enabled", "database", cfg.Drop.DatabaseID, "url", cfg.Drop.URL)
+		reg.Add(drop.New(cfg.Drop))
+	}
+	if err := reg.Register(); err != nil {
+		return err
+	}
+	if err := reg.Start(ctx); err != nil {
+		return err
 	}
 
 	g, err := game.New(b, db, fortunes, log)

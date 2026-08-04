@@ -15,6 +15,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
 
 type Plugin struct {
@@ -31,11 +32,9 @@ type Plugin struct {
 	said  *ratelimit.Limiter // when a video was last named in a target
 }
 
-func New(b *bot.Bot, cfg config.YouTubeConfig) *Plugin {
+func New(cfg config.YouTubeConfig) *Plugin {
 	p := &Plugin{
-		bot:         b,
 		cfg:         cfg,
-		log:         b.Logger().With("plugin", "youtube"),
 		api:         newClient(oembedBase, cfg.RequestTimeout()),
 		banChannels: access.NewSet(cfg.IgnoreChannels),
 		now:         time.Now,
@@ -48,7 +47,14 @@ func New(b *bot.Bot, cfg config.YouTubeConfig) *Plugin {
 	return p
 }
 
-func (p *Plugin) Register() { p.bot.Watch(p.onLine) }
+func (p *Plugin) Name() string { return "youtube" }
+
+func (p *Plugin) Register(deps plugin.Deps) error {
+	p.bot, p.log = deps.Bot, deps.Log
+	p.bot.Watch(p.onLine)
+	p.log.Info("enabled", "cooldown", p.cfg.CooldownWait())
+	return nil
+}
 
 func (p *Plugin) onLine(m *bot.Message) {
 	// A private message arrives addressed to the bot's own nick, which is no

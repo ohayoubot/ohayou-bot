@@ -19,6 +19,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
 
 const (
@@ -69,11 +70,9 @@ type sighting struct {
 	seen    bool
 }
 
-func New(b *bot.Bot, cfg config.DeerkinsConfig) *Plugin {
+func New(cfg config.DeerkinsConfig) *Plugin {
 	return &Plugin{
-		bot:         b,
 		cfg:         cfg,
-		log:         b.Logger().With("plugin", "deerkins"),
 		db:          newGallery(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
 		banNicks:    access.NewSet(cfg.IgnoreNicks),
 		banHosts:    access.NewSet(cfg.IgnoreHosts),
@@ -87,9 +86,14 @@ func New(b *bot.Bot, cfg config.DeerkinsConfig) *Plugin {
 	}
 }
 
-func (p *Plugin) Register() {
+func (p *Plugin) Name() string { return "deerkins" }
+
+func (p *Plugin) Register(deps plugin.Deps) error {
+	p.bot, p.log = deps.Bot, deps.Log
 	p.bot.HandleFunc("deerme", false, p.cmdDeerme)
 	p.bot.HandleFunc("prevdeer", false, p.cmdPrevDeer)
+	p.log.Info("enabled", "database", p.cfg.DatabaseID, "editor", p.cfg.Editor)
+	return nil
 }
 
 func (p *Plugin) cmdDeerme(m *bot.Message) {
