@@ -54,7 +54,7 @@ var recipes = func() map[string]recipe {
 }()
 
 func (g *Game) cmdBuild(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 
 	if !m.HasArgs() {
 		names := make([]string, len(recipeList))
@@ -68,7 +68,7 @@ func (g *Game) cmdBuild(m *bot.Message) {
 		return
 	}
 
-	rec, ok := recipes[strings.ToLower(m.Args[1])]
+	rec, ok := recipes[strings.ToLower(m.Arg(1))]
 	if !ok {
 		g.say(to, "You can't build that. Type "+g.p()+"build to see what's craftable.")
 		return
@@ -118,12 +118,12 @@ func (g *Game) cmdBuild(m *bot.Message) {
 }
 
 func (g *Game) cmdRecipe(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Usage: "+g.p()+"recipe <thing> -- shows what a craftable needs.")
 		return
 	}
-	rec, ok := recipes[strings.ToLower(m.Args[1])]
+	rec, ok := recipes[strings.ToLower(m.Arg(1))]
 	if !ok {
 		g.say(to, "That isn't craftable. Type "+g.p()+"build to see what is.")
 		return

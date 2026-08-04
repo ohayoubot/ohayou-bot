@@ -168,7 +168,7 @@ func (p *Plugin) inChannel(name string) bool {
 }
 
 func (p *Plugin) cmdUpload(m *bot.Message) {
-	to := replyTo(m)
+	to := m.ReplyTo()
 
 	// The cooldown comes before the lookup, not after: without it every
 	// repetition of the command is another WHOIS at the server.
@@ -285,13 +285,6 @@ func (p *Plugin) forgetOld(now time.Time) {
 			delete(p.minted, key)
 		}
 	}
-}
-
-func replyTo(m *bot.Message) string {
-	if m.FromChannel() {
-		return m.Target
-	}
-	return m.Nick
 }
 
 func humanWait(d time.Duration) string {

@@ -20,6 +20,32 @@ func (m *Message) HasArgs() bool { return len(m.Args) > 1 }
 // FromChannel returns whether the message came from a channel or pm
 func (m *Message) FromChannel() bool { return strings.HasPrefix(m.Target, "#") }
 
+// ReplyTo is where an answer belongs: the channel the message came from, or the
+// sender for a private one.
+func (m *Message) ReplyTo() string {
+	if m.FromChannel() {
+		return m.Target
+	}
+	return m.Nick
+}
+
+// Arg returns the nth word, or "" when the message is shorter. Arg(0) is the
+// command word itself, so the first argument is Arg(1).
+func (m *Message) Arg(n int) string {
+	if n < 0 || n >= len(m.Args) {
+		return ""
+	}
+	return m.Args[n]
+}
+
+// Rest joins the words from the nth on, or "" when the message is shorter.
+func (m *Message) Rest(n int) string {
+	if n < 0 || n >= len(m.Args) {
+		return ""
+	}
+	return strings.Join(m.Args[n:], " ")
+}
+
 type Handler func(m *Message)
 
 // Watcher sees the lines that aren't commands, for the plugins that react to

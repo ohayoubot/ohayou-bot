@@ -100,8 +100,8 @@ func (p *Plugin) cmdDeerme(m *bot.Message) {
 		return
 	}
 
-	to := replyTo(m)
-	mods, name := splitRequest(strings.Join(m.Args[1:], " "))
+	to := m.ReplyTo()
+	mods, name := splitRequest(m.Rest(1))
 	name = sanitiseName(name)
 
 	switch name {
@@ -173,7 +173,7 @@ func (p *Plugin) cmdPrevDeer(m *bot.Message) {
 	if p.bannedBy(m) != "" {
 		return
 	}
-	to := replyTo(m)
+	to := m.ReplyTo()
 	if !p.maySpeak("prev:" + to) {
 		return
 	}
@@ -405,14 +405,6 @@ func (p *Plugin) privilegedFor(m *bot.Message) (config.DeerkinsUser, bool) {
 		return config.DeerkinsUser{}, false
 	}
 	return user, true
-}
-
-// replyTo is the channel a command came from, or the sender for a private one.
-func replyTo(m *bot.Message) string {
-	if m.FromChannel() {
-		return m.Target
-	}
-	return m.Nick
 }
 
 // lineBudget is how many bytes of art fit on one line to this target.

@@ -51,7 +51,7 @@ func (g *Game) cmdBuy(m *bot.Message) {
 		return
 	}
 
-	itm := strings.ToLower(m.Args[1])
+	itm := strings.ToLower(m.Arg(1))
 	if itm == "ohayou" { // just for fun
 		g.say(m.Target, fmt.Sprintf("You purchased %d ohayous for %d ohayous. You "+
 			"have %d ohayous left.", user.Ohayous, user.Ohayous, user.Ohayous))
@@ -63,7 +63,7 @@ func (g *Game) cmdBuy(m *bot.Message) {
 		return
 	}
 
-	qty := strings.ToLower(m.Args[2])
+	qty := strings.ToLower(m.Arg(2))
 	if qty == "max" {
 		g.say(m.Target, g.buy(user, itm, g.findMax(user, itm)))
 		return
@@ -94,10 +94,10 @@ func (g *Game) cmdUse(m *bot.Message) {
 		return
 	}
 
-	itm := strings.ToLower(m.Args[1])
+	itm := strings.ToLower(m.Arg(1))
 	on := "somebody"
 	if len(m.Args) > 2 {
-		on = strings.ToLower(m.Args[2])
+		on = strings.ToLower(m.Arg(2))
 	}
 	g.say(m.Target, g.use(user, m.Nick, itm, on))
 }
@@ -117,7 +117,7 @@ func (g *Game) cmdSteal(m *bot.Message) {
 		return
 	}
 
-	target := strings.ToLower(m.Args[1])
+	target := strings.ToLower(m.Arg(1))
 	if user.Username == target {
 		g.say(m.Target, "Are you dumb? You can't steal from yourself!")
 		return
@@ -125,7 +125,7 @@ func (g *Game) cmdSteal(m *bot.Message) {
 
 	victim, err := g.store.GetUser(g.ctx(), target)
 	if errors.Is(err, store.ErrNotFound) {
-		g.say(m.Target, "You can't steal from "+m.Args[1]+" because "+m.Args[1]+
+		g.say(m.Target, "You can't steal from "+m.Arg(1)+" because "+m.Arg(1)+
 			" has never ohayou'd!")
 		return
 	}
@@ -133,11 +133,11 @@ func (g *Game) cmdSteal(m *bot.Message) {
 		g.log.Error("get victim", "nick", target, "err", err)
 		return
 	}
-	g.goDo(func() { g.stealFrom(user, victim, m.Target, m.Nick, m.Args[1]) })
+	g.goDo(func() { g.stealFrom(user, victim, m.Target, m.Nick, m.Arg(1)) })
 }
 
 func (g *Game) cmdEquip(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
 		return
@@ -147,11 +147,11 @@ func (g *Game) cmdEquip(m *bot.Message) {
 			"item equipped per slot, unless otherwise noted.")
 		return
 	}
-	g.say(to, g.equip(user, strings.ToLower(m.Args[1])))
+	g.say(to, g.equip(user, strings.ToLower(m.Arg(1))))
 }
 
 func (g *Game) cmdUnequip(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
 		return
@@ -161,11 +161,11 @@ func (g *Game) cmdUnequip(m *bot.Message) {
 			"unequips <item>")
 		return
 	}
-	g.say(to, g.unequip(user, strings.ToLower(m.Args[1])))
+	g.say(to, g.unequip(user, strings.ToLower(m.Arg(1))))
 }
 
 func (g *Game) cmdItems(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	if !m.HasArgs() {
 		cats, err := g.store.Categories(g.ctx())
 		if err != nil {
@@ -176,7 +176,7 @@ func (g *Game) cmdItems(m *bot.Message) {
 		return
 	}
 
-	items, err := g.store.ItemsByCategory(g.ctx(), strings.ToLower(m.Args[1]))
+	items, err := g.store.ItemsByCategory(g.ctx(), strings.ToLower(m.Arg(1)))
 	if err != nil {
 		g.log.Error("items by category", "err", err)
 		return
@@ -187,14 +187,14 @@ func (g *Game) cmdItems(m *bot.Message) {
 }
 
 func (g *Game) cmdItem(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Gives information about a specific item. Usage: "+g.p()+
 			"item <itemname>")
 		return
 	}
 
-	item, err := g.store.GetItem(g.ctx(), strings.ToLower(m.Args[1]))
+	item, err := g.store.GetItem(g.ctx(), strings.ToLower(m.Arg(1)))
 	if err != nil {
 		g.say(to, "I don't carry that item.")
 		return
@@ -221,7 +221,7 @@ func (g *Game) cmdItem(m *bot.Message) {
 }
 
 func (g *Game) cmdDeposit(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Deposits ohayous to your vault. Usage: "+g.p()+"deposit <num> -- "+
 			"deposits <num> ohayous. Your vault can only be opened once per day due "+
@@ -232,7 +232,7 @@ func (g *Game) cmdDeposit(m *bot.Message) {
 	if !ok {
 		return
 	}
-	amt, err := strconv.Atoi(m.Args[1])
+	amt, err := strconv.Atoi(m.Arg(1))
 	if err != nil {
 		g.say(to, "You didn't give a valid quantity. Usage: "+g.p()+"deposit <num> "+
 			"will deposit <num> ohayous to your vault.")
@@ -242,7 +242,7 @@ func (g *Game) cmdDeposit(m *bot.Message) {
 }
 
 func (g *Game) cmdWithdraw(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Withdraws ohayous from your vault. Usage: "+g.p()+"withdraw <num> "+
 			"-- withdraws <num> ohayous. Your vault can only be opened once per day "+
@@ -253,7 +253,7 @@ func (g *Game) cmdWithdraw(m *bot.Message) {
 	if !ok {
 		return
 	}
-	amt, err := strconv.Atoi(m.Args[1])
+	amt, err := strconv.Atoi(m.Arg(1))
 	if err != nil {
 		g.say(to, "You didn't give a valid quantity. Usage: "+g.p()+"withdraw <num> "+
 			"will withdraw <num> ohayous from your vault.")
@@ -263,7 +263,7 @@ func (g *Game) cmdWithdraw(m *bot.Message) {
 }
 
 func (g *Game) cmdStats(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
 		return
@@ -348,12 +348,12 @@ func (g *Game) cmdRegister(m *bot.Message) {
 			g.p()+"identify")
 		return
 	}
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
 		return
 	}
-	if strings.ToLower(m.Args[1]) == "yes" {
+	if strings.ToLower(m.Arg(1)) == "yes" {
 		if user.Registered {
 			g.say(to, m.Nick+": You are already registered.")
 			return
@@ -363,7 +363,7 @@ func (g *Game) cmdRegister(m *bot.Message) {
 }
 
 func (g *Game) cmdIdentify(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
 		return

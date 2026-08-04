@@ -108,13 +108,6 @@ func (g *Game) say(target, msg string) { g.bot.Say(target, msg) }
 
 func (g *Game) ctx() context.Context { return g.baseCtx }
 
-func replyTarget(m *bot.Message) string {
-	if m.FromChannel() {
-		return m.Target
-	}
-	return m.Nick
-}
-
 // startOfDay returns midnight in the timezone's calendar day
 func startOfDay(t time.Time, loc *time.Location) time.Time {
 	t = t.In(loc)
