@@ -86,6 +86,23 @@ func (p *Plugin) Register(deps plugin.Deps) error {
 
 	p.bot.HandleFunc("deerme", false, p.cmdDeerme)
 	p.bot.HandleFunc("prevdeer", false, p.cmdPrevDeer)
+
+	prefix := p.bot.Prefix()
+	p.bot.Help(bot.Topic{
+		Name:    "deer",
+		Summary: "painting the deerkins gallery into the channel",
+		Aliases: []string{"deerme", "deerkins", "prevdeer"},
+		Lines: []string{
+			prefix + "deerme walks a deer, " + prefix + "deerme random or " +
+				prefix + "deerme latest takes what you are given, and " +
+				prefix + "prevdeer says what walked last.",
+			"Stack modifiers before a pipe, like " + prefix +
+				"deerme iu|senordeer. Type " + prefix +
+				"deerme help modifiers for the list, or " + prefix +
+				"deerme help for how long until the next one.",
+			"Draw your own at " + p.cfg.Editor,
+		},
+	})
 	p.log.Info("enabled", "database", p.cfg.DatabaseID, "editor", p.cfg.Editor)
 	return nil
 }

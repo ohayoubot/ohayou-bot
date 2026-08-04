@@ -28,6 +28,14 @@ func (p *Plugin) Register(deps plugin.Deps) error {
 	p.bot = deps.Bot
 	p.bot.HandleFunc("cat", false, p.handle)
 	p.bot.HandleFunc("catfact", false, p.handle)
+	p.bot.Help(bot.Topic{
+		Name:    "catfact",
+		Summary: "a fact about cats",
+		Lines: []string{
+			"Type " + p.bot.Prefix() + "catfact (or " + p.bot.Prefix() +
+				"cat) and I will tell you something about cats.",
+		},
+	})
 	return nil
 }
 

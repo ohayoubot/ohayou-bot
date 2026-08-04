@@ -50,7 +50,6 @@ func New(b *bot.Bot, st store.Store, fortunes []string, log *slog.Logger) (*Game
 }
 
 func (g *Game) Register() {
-	g.bot.HandleFunc("help", false, g.cmdHelp)
 	g.bot.HandleFunc("ohayou", false, g.cmdOhayou)
 	g.bot.HandleFunc("buy", false, g.cmdBuy)
 	g.bot.HandleFunc("equip", false, g.cmdEquip)
@@ -69,6 +68,7 @@ func (g *Game) Register() {
 	g.bot.HandleFunc("register", false, g.cmdRegister)
 	g.bot.HandleFunc("identify", false, g.cmdIdentify)
 	g.bot.HandleFunc("quarry", false, g.cmdQuarry)
+	g.bot.Help(helpTopics(g.p())...)
 }
 
 // Start resets state and starts the events.
