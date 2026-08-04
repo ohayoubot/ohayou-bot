@@ -5,17 +5,12 @@ import (
 	"time"
 )
 
-// pumpOil. wells is how many oil wells the user owns (multiplies).
+// pumpingTime is how long an oil well run takes.
+const pumpingTime = 6 * time.Hour
+
+// pumpOil pays out a finished well run. wells is how many the user owned when
+// it started.
 func (g *Plugin) pumpOil(username string, wells int) {
-	g.setStatus(username, "pumping", true)
-	defer g.setStatus(username, "pumping", false)
-
-	select {
-	case <-time.After(6 * time.Hour):
-	case <-g.baseCtx.Done():
-		return
-	}
-
 	amt := randNum(1, 9) * wells
 	if wells > 1 {
 		g.say(username, fmt.Sprintf("Your oil wells pumped %d barrels of crude oil.", amt))

@@ -55,6 +55,21 @@ func (m *memStore) DueTasks(ctx context.Context, at time.Time) ([]store.Task, er
 	return out, nil
 }
 
+func (m *memStore) PluginTasks(ctx context.Context, plugin string) ([]store.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.err != nil {
+		return nil, m.err
+	}
+	var out []store.Task
+	for _, t := range m.tasks {
+		if t.Plugin == plugin {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
 func (m *memStore) len() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

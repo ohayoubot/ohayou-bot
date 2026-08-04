@@ -14,6 +14,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
+	"github.com/ohayoubot/ohayou-bot/internal/task"
 )
 
 //go:embed schema.sql
@@ -25,6 +26,9 @@ type Plugin struct {
 	db    store.Store
 	log   *slog.Logger
 	est   *time.Location
+
+	tasks *task.Queue
+	kv    *store.KV
 
 	cfg      Config
 	items    []store.Item
@@ -63,8 +67,14 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 	if !ok {
 		return fmt.Errorf("the store does not carry the ohayou tables")
 	}
+	if deps.Tasks == nil {
+		return fmt.Errorf("the game needs somewhere to queue its activities")
+	}
 
 	g.bot, g.log, g.db, g.store, g.est = deps.Bot, deps.Log, deps.Store, st, est
+	g.tasks, g.kv = deps.Tasks, deps.KV
+	g.registerTasks(g.tasks)
+	g.registerDoubleOhayou(g.tasks)
 
 	g.bot.HandleFunc("ohayou", false, g.cmdOhayou)
 	g.bot.HandleFunc("buy", false, g.cmdBuy)
@@ -105,12 +115,15 @@ func (g *Plugin) Start(ctx context.Context) error {
 	}
 
 	g.baseCtx = ctx
-	if err := g.store.ResetAllStatus(ctx); err != nil {
-		g.log.Error("reset status", "err", err)
+	if err := g.reconcileRuns(ctx); err != nil {
+		g.log.Error("reconciling activities", "err", err)
 	}
+	if err := g.resumeDoubleOhayou(ctx); err != nil {
+		g.log.Error("resuming the distributor", "err", err)
+	}
+
 	g.log.Info("events started")
 	g.bot.Go(func() { g.catEvent(ctx) })
-	g.bot.Go(func() { g.doubleOhayouEvent(ctx) })
 	return nil
 }
 

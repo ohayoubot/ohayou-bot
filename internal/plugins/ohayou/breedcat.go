@@ -10,20 +10,14 @@ import (
 // that buying does.
 const catsPerAcre = 20
 
-// breedCat runs the multi-hour cat breeding activity for a user. cattery is the
-// number of catteries the user owns (the litter multiplier).
+// breedingTime is how long a litter takes: 2 to 4 hours.
+func breedingTime() time.Duration {
+	return time.Duration(randNum(7200, 14400)) * time.Second
+}
+
+// breedCat settles a finished breeding run. cattery is how many the user owned
+// when it started, as the litter multiplier.
 func (g *Plugin) breedCat(username string, cattery int) {
-	g.setStatus(username, "breeding", true)
-	defer g.setStatus(username, "breeding", false)
-
-	// 2 - 4 hours
-	delay := time.Duration(randNum(7200, 14400)) * time.Second
-	select {
-	case <-time.After(delay):
-	case <-g.baseCtx.Done():
-		return
-	}
-
 	// reload so the cap and the dog roll below use the latest counts
 	user, err := g.store.GetUser(g.ctx(), username)
 	if err != nil {

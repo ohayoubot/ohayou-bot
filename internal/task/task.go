@@ -203,6 +203,12 @@ func (q *Queue) After(ctx context.Context, kind, key string, d time.Duration, pa
 	})
 }
 
+// Pending is everything the plugin has queued, due or not, for reconciling its
+// own state at startup against what is still outstanding.
+func (q *Queue) Pending(ctx context.Context) ([]store.Task, error) {
+	return q.runner.store.PluginTasks(ctx, q.plugin)
+}
+
 // Cancel drops queued work, and is not an error when there was none.
 func (q *Queue) Cancel(ctx context.Context, kind, key string) error {
 	return q.runner.store.DeleteTask(ctx, q.plugin, kind, key)
