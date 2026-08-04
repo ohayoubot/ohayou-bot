@@ -4,6 +4,7 @@ package ohayou
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -15,9 +16,13 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
+//go:embed schema.sql
+var schema string
+
 type Plugin struct {
 	bot   *bot.Bot
-	store store.Store
+	store Store
+	db    store.Store
 	log   *slog.Logger
 	est   *time.Location
 
@@ -47,13 +52,19 @@ func New() *Plugin {
 func (g *Plugin) Name() string { return "ohayou" }
 
 func (g *Plugin) Register(deps plugin.Deps) error {
-	g.bot, g.store, g.log = deps.Bot, deps.Store, deps.Log
-
 	est, err := time.LoadLocation(g.cfg.Timezone)
 	if err != nil {
 		return fmt.Errorf("load timezone %q: %w", g.cfg.Timezone, err)
 	}
-	g.est = est
+
+	// The bot-wide store interface is deliberately narrow, so the game asks
+	// whether what it was handed knows its domain rather than assuming.
+	st, ok := deps.Store.(Store)
+	if !ok {
+		return fmt.Errorf("the store does not carry the ohayou tables")
+	}
+
+	g.bot, g.log, g.db, g.store, g.est = deps.Bot, deps.Log, deps.Store, st, est
 
 	g.bot.HandleFunc("ohayou", false, g.cmdOhayou)
 	g.bot.HandleFunc("buy", false, g.cmdBuy)
@@ -81,6 +92,10 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 
 // Start syncs the item catalog, resets state and starts the events.
 func (g *Plugin) Start(ctx context.Context) error {
+	if err := g.db.Migrate(ctx, g.Name(), schema); err != nil {
+		return err
+	}
+
 	// Inserts new items and updates prices and other fields on existing ones,
 	// so editing items.json and restarting is enough to change the catalog.
 	if n, err := g.store.SeedItems(ctx, g.items); err != nil {

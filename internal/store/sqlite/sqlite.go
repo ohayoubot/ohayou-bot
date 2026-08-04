@@ -52,6 +52,16 @@ func (d *DB) Init(ctx context.Context) error {
 
 func (d *DB) Close() error { return d.db.Close() }
 
+// Migrate applies a plugin's own schema. The SQL uses IF NOT EXISTS throughout,
+// so a plugin installing its tables on every start costs nothing after the
+// first.
+func (d *DB) Migrate(ctx context.Context, name, schema string) error {
+	if _, err := d.db.ExecContext(ctx, schema); err != nil {
+		return fmt.Errorf("sqlite schema for %s: %w", name, err)
+	}
+	return nil
+}
+
 func (d *DB) GetKV(ctx context.Context, key string) (string, error) {
 	var value string
 	err := d.db.QueryRowContext(ctx, `SELECT value FROM kv WHERE key=?`, key).Scan(&value)

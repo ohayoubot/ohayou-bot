@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -18,6 +19,15 @@ func newTestDB(t *testing.T) *DB {
 	t.Cleanup(func() { db.Close() })
 	if err := db.Init(context.Background()); err != nil {
 		t.Fatalf("init: %v", err)
+	}
+	// The game's tables are the game's to install, but its queries are still
+	// implemented here, so the tests for them need it applied.
+	schema, err := os.ReadFile("../../plugins/ohayou/schema.sql")
+	if err != nil {
+		t.Fatalf("read the ohayou schema: %v", err)
+	}
+	if err := db.Migrate(context.Background(), "ohayou", string(schema)); err != nil {
+		t.Fatalf("migrate: %v", err)
 	}
 	return db
 }
@@ -671,5 +681,59 @@ func TestDeleteTask(t *testing.T) {
 	}
 	if err := db.DeleteTask(ctx, "ohayou", "mine", "alice"); err != nil {
 		t.Errorf("deleting nothing was an error: %v", err)
+	}
+}
+
+// A bot running without the ohayou game must not carry its tables: that is the
+// point of the plugin owning its own schema.
+func TestInitCreatesOnlyTheBotsTables(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Init(context.Background()); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	rows, err := db.db.QueryContext(context.Background(),
+		`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+
+	tables := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		tables[name] = true
+	}
+
+	for _, want := range []string{"kv", "tasks"} {
+		if !tables[want] {
+			t.Errorf("table %q is missing", want)
+		}
+	}
+	for _, unwanted := range []string{"users", "items", "user_items", "user_metals"} {
+		if tables[unwanted] {
+			t.Errorf("table %q was created without the game asking for it", unwanted)
+		}
+	}
+}
+
+// Applying a plugin's schema twice is what every restart does.
+func TestMigrateIsIdempotent(t *testing.T) {
+	db := newTestDB(t)
+	schema, err := os.ReadFile("../../plugins/ohayou/schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := db.Migrate(context.Background(), "ohayou", string(schema)); err != nil {
+			t.Fatalf("migrate %d: %v", i, err)
+		}
 	}
 }
