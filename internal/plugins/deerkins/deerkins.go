@@ -19,6 +19,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
+	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
 const (
@@ -28,12 +29,16 @@ const (
 	countTTL    = 5 * time.Minute
 	// chatterWait spaces out the replies that aren't art, per asker.
 	chatterWait = 15 * time.Second
+	// cooldownKey is where the per-channel deer timeouts are kept, so a restart
+	// is not a way to skip one.
+	cooldownKey = "cooldowns"
 )
 
 type Plugin struct {
 	bot *bot.Bot
 	cfg Config
 	log *slog.Logger
+	kv  *store.KV
 	db  *gallery
 
 	banNicks    access.Set
@@ -74,7 +79,7 @@ func New() *Plugin { return &Plugin{roll: rand.IntN, last: map[string]sighting{}
 func (p *Plugin) Name() string { return "deerkins" }
 
 func (p *Plugin) Register(deps plugin.Deps) error {
-	p.bot, p.log = deps.Bot, deps.Log
+	p.bot, p.log, p.kv = deps.Bot, deps.Log, deps.KV
 	p.db = newGallery(d1.APIBase, p.cfg.AccountID, p.cfg.DatabaseID, p.cfg.APIToken, p.cfg.RequestTimeout())
 	p.banNicks = access.NewSet(p.cfg.IgnoreNicks)
 	p.banHosts = access.NewSet(p.cfg.IgnoreHosts)
@@ -105,6 +110,28 @@ func (p *Plugin) Register(deps plugin.Deps) error {
 	})
 	p.log.Info("enabled", "database", p.cfg.DatabaseID, "editor", p.cfg.Editor)
 	return nil
+}
+
+// Start restores the channel timeouts a previous run left behind.
+func (p *Plugin) Start(ctx context.Context) error {
+	switch raw, err := p.kv.Get(ctx, cooldownKey); {
+	case err == nil:
+		if err := p.used.Restore(raw); err != nil {
+			p.log.Warn("restoring cooldowns", "err", err)
+		}
+	case !errors.Is(err, store.ErrNotFound):
+		p.log.Warn("reading cooldowns", "err", err)
+	}
+	return nil
+}
+
+// Stop writes the channel timeouts down, so restarting is not a free deer.
+func (p *Plugin) Stop(ctx context.Context) error {
+	raw, err := p.used.Dump()
+	if err != nil {
+		return err
+	}
+	return p.kv.Set(ctx, cooldownKey, raw)
 }
 
 func (p *Plugin) cmdDeerme(m *bot.Message) {

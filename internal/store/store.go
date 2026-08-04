@@ -26,6 +26,7 @@ type Store interface {
 	// has never been set.
 	GetKV(ctx context.Context, key string) (string, error)
 	SetKV(ctx context.Context, key, value string) error
+	DeleteKV(ctx context.Context, key string) error
 
 	// Users.
 	GetUser(ctx context.Context, nick string) (*User, error)

@@ -21,6 +21,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
+	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
 
 // testDeps is what the registry would hand the plugin.
@@ -177,10 +178,21 @@ func newHarness(t *testing.T, cfg Config) *harness {
 	fake := &fakeD1{}
 	srv := fake.start(t)
 
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Init(context.Background()); err != nil {
+		t.Fatalf("init store: %v", err)
+	}
+
 	p := New()
 	p.cfg = cfg
 	p.roll = func(int) int { return 0 }
-	if err := p.Register(testDeps(b)); err != nil {
+	deps := testDeps(b)
+	deps.Store = db
+	if err := p.Register(deps.For("deerkins")); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	p.db = newGallery(srv.URL, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout())
@@ -728,5 +740,41 @@ func TestPrevDeerIsRateLimited(t *testing.T) {
 	}
 	if lines := h.collect(t); len(lines) != 1 {
 		t.Errorf("got %d replies for 5 !prevdeer, want 1: %q", len(lines), lines)
+	}
+}
+
+// A restart must not be a way to skip a channel's timeout.
+func TestCooldownSurvivesARestart(t *testing.T) {
+	cfg := testConfig(t)
+	h := newHarness(t, cfg)
+	h.d1.rows = []map[string]any{{"deer": "slime", "creator": "svaj", "kinskode": "A"}}
+
+	h.plugin.cmdDeerme(message("mallow", "#pank", "!deerme slime"))
+	h.collect(t)
+
+	ctx := context.Background()
+	if err := h.plugin.Stop(ctx); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+
+	// A second plugin over the same store stands in for the process restarting.
+	fresh := New()
+	fresh.cfg = cfg
+	fresh.used = ratelimit.New(cfg.Wait())
+	fresh.kv = h.plugin.kv
+	if err := fresh.Start(ctx); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	if wait := fresh.used.Until("#pank"); wait <= 0 {
+		t.Error("the channel was free to deer again straight after a restart")
+	}
+}
+
+// Nothing saved is not an error: the first run of a new plugin has no state.
+func TestStartWithNothingSaved(t *testing.T) {
+	h := newHarness(t, testConfig(t))
+	if err := h.plugin.Start(context.Background()); err != nil {
+		t.Errorf("Start with an empty store: %v", err)
 	}
 }

@@ -26,14 +26,20 @@ const whoisWait = 15 * time.Second
 const pollBatch = 20
 
 // cursorKey is where the last announced upload id is kept between restarts.
-const cursorKey = "drop.cursor"
+// The plugin's KV writes it under "drop.", so the row is the same one the
+// unscoped key wrote before.
+const cursorKey = "cursor"
+
+// cooldownKey is where the per-nick link cooldowns are kept, so a restart is
+// not a way to skip one.
+const cooldownKey = "cooldowns"
 
 type Plugin struct {
-	bot   *bot.Bot
-	cfg   Config
-	log   *slog.Logger
-	store store.Store
-	db    *queue
+	bot *bot.Bot
+	cfg Config
+	log *slog.Logger
+	kv  *store.KV
+	db  *queue
 
 	now func() time.Time
 
@@ -45,7 +51,7 @@ func New() *Plugin { return &Plugin{now: time.Now} }
 func (p *Plugin) Name() string { return "drop" }
 
 func (p *Plugin) Register(deps plugin.Deps) error {
-	p.bot, p.log, p.store = deps.Bot, deps.Log, deps.Store
+	p.bot, p.log, p.kv = deps.Bot, deps.Log, deps.KV
 	p.db = newQueue(d1.APIBase, p.cfg.AccountID, p.cfg.DatabaseID, p.cfg.APIToken, p.cfg.RequestTimeout())
 	p.minted = ratelimit.New(p.cfg.CooldownWait())
 	// Read through p.now so a test can wind the clock after construction.
@@ -70,8 +76,26 @@ func (p *Plugin) Register(deps plugin.Deps) error {
 // Start begins announcing uploads. The bot drains the poller on shutdown, so
 // the cursor's final write lands before the store is closed.
 func (p *Plugin) Start(ctx context.Context) error {
+	switch raw, err := p.kv.Get(ctx, cooldownKey); {
+	case err == nil:
+		if err := p.minted.Restore(raw); err != nil {
+			p.log.Warn("restoring cooldowns", "err", err)
+		}
+	case !errors.Is(err, store.ErrNotFound):
+		p.log.Warn("reading cooldowns", "err", err)
+	}
+
 	p.bot.Go(func() { p.poll(ctx) })
 	return nil
+}
+
+// Stop writes the cooldowns down, so restarting is not a free link.
+func (p *Plugin) Stop(ctx context.Context) error {
+	raw, err := p.minted.Dump()
+	if err != nil {
+		return err
+	}
+	return p.kv.Set(ctx, cooldownKey, raw)
 }
 
 func (p *Plugin) poll(ctx context.Context) {
@@ -109,7 +133,7 @@ func (p *Plugin) poll(ctx context.Context) {
 // A bot enabled against a database that already has uploads in it should say
 // nothing about them, not recite the lot.
 func (p *Plugin) startAt(ctx context.Context) (int64, error) {
-	saved, err := p.store.GetKV(ctx, cursorKey)
+	saved, err := p.kv.Get(ctx, cursorKey)
 	switch {
 	case err == nil:
 		return strconv.ParseInt(saved, 10, 64)
@@ -121,7 +145,7 @@ func (p *Plugin) startAt(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if err := p.store.SetKV(ctx, cursorKey, strconv.FormatInt(newest, 10)); err != nil {
+	if err := p.kv.Set(ctx, cursorKey, strconv.FormatInt(newest, 10)); err != nil {
 		return 0, err
 	}
 	return newest, nil
@@ -150,7 +174,7 @@ func (p *Plugin) announce(ctx context.Context, cursor int64) int64 {
 		// Saved per row rather than per batch: a crash mid-batch then repeats
 		// at most one line instead of the whole run.
 		cursor = row.ID
-		if err := p.store.SetKV(ctx, cursorKey, strconv.FormatInt(cursor, 10)); err != nil {
+		if err := p.kv.Set(ctx, cursorKey, strconv.FormatInt(cursor, 10)); err != nil {
 			p.log.Error("saving the upload cursor", "id", cursor, "err", err)
 		}
 	}
