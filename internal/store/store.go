@@ -28,6 +28,9 @@ type Store interface {
 	SetKV(ctx context.Context, key, value string) error
 	DeleteKV(ctx context.Context, key string) error
 
+	// Work a plugin wants done later, kept across restarts.
+	TaskStore
+
 	// Users.
 	GetUser(ctx context.Context, nick string) (*User, error)
 	CreateUser(ctx context.Context, nick string, ohayous int) error

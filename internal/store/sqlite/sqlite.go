@@ -76,6 +76,44 @@ func (d *DB) DeleteKV(ctx context.Context, key string) error {
 	return err
 }
 
+func (d *DB) SaveTask(ctx context.Context, t store.Task) error {
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO tasks (plugin,kind,key,due,interval,payload) VALUES (?,?,?,?,?,?)
+		 ON CONFLICT(plugin,kind,key) DO UPDATE SET
+		   due=excluded.due, interval=excluded.interval, payload=excluded.payload`,
+		t.Plugin, t.Kind, t.Key, t.Due.Unix(), int64(t.Interval/time.Second), t.Payload)
+	return err
+}
+
+func (d *DB) DeleteTask(ctx context.Context, plugin, kind, key string) error {
+	_, err := d.db.ExecContext(ctx,
+		`DELETE FROM tasks WHERE plugin=? AND kind=? AND key=?`, plugin, kind, key)
+	return err
+}
+
+func (d *DB) DueTasks(ctx context.Context, at time.Time) ([]store.Task, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT plugin,kind,key,due,interval,payload FROM tasks WHERE due<=? ORDER BY due`,
+		at.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []store.Task
+	for rows.Next() {
+		var t store.Task
+		var due, interval int64
+		if err := rows.Scan(&t.Plugin, &t.Kind, &t.Key, &due, &interval, &t.Payload); err != nil {
+			return nil, err
+		}
+		t.Due = time.Unix(due, 0)
+		t.Interval = time.Duration(interval) * time.Second
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 func unix(t time.Time) int64 {
 	if t.IsZero() {
 		return 0

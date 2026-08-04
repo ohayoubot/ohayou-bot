@@ -573,3 +573,103 @@ func TestKVSurvivesReopen(t *testing.T) {
 		t.Fatalf("GetKV after restart = %q, %v; want 99", got, err)
 	}
 }
+
+func TestTaskRoundTrip(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	task := store.Task{
+		Plugin: "ohayou", Kind: "mine", Key: "alice",
+		Due: now.Add(-time.Minute), Interval: 8 * time.Hour, Payload: "3",
+	}
+	if err := db.SaveTask(ctx, task); err != nil {
+		t.Fatalf("SaveTask: %v", err)
+	}
+
+	due, err := db.DueTasks(ctx, now)
+	if err != nil {
+		t.Fatalf("DueTasks: %v", err)
+	}
+	if len(due) != 1 {
+		t.Fatalf("%d due tasks, want 1", len(due))
+	}
+	got := due[0]
+	if got.Plugin != "ohayou" || got.Kind != "mine" || got.Key != "alice" || got.Payload != "3" {
+		t.Errorf("task = %+v", got)
+	}
+	if !got.Due.Equal(task.Due) {
+		t.Errorf("Due = %v, want %v", got.Due, task.Due)
+	}
+	if got.Interval != 8*time.Hour {
+		t.Errorf("Interval = %v, want 8h", got.Interval)
+	}
+}
+
+func TestSaveTaskReplacesTheSameKey(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	for _, payload := range []string{"first", "second"} {
+		err := db.SaveTask(ctx, store.Task{
+			Plugin: "ohayou", Kind: "mine", Key: "alice",
+			Due: now.Add(-time.Minute), Payload: payload,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	due, err := db.DueTasks(ctx, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(due) != 1 {
+		t.Fatalf("%d rows, want the second to replace the first", len(due))
+	}
+	if due[0].Payload != "second" {
+		t.Errorf("payload = %q, want the later one", due[0].Payload)
+	}
+}
+
+func TestDueTasksLeavesTheFutureAlone(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	if err := db.SaveTask(ctx, store.Task{
+		Plugin: "ohayou", Kind: "mine", Key: "alice", Due: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	due, err := db.DueTasks(ctx, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(due) != 0 {
+		t.Errorf("%d due tasks, want work an hour out left alone", len(due))
+	}
+}
+
+func TestDeleteTask(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	if err := db.SaveTask(ctx, store.Task{
+		Plugin: "ohayou", Kind: "mine", Key: "alice", Due: now.Add(-time.Minute),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.DeleteTask(ctx, "ohayou", "mine", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	due, _ := db.DueTasks(ctx, now)
+	if len(due) != 0 {
+		t.Error("the task survived a delete")
+	}
+	if err := db.DeleteTask(ctx, "ohayou", "mine", "alice"); err != nil {
+		t.Errorf("deleting nothing was an error: %v", err)
+	}
+}
