@@ -74,15 +74,9 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 	b := bot.New(cfg, log)
 
 	reg := plugin.NewRegistry(plugin.Deps{Bot: b, Store: db, Log: log})
-	reg.Add(catfact.New())
-	if cfg.Deerkins.Use() {
-		reg.Add(deerkins.New(cfg.Deerkins))
-	}
-	if cfg.YouTube.Use() {
-		reg.Add(youtube.New(cfg.YouTube))
-	}
-	if cfg.Drop.Use() {
-		reg.Add(drop.New(cfg.Drop))
+	reg.Add(plugins()...)
+	if err := reg.Configure(cfg); err != nil {
+		return err
 	}
 	if err := reg.Register(); err != nil {
 		return err
@@ -105,4 +99,15 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 	err = b.Run(ctx)
 	b.Wait()
 	return err
+}
+
+// plugins is everything the bot can be asked to do, in the order they register.
+// Which of them come up is the config's business, not this list's.
+func plugins() []plugin.Plugin {
+	return []plugin.Plugin{
+		catfact.New(),
+		deerkins.New(),
+		youtube.New(),
+		drop.New(),
+	}
 }

@@ -9,8 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -88,26 +86,22 @@ func (f *fakeD1) statements() []string {
 	return out
 }
 
-// testConfig goes through config.Load so the tests run against the same
-// defaults a deployment gets.
-func testConfig(t *testing.T) config.DeerkinsConfig {
+// testConfig goes through Configure so the tests run against the same defaults
+// a deployment gets.
+func testConfig(t *testing.T) Config {
 	t.Helper()
-	t.Setenv("DEERKINS_API_TOKEN", "")
 
-	path := filepath.Join(t.TempDir(), "conf.json")
-	body := `{"nick":"ohayoubot","server":"127.0.0.1","deerkins":{
-		"accountId":"account","databaseId":"database","apiToken":"token"}}`
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-	cfg, err := config.Load(path)
+	p := New()
+	on, err := p.Configure(plugin.Config{Cloudflare: config.Cloudflare{
+		AccountID: "account", DatabaseID: "database", APIToken: "token",
+	}})
 	if err != nil {
-		t.Fatalf("load config: %v", err)
+		t.Fatalf("configure: %v", err)
 	}
-	if !cfg.Deerkins.Use() {
+	if !on {
 		t.Fatal("deerkins did not come up from a complete config")
 	}
-	return cfg.Deerkins
+	return p.cfg
 }
 
 // harness wires the plugin to a bot talking to a fake irc server and a fake D1,
@@ -118,7 +112,7 @@ type harness struct {
 	lines  chan string
 }
 
-func newHarness(t *testing.T, cfg config.DeerkinsConfig) *harness {
+func newHarness(t *testing.T, cfg Config) *harness {
 	t.Helper()
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -183,12 +177,13 @@ func newHarness(t *testing.T, cfg config.DeerkinsConfig) *harness {
 	fake := &fakeD1{}
 	srv := fake.start(t)
 
-	p := New(cfg)
-	p.db = newGallery(srv.URL, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout())
+	p := New()
+	p.cfg = cfg
 	p.roll = func(int) int { return 0 }
 	if err := p.Register(testDeps(b)); err != nil {
 		t.Fatalf("register: %v", err)
 	}
+	p.db = newGallery(srv.URL, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout())
 
 	return &harness{plugin: p, d1: fake, lines: lines}
 }
@@ -458,7 +453,7 @@ func TestDeermeIgnoresPrivateMessages(t *testing.T) {
 func TestPrivilegedNickDeersInPrivate(t *testing.T) {
 	cfg := testConfig(t)
 	zero := 0
-	cfg.Privileged = map[string]config.DeerkinsUser{
+	cfg.Privileged = map[string]User{
 		"mallow": {Host: "example.host", Timeout: &zero},
 	}
 	h := newHarness(t, cfg)
@@ -480,7 +475,7 @@ func TestPrivilegedNickDeersInPrivate(t *testing.T) {
 
 func TestPrivilegeNeedsTheRightHost(t *testing.T) {
 	cfg := testConfig(t)
-	cfg.Privileged = map[string]config.DeerkinsUser{"mallow": {Host: "the.real.host"}}
+	cfg.Privileged = map[string]User{"mallow": {Host: "the.real.host"}}
 	h := newHarness(t, cfg)
 
 	if _, ok := h.plugin.privilegedFor(message("mallow", "#pank", "!deerme")); ok {
@@ -494,7 +489,7 @@ func TestPrivilegeNeedsTheRightHost(t *testing.T) {
 	}
 
 	cfg.PrivilegedMatch = []string{"host"}
-	cfg.Privileged = map[string]config.DeerkinsUser{"someone": {Host: "example.host"}}
+	cfg.Privileged = map[string]User{"someone": {Host: "example.host"}}
 	h = newHarness(t, cfg)
 	if _, ok := h.plugin.privilegedFor(message("anynick", "#pank", "!deerme")); !ok {
 		t.Error("host-only matching did not apply")
@@ -666,7 +661,7 @@ func TestWaitMessageQuotesTheTimeoutThatApplied(t *testing.T) {
 	normal := cfg.Wait()
 	punished := time.Duration(float64(normal) * cfg.TimeoutPunish)
 
-	got := p.waitMessage(290*time.Second, normal, config.DeerkinsUser{}, false)
+	got := p.waitMessage(290*time.Second, normal, User{}, false)
 	for _, want := range []string{"every 300 seconds", "291 seconds from now"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("ordinary refusal = %q, want %q", got, want)
@@ -675,7 +670,7 @@ func TestWaitMessageQuotesTheTimeoutThatApplied(t *testing.T) {
 
 	// The punished timeout is the one that refused, so quoting the configured
 	// 300 would put a countdown longer than the wait it claims to explain.
-	got = p.waitMessage(499*time.Second, punished, config.DeerkinsUser{}, false)
+	got = p.waitMessage(499*time.Second, punished, User{}, false)
 	for _, want := range []string{"usual 300 seconds to 510", "500 seconds from now"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("punished refusal = %q, want %q", got, want)
@@ -683,7 +678,7 @@ func TestWaitMessageQuotesTheTimeoutThatApplied(t *testing.T) {
 	}
 
 	higher := 600
-	got = p.waitMessage(500*time.Second, 600*time.Second, config.DeerkinsUser{Timeout: &higher}, true)
+	got = p.waitMessage(500*time.Second, 600*time.Second, User{Timeout: &higher}, true)
 	for _, want := range []string{"+300 seconds", "501 seconds from now"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("privileged punishment = %q, want %q", got, want)

@@ -14,13 +14,12 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/access"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
-	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
 
 type Plugin struct {
 	bot *bot.Bot
-	cfg config.YouTubeConfig
+	cfg Config
 	log *slog.Logger
 	api *client
 
@@ -32,25 +31,20 @@ type Plugin struct {
 	said  *ratelimit.Limiter // when a video was last named in a target
 }
 
-func New(cfg config.YouTubeConfig) *Plugin {
-	p := &Plugin{
-		cfg:         cfg,
-		api:         newClient(oembedBase, cfg.RequestTimeout()),
-		banChannels: access.NewSet(cfg.IgnoreChannels),
-		now:         time.Now,
-		spoke:       ratelimit.New(cfg.CooldownWait()),
-		said:        ratelimit.New(cfg.RepeatWait()),
-	}
-	// Read through p.now so a test can wind the clock after construction.
-	clock := func() time.Time { return p.now() }
-	p.spoke.Now, p.said.Now = clock, clock
-	return p
-}
+func New() *Plugin { return &Plugin{now: time.Now} }
 
 func (p *Plugin) Name() string { return "youtube" }
 
 func (p *Plugin) Register(deps plugin.Deps) error {
 	p.bot, p.log = deps.Bot, deps.Log
+	p.api = newClient(oembedBase, p.cfg.RequestTimeout())
+	p.banChannels = access.NewSet(p.cfg.IgnoreChannels)
+	p.spoke = ratelimit.New(p.cfg.CooldownWait())
+	p.said = ratelimit.New(p.cfg.RepeatWait())
+	// Read through p.now so a test can wind the clock after construction.
+	clock := func() time.Time { return p.now() }
+	p.spoke.Now, p.said.Now = clock, clock
+
 	p.bot.Watch(p.onLine)
 	p.log.Info("enabled", "cooldown", p.cfg.CooldownWait())
 	return nil

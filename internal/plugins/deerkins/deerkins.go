@@ -17,7 +17,6 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/access"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
-	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
@@ -33,7 +32,7 @@ const (
 
 type Plugin struct {
 	bot *bot.Bot
-	cfg config.DeerkinsConfig
+	cfg Config
 	log *slog.Logger
 	db  *gallery
 
@@ -70,26 +69,21 @@ type sighting struct {
 	seen    bool
 }
 
-func New(cfg config.DeerkinsConfig) *Plugin {
-	return &Plugin{
-		cfg:         cfg,
-		db:          newGallery(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
-		banNicks:    access.NewSet(cfg.IgnoreNicks),
-		banHosts:    access.NewSet(cfg.IgnoreHosts),
-		banChannels: access.NewSet(cfg.IgnoreChannels),
-		rule:        access.Rule{ByNick: cfg.MatchNick(), ByHost: cfg.MatchHost()},
-		hosts:       privilegedHosts(cfg.Privileged),
-		roll:        rand.IntN,
-		used:        ratelimit.New(cfg.Wait()),
-		spoke:       ratelimit.New(chatterWait),
-		last:        map[string]sighting{},
-	}
-}
+func New() *Plugin { return &Plugin{roll: rand.IntN, last: map[string]sighting{}} }
 
 func (p *Plugin) Name() string { return "deerkins" }
 
 func (p *Plugin) Register(deps plugin.Deps) error {
 	p.bot, p.log = deps.Bot, deps.Log
+	p.db = newGallery(d1.APIBase, p.cfg.AccountID, p.cfg.DatabaseID, p.cfg.APIToken, p.cfg.RequestTimeout())
+	p.banNicks = access.NewSet(p.cfg.IgnoreNicks)
+	p.banHosts = access.NewSet(p.cfg.IgnoreHosts)
+	p.banChannels = access.NewSet(p.cfg.IgnoreChannels)
+	p.rule = access.Rule{ByNick: p.cfg.MatchNick(), ByHost: p.cfg.MatchHost()}
+	p.hosts = privilegedHosts(p.cfg.Privileged)
+	p.used = ratelimit.New(p.cfg.Wait())
+	p.spoke = ratelimit.New(chatterWait)
+
 	p.bot.HandleFunc("deerme", false, p.cmdDeerme)
 	p.bot.HandleFunc("prevdeer", false, p.cmdPrevDeer)
 	p.log.Info("enabled", "database", p.cfg.DatabaseID, "editor", p.cfg.Editor)
@@ -220,7 +214,7 @@ func (p *Plugin) fetch(ctx context.Context, name string) (*row, error) {
 
 // claim takes the target's deer slot. When it is still warm it returns how long
 // is left and the timeout that decided it, which is what the refusal quotes.
-func (p *Plugin) claim(target, nick, name string, mods []byte, user config.DeerkinsUser, privileged bool) (wait, timeout time.Duration, ok bool) {
+func (p *Plugin) claim(target, nick, name string, mods []byte, user User, privileged bool) (wait, timeout time.Duration, ok bool) {
 	p.mu.Lock()
 	timeout = p.timeoutFor(target, nick, name, mods)
 	p.mu.Unlock()
@@ -266,7 +260,7 @@ func (p *Plugin) remember(target string, s sighting) {
 // waitMessage explains a refusal. timeout is the one claim actually applied,
 // which is not always the configured one: a privileged nick has its own, and a
 // repeated nick or deer is punished with a longer one.
-func (p *Plugin) waitMessage(wait, timeout time.Duration, user config.DeerkinsUser, privileged bool) string {
+func (p *Plugin) waitMessage(wait, timeout time.Duration, user User, privileged bool) string {
 	seconds := int(wait.Seconds()) + 1
 	normal := p.cfg.Timeout
 	if privileged && user.Timeout != nil {
@@ -363,20 +357,20 @@ func (p *Plugin) bannedBy(m *bot.Message) string {
 // privilegedFor matches the sender against the privileged list on whichever of
 // nick and host the config asks for. Listing both (the default) means both must
 // match, the same bar the bot's admin commands use.
-func (p *Plugin) privilegedFor(m *bot.Message) (config.DeerkinsUser, bool) {
+func (p *Plugin) privilegedFor(m *bot.Message) (User, bool) {
 	who := p.rule.Find(p.hosts, m.Nick, m.Host)
 	if !who.OK {
 		if who.Listed {
 			p.log.Warn("privileged deer denied: host mismatch",
 				"nick", m.Nick, "gotHost", m.Host, "wantHost", who.WantHost)
 		}
-		return config.DeerkinsUser{}, false
+		return User{}, false
 	}
 	return p.cfg.Privileged[who.Key], true
 }
 
 // privilegedHosts is the privileged list keyed the way access.Find reads it.
-func privilegedHosts(users map[string]config.DeerkinsUser) map[string]string {
+func privilegedHosts(users map[string]User) map[string]string {
 	hosts := make(map[string]string, len(users))
 	for nick, user := range users {
 		hosts[strings.ToLower(nick)] = user.Host

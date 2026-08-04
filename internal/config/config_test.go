@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -162,353 +161,66 @@ func TestLoadSASL(t *testing.T) {
 	})
 }
 
-func TestLoadDeerkins(t *testing.T) {
-	const configured = `{
-		"nick": "ohayoubot", "server": "irc.example.net",
-		"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"}
-	}`
-
-	t.Run("off unless configured", func(t *testing.T) {
-		t.Setenv("DEERKINS_API_TOKEN", "")
-		cfg, err := Load(writeConfig(t, `{"nick": "ohayoubot", "server": "irc.example.net"}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Deerkins.Use() {
-			t.Error("deerkins came up without a database")
-		}
-	})
-
-	t.Run("defaults", func(t *testing.T) {
-		t.Setenv("DEERKINS_API_TOKEN", "")
-		cfg, err := Load(writeConfig(t, configured))
-		if err != nil {
-			t.Fatal(err)
-		}
-		d := cfg.Deerkins
-		if !d.Use() {
-			t.Fatal("deerkins did not come up from a complete config")
-		}
-		if d.Wait() != 300*time.Second {
-			t.Errorf("Wait = %v, want 5m", d.Wait())
-		}
-		if d.MissWait() != 15*time.Second {
-			t.Errorf("MissWait = %v, want 15s", d.MissWait())
-		}
-		if d.RequestTimeout() != 10*time.Second {
-			t.Errorf("RequestTimeout = %v, want 10s", d.RequestTimeout())
-		}
-		if d.TimeoutPunish != 1.7 || d.MaxLines != 30 || d.Editor == "" {
-			t.Errorf("defaults not applied: %+v", d)
-		}
-		if !d.MatchNick() || !d.MatchHost() {
-			t.Error("privileged nicks should have to match on both nick and host by default")
-		}
-	})
-
-	t.Run("token comes from the environment", func(t *testing.T) {
-		t.Setenv("DEERKINS_API_TOKEN", "from-env")
-		cfg, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db"}
-		}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !cfg.Deerkins.Use() || cfg.Deerkins.APIToken != "from-env" {
-			t.Errorf("APIToken = %q, want the environment's", cfg.Deerkins.APIToken)
-		}
-	})
-
-	t.Run("half a config is an error", func(t *testing.T) {
-		t.Setenv("DEERKINS_API_TOKEN", "")
-		_, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"enabled": true, "accountId": "acct"}
-		}`))
-		if err == nil {
-			t.Fatal("expected an error for a database that can't be reached")
-		}
-	})
-
-	t.Run("enabled false wins", func(t *testing.T) {
-		t.Setenv("DEERKINS_API_TOKEN", "")
-		cfg, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"enabled": false, "accountId": "acct", "databaseId": "db", "apiToken": "t"}
-		}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Deerkins.Use() {
-			t.Error("deerkins ignored enabled:false")
-		}
-	})
-
-	t.Run("privileged nicks are lower-cased", func(t *testing.T) {
-		t.Setenv("DEERKINS_API_TOKEN", "")
-		cfg, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "t",
-				"privileged": {"SvaJ": {"host": "wizard.of.the.night", "timeout": -10}}}
-		}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		user, ok := cfg.Deerkins.Privileged["svaj"]
-		if !ok {
-			t.Fatalf("privileged key not lower-cased: %v", cfg.Deerkins.Privileged)
-		}
-		if user.Timeout == nil || *user.Timeout != -10 {
-			t.Errorf("Timeout = %v, want -10", user.Timeout)
-		}
-	})
-}
-
-func TestLoadDrop(t *testing.T) {
-	const configured = `{
-		"nick": "ohayoubot", "server": "irc.example.net",
-		"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-		"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
-	}`
-
-	clearEnv := func(t *testing.T) {
-		t.Helper()
-		t.Setenv("DEERKINS_API_TOKEN", "")
-		t.Setenv("OHAYOU_DROP_SECRET", "")
-		t.Setenv("OHAYOU_DROP_TOKEN", "")
-	}
-
-	t.Run("off without a secret", func(t *testing.T) {
-		clearEnv(t)
-		cfg, err := Load(writeConfig(t, configured))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Drop.Use() {
-			t.Error("drop came up with no signing secret")
-		}
-	})
-
-	t.Run("off without a url", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		cfg, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"}
-		}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Drop.Use() {
-			t.Error("drop came up with nowhere to send anyone")
-		}
-	})
-
-	t.Run("defaults", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		cfg, err := Load(writeConfig(t, configured))
-		if err != nil {
-			t.Fatal(err)
-		}
-		d := cfg.Drop
-		if !d.Use() {
-			t.Fatal("drop did not come up from a complete config")
-		}
-		if d.GrantWait() != 300*time.Second {
-			t.Errorf("GrantWait = %v, want 5m", d.GrantWait())
-		}
-		if d.PollWait() != 10*time.Second {
-			t.Errorf("PollWait = %v, want 10s", d.PollWait())
-		}
-		if d.CooldownWait() != 60*time.Second {
-			t.Errorf("CooldownWait = %v, want 1m", d.CooldownWait())
-		}
-		if d.RequestTimeout() != 10*time.Second {
-			t.Errorf("RequestTimeout = %v, want 10s", d.RequestTimeout())
-		}
-	})
-
-	t.Run("database borrowed from deerkins", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		cfg, err := Load(writeConfig(t, configured))
-		if err != nil {
-			t.Fatal(err)
-		}
-		d := cfg.Drop
-		if d.AccountID != "acct" || d.DatabaseID != "db" || d.APIToken != "token" {
-			t.Errorf("did not inherit the deerkins database: %+v", d)
-		}
-	})
-
-	t.Run("its own database wins", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		cfg, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "databaseId": "other", "apiToken": "own"}
-		}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Drop.DatabaseID != "other" || cfg.Drop.APIToken != "own" {
-			t.Errorf("drop should keep its own database: %+v", cfg.Drop)
-		}
-		if cfg.Drop.AccountID != "acct" {
-			t.Errorf("AccountID = %q, want the inherited one", cfg.Drop.AccountID)
-		}
-	})
-
-	t.Run("the secret is never read from the config file", func(t *testing.T) {
-		clearEnv(t)
-		cfg, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "secret": "committed-by-mistake"}
-		}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Drop.Secret != "" {
-			t.Errorf("Secret = %q, want it ignored in json", cfg.Drop.Secret)
-		}
-	})
-
-	t.Run("token comes from the environment", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		t.Setenv("OHAYOU_DROP_TOKEN", "from-env")
-		cfg, err := Load(writeConfig(t, configured))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Drop.APIToken != "from-env" {
-			t.Errorf("APIToken = %q, want the environment's", cfg.Drop.APIToken)
-		}
-	})
-
-	t.Run("enabled without a secret is an error", func(t *testing.T) {
-		clearEnv(t)
-		_, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"enabled": true, "url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
-		}`))
-		if err == nil {
-			t.Fatal("expected an error for a drop plugin that cannot sign")
-		}
-	})
-
-	t.Run("enabled false wins", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		cfg, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"enabled": false, "url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
-		}`))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cfg.Drop.Use() {
-			t.Error("enabled false should keep drop off")
-		}
-	})
-
-	t.Run("a grant that outlives what the worker accepts is an error", func(t *testing.T) {
-		for _, ttl := range []int{20, 901} {
-			clearEnv(t)
-			t.Setenv("OHAYOU_DROP_SECRET", "s")
-			_, err := Load(writeConfig(t, `{
-				"nick": "ohayoubot", "server": "irc.example.net",
-				"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-				"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "grantTtl": `+strconv.Itoa(ttl)+`}
-			}`))
-			if err == nil {
-				t.Errorf("grantTtl %d was accepted", ttl)
-			}
-		}
-	})
-
-	t.Run("polling too fast is an error", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		_, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day", "poll": 1}
-		}`))
-		if err == nil {
-			t.Fatal("expected an error for a 1 second poll")
-		}
-	})
-
-	t.Run("no database anywhere is an error, not silence", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		_, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"drop": {"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}
-		}`))
-		if err == nil {
-			t.Fatal("expected an error for a drop plugin with no database to read")
-		}
-	})
-
-	t.Run("no image host is an error", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("OHAYOU_DROP_SECRET", "s")
-		_, err := Load(writeConfig(t, `{
-			"nick": "ohayoubot", "server": "irc.example.net",
-			"deerkins": {"accountId": "acct", "databaseId": "db", "apiToken": "token"},
-			"drop": {"url": "https://hemera.day/drop/"}
-		}`))
-		if err == nil {
-			t.Fatal("expected an error: without imageBase every announced link is dead")
-		}
-	})
-
-	t.Run("the link puts the grant in the fragment", func(t *testing.T) {
-		d := DropConfig{URL: "https://hemera.day/drop/"}
-		if got := d.Link("v1.a.b"); got != "https://hemera.day/drop/#v1.a.b" {
-			t.Errorf("Link = %q", got)
-		}
-		d.URL = "https://hemera.day/drop/#"
-		if got := d.Link("v1.a.b"); got != "https://hemera.day/drop/#v1.a.b" {
-			t.Errorf("Link with a trailing hash = %q", got)
-		}
-	})
-
-	t.Run("the image url joins base and key once", func(t *testing.T) {
-		for _, base := range []string{"https://img.hemera.day", "https://img.hemera.day/"} {
-			d := DropConfig{ImageBase: base}
-			if got := d.Image("abc.png"); got != "https://img.hemera.day/abc.png" {
-				t.Errorf("Image(%q) = %q", base, got)
-			}
-		}
-	})
-}
-
 // conf-example.json is what an operator copies, so it has to load.
 func TestExampleConfigLoads(t *testing.T) {
-	t.Setenv("DEERKINS_API_TOKEN", "")
-	t.Setenv("OHAYOU_DROP_SECRET", "")
-	t.Setenv("OHAYOU_DROP_TOKEN", "")
+	t.Setenv("OHAYOU_CF_API_TOKEN", "")
 
 	cfg, err := Load("../../conf-example.json")
 	if err != nil {
 		t.Fatalf("conf-example.json does not load: %v", err)
 	}
-
-	// Both plugins ship off: the example has no credentials in it.
-	if cfg.Deerkins.Use() {
-		t.Error("the example config turns deerkins on")
+	if len(cfg.Plugins) == 0 {
+		t.Error("the example config names no plugins")
 	}
-	if cfg.Drop.Use() {
-		t.Error("the example config turns drop on")
+	// The example ships no credentials, so the plugins needing them stay off.
+	if cfg.Cloudflare.APIToken != "" {
+		t.Error("the example config carries a cloudflare token")
+	}
+}
+
+func TestPluginBlocksAreLeftUnparsed(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"plugins": {"whatever": {"anything": [1, 2, 3]}}
+	}`))
+	if err != nil {
+		t.Fatalf("a block the bot knows nothing about was rejected: %v", err)
+	}
+	if got := string(cfg.Plugins["whatever"]); !strings.Contains(got, "anything") {
+		t.Errorf("block = %q, want it handed over whole", got)
+	}
+}
+
+func TestCloudflareTokenComesFromTheEnvironment(t *testing.T) {
+	t.Setenv("OHAYOU_CF_API_TOKEN", "from-env")
+
+	cfg, err := Load(writeConfig(t, `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"cloudflare": {"accountId": "acct", "databaseId": "db", "apiToken": "on-disk"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Cloudflare.APIToken != "from-env" {
+		t.Errorf("APIToken = %q, want the environment to win", cfg.Cloudflare.APIToken)
+	}
+}
+
+func TestOn(t *testing.T) {
+	yes, no := true, false
+	for _, tc := range []struct {
+		flag      *bool
+		byDefault bool
+		want      bool
+	}{
+		{nil, true, true},
+		{nil, false, false},
+		{&yes, false, true},
+		{&no, true, false},
+	} {
+		if got := On(tc.flag, tc.byDefault); got != tc.want {
+			t.Errorf("On(%v, %v) = %v, want %v", tc.flag, tc.byDefault, got, tc.want)
+		}
 	}
 }
 

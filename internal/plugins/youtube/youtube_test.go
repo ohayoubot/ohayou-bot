@@ -96,18 +96,18 @@ func newHarness(t *testing.T) *harness {
 		t.Fatal("the bot never registered with the fake server")
 	}
 
-	h.plugin = New(config.YouTubeConfig{
-		MaxLinks:         2,
-		Cooldown:         10,
-		Repeat:           600,
-		RequestTimeoutMS: 2000,
-		IgnoreChannels:   []string{"#quiet"},
-	})
-	h.plugin.api = newClient(oembed.URL, 2*time.Second)
+	h.plugin = New()
 	h.plugin.now = h.now
+	if _, err := h.plugin.Configure(plugin.Config{Block: json.RawMessage(`{
+		"requestTimeout": 2000,
+		"ignoreChannels": ["#quiet"]
+	}`)}); err != nil {
+		t.Fatalf("configure: %v", err)
+	}
 	if err := h.plugin.Register(testDeps(b)); err != nil {
 		t.Fatalf("register: %v", err)
 	}
+	h.plugin.api = newClient(oembed.URL, 2*time.Second)
 
 	return h
 }

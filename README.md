@@ -26,13 +26,18 @@
      between outbound messages
    - `admins` - map of `nick` -> `host` allowed to run admin commands
    - `database` - path to the sqlite file (default `ohayoubot.db`)
-   - `deerkins` - the pixel art gallery. Off unless `accountId`, `databaseId`
-     and a token are all present. See [Deerkins](#deerkins).
-   - `drop` - image uploads. Off unless `OHAYOU_DROP_SECRET` is set and `url`
-     is filled in. See [Drop](#drop).
-   - `youtube` - names the videos linked in a channel. Needs no credentials, so
-     it is **on** unless you set `"enabled": false`. See
-     [YouTube previews](#youtube-previews).
+   - `cloudflare` - `accountId`, `databaseId` and `apiToken` for the D1 database
+     the plugins that need one share. A plugin may override any of these in its
+     own block once it wants a database of its own.
+   - `plugins` - one block per plugin, keyed by its name. A block for a plugin
+     that does not exist is an error at startup rather than silence later.
+     - `deerkins` - the pixel art gallery. Off unless it has a database to read.
+       See [Deerkins](#deerkins).
+     - `drop` - image uploads. Off unless `OHAYOU_DROP_SECRET` is set and `url`
+       is filled in. See [Drop](#drop).
+     - `youtube` - names the videos linked in a channel. Needs no credentials,
+       so it is **on** unless you set `"enabled": false`. See
+       [YouTube previews](#youtube-previews).
 2. Build and run:
    ```sh
    go build ./cmd/ohayoubot
@@ -67,7 +72,8 @@ the rest.
 
 ### Access
 
-The bot talks to the D1 HTTP API, so it needs three things:
+The bot talks to the D1 HTTP API, so it needs three things, which go in the
+top-level `cloudflare` block that drop reads too:
 
 - `accountId` - Cloudflare account id, on the right of the dashboard overview.
 - `databaseId` - from `npx wrangler d1 info deerkins`, or the `database_id`
@@ -77,19 +83,19 @@ The bot talks to the D1 HTTP API, so it needs three things:
   one account. `Read` is enough because the bot only runs `SELECT`s; a token
   that cannot write cannot deface the gallery if the bot is ever compromised.
 
-Keep the token out of the config file by exporting `DEERKINS_API_TOKEN`, which
-overrides `apiToken`. Under systemd that means an `EnvironmentFile`:
+Keep the token out of the config file by exporting `OHAYOU_CF_API_TOKEN`, which
+overrides `cloudflare.apiToken`. Under systemd that means an `EnvironmentFile`:
 
 ```sh
 install -m 600 /dev/null /opt/ohayoubot/deerkins.env
-echo 'DEERKINS_API_TOKEN=...' > /opt/ohayoubot/deerkins.env
+echo 'OHAYOU_CF_API_TOKEN=...' > /opt/ohayoubot/deerkins.env
 chown ohayoubot:ohayoubot /opt/ohayoubot/deerkins.env
 ```
 
 `deploy/ohayoubot.service` reads that file if it exists. Check it works with:
 
 ```sh
-curl -sS -H "Authorization: Bearer $DEERKINS_API_TOKEN" \
+curl -sS -H "Authorization: Bearer $OHAYOU_CF_API_TOKEN" \
   -H 'content-type: application/json' \
   -d '{"sql":"SELECT COUNT(*) AS n FROM deer","params":[]}' \
   "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/d1/database/$DATABASE/query"
@@ -102,18 +108,15 @@ Requests are also subject to the bot-wide `ignoreList` and `floodDelay`.
 `!upload` PMs an identified user a one-shot link to the upload site. What they
 drop there is announced in a channel the two of you share.
 
-Two environment variables, neither in `conf.json`:
-
-- `OHAYOU_DROP_SECRET` signs the links. The site holds the same value as
-  `UPLOAD_HMAC_SECRET`. Both sides key on the string's bytes, so it is used
-  as written and not decoded from hex. `openssl rand -hex 32`.
-- `OHAYOU_DROP_TOKEN` is optional; without it the deerkins **D1 Read** token is
-  used, which is right while both read one database.
+`OHAYOU_DROP_SECRET` signs the links and is not in `conf.json`. The site holds
+the same value as `UPLOAD_HMAC_SECRET`. Both sides key on the string's bytes, so
+it is used as written and not decoded from hex. `openssl rand -hex 32`.
 
 In the `drop` block, `url` is the site and `imageBase` is where the bucket is
 served. `imageBase` must match the site's `PUBLIC_IMAGE_BASE` or every link the
-bot announces is dead. `accountId` and `databaseId` default to the deerkins
-block; set them once the upload tables move to their own database.
+bot announces is dead. `accountId`, `databaseId` and `apiToken` default to the
+shared `cloudflare` block; set them once the upload tables move to their own
+database.
 
 ## YouTube previews
 

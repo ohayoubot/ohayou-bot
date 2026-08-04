@@ -12,7 +12,7 @@ WorkingDirectory=/opt/ohayoubot
 ExecStart=/opt/ohayoubot/ohayoubot -config /opt/ohayoubot/conf.json -data /opt/ohayoubot/data
 
 # optional secrets that are better kept out of conf.json:
-# DEERKINS_API_TOKEN, OHAYOU_DROP_SECRET, OHAYOU_DROP_TOKEN.
+# OHAYOU_CF_API_TOKEN, OHAYOU_DROP_SECRET.
 # deerkins.env is the old name for the same file, read if it is still there.
 EnvironmentFile=-/opt/ohayoubot/ohayoubot.env
 EnvironmentFile=-/opt/ohayoubot/deerkins.env
