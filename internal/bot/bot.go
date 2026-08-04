@@ -30,6 +30,8 @@ type Bot struct {
 	topics     []Topic
 	topicAlias map[string]string
 
+	events events
+
 	joined atomic.Bool // set once channels have been joined
 
 	wg sync.WaitGroup // tracks goroutines so shutdown can drain them
@@ -85,7 +87,9 @@ func New(cfg *config.Config, log *slog.Logger) *Bot {
 	b.registerHelpCommands()
 	b.registerAdminCommands()
 	b.registerWhois()
+	b.registerEvents()
 	b.registerIdentity()
+	b.registerChannelTracking()
 	return b
 }
 
@@ -306,33 +310,9 @@ func (b *Bot) Run(ctx context.Context) error {
 // events if something has gone wrong while running. They are otherwise silent
 // unless observed from within the same channel
 func (b *Bot) registerDiagnosticCallbacks() {
-	me := func() string { return b.conn.GetNick() }
-
 	// ERROR: servers send this on kill/ban/kline. Closest thing to a reason for a disconnect
 	b.conn.AddCallback("ERROR", func(e *irc.Event) {
 		b.log.Error("server ERROR", "msg", e.Message())
-	})
-
-	// KICK "<channel> <nick> :<reason>". Only care when we're kick, not when _we_ kick
-	b.conn.AddCallback("KICK", func(e *irc.Event) {
-		if len(e.Arguments) < 2 || !strings.EqualFold(e.Arguments[1], me()) {
-			return
-		}
-		ch := e.Arguments[0]
-		b.log.Warn("kicked from channel", "channel", ch, "by", e.Nick, "reason", e.Message())
-		b.removeChannel(ch)
-	})
-
-	b.conn.AddCallback("JOIN", func(e *irc.Event) {
-		if !strings.EqualFold(e.Nick, me()) {
-			return
-		}
-		ch := e.Message()
-		if ch == "" && len(e.Arguments) > 0 {
-			ch = e.Arguments[0]
-		}
-		b.log.Info("joined channel", "channel", ch)
-		b.addChannel(ch)
 	})
 
 	// Nick problems during server registration
@@ -360,6 +340,27 @@ func (b *Bot) registerDiagnosticCallbacks() {
 			b.log.Warn("cannot join channel", "channel", ch, "reason", reason, "code", e.Code, "detail", e.Message())
 		})
 	}
+}
+
+// registerChannelTracking keeps the joined-channel list in step with what the
+// server says, through the same typed events a plugin would use.
+func (b *Bot) registerChannelTracking() {
+	b.OnJoin(func(e JoinEvent) {
+		if !b.IsMe(e.Nick) {
+			return
+		}
+		b.log.Info("joined channel", "channel", e.Channel)
+		b.addChannel(e.Channel)
+	})
+
+	// Only when we are the one removed, not when we do the removing.
+	b.OnKick(func(e KickEvent) {
+		if !b.IsMe(e.Nick) {
+			return
+		}
+		b.log.Warn("kicked from channel", "channel", e.Channel, "by", e.By, "reason", e.Reason)
+		b.removeChannel(e.Channel)
+	})
 }
 
 type slogWriter struct{ log *slog.Logger }

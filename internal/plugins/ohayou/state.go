@@ -67,3 +67,45 @@ func (r *policeRegistry) remove(user string) {
 	defer r.mu.Unlock()
 	delete(r.m, user)
 }
+
+// offers holds the robbery victims the police have PM'd and are waiting on. A
+// !report from one of them closes their channel; the offer expires with the
+// goroutine that made it.
+type offers struct {
+	mu sync.Mutex
+	m  map[string]chan struct{}
+}
+
+func newOffers() *offers { return &offers{m: map[string]chan struct{}{}} }
+
+// open starts waiting on user, returning the channel a report closes and a
+// func to stop waiting. A second offer to the same user is refused.
+func (o *offers) open(user string) (<-chan struct{}, func(), bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if _, waiting := o.m[user]; waiting {
+		return nil, nil, false
+	}
+	ch := make(chan struct{})
+	o.m[user] = ch
+	return ch, func() { o.close(user) }, true
+}
+
+func (o *offers) close(user string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	delete(o.m, user)
+}
+
+// take reports whether user had an offer open, closing it if so.
+func (o *offers) take(user string) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	ch, ok := o.m[user]
+	if !ok {
+		return false
+	}
+	delete(o.m, user)
+	close(ch)
+	return true
+}

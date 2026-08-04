@@ -4,8 +4,20 @@ import (
 	"strings"
 	"time"
 
-	irc "github.com/ohayoubot/go-ircevent"
+	"github.com/ohayoubot/ohayou-bot/internal/bot"
 )
+
+// reportWait is how long the police hang around for an answer.
+const reportWait = 60 * time.Second
+
+// cmdReport answers a robbery victim who took the police up on their offer.
+// It is a registered command like any other, so it is listed by !commands and
+// subject to the ignore list.
+func (g *Plugin) cmdReport(m *bot.Message) {
+	if !g.offers.take(strings.ToLower(m.Nick)) {
+		g.say(m.ReplyTo(), m.Nick+": nobody is waiting on a report from you.")
+	}
+}
 
 // stationPolice offers a robbery victim police protection and waits (up to a
 // minute) for them to !report. defense is the victim's equipped defense at the
@@ -15,28 +27,19 @@ func (g *Plugin) stationPolice(username string, defense int) {
 		return
 	}
 
+	reported, done, ok := g.offers.open(username)
+	if !ok {
+		return
+	}
+	defer done()
+
 	g.say(username, "Ohayou Police here. Looks like you were just the victim of a "+
 		"robbery. If you report it, we can station one of our officers nearby for a "+
 		"couple of hours. It'll reduce the chance of it happening again. Type "+
 		g.p()+"report if you're interested.")
 
-	timer := time.NewTimer(60 * time.Second)
+	timer := time.NewTimer(reportWait)
 	defer timer.Stop()
-
-	reported := make(chan struct{}, 1)
-	id := g.bot.AddCallback("PRIVMSG", func(e *irc.Event) {
-		fields := strings.Fields(e.Message())
-		if len(fields) == 0 {
-			return
-		}
-		if strings.ToLower(e.Nick) == username && fields[0] == g.p()+"report" {
-			select {
-			case reported <- struct{}{}:
-			default:
-			}
-		}
-	})
-	defer g.bot.RemoveCallback("PRIVMSG", id)
 
 	select {
 	case <-reported:
