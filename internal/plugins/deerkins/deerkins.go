@@ -15,6 +15,7 @@ import (
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
 )
@@ -26,7 +27,6 @@ const (
 	countTTL    = 5 * time.Minute
 	// chatterWait spaces out the replies that aren't art, per asker.
 	chatterWait = 15 * time.Second
-	maxTracked  = 1000
 )
 
 type Plugin struct {
@@ -44,11 +44,12 @@ type Plugin struct {
 	// paint serializes the multi-line output so two deer can't interleave.
 	paint sync.Mutex
 
+	used  *ratelimit.Limiter // when a target last got a deer
+	spoke *ratelimit.Limiter // when a key last got a reply that isn't art
+
 	mu      sync.Mutex
-	used    map[string]time.Time // when a target last got a deer
-	spoke   map[string]time.Time // when a key last got a reply that isn't art
-	last    map[string]sighting  // the deer a target last saw
-	latest  sighting             // the last deer anywhere
+	last    map[string]sighting // the deer a target last saw
+	latest  sighting            // the last deer anywhere
 	count   int
 	counted time.Time
 }
@@ -72,8 +73,8 @@ func New(b *bot.Bot, cfg config.DeerkinsConfig) *Plugin {
 		banHosts:    lowerSet(cfg.IgnoreHosts),
 		banChannels: lowerSet(cfg.IgnoreChannels),
 		roll:        rand.IntN,
-		used:        map[string]time.Time{},
-		spoke:       map[string]time.Time{},
+		used:        ratelimit.New(cfg.Wait()),
+		spoke:       ratelimit.New(chatterWait),
 		last:        map[string]sighting{},
 	}
 }
@@ -208,20 +209,15 @@ func (p *Plugin) fetch(ctx context.Context, name string) (*row, error) {
 // claim takes the target's deer slot. When it is still warm it returns how long
 // is left and the timeout that decided it, which is what the refusal quotes.
 func (p *Plugin) claim(target, nick, name string, mods []byte, user config.DeerkinsUser, privileged bool) (wait, timeout time.Duration, ok bool) {
-	now := time.Now()
-
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	timeout = p.timeoutFor(target, nick, name, mods)
+	p.mu.Unlock()
+
 	if privileged && user.Timeout != nil {
 		timeout = time.Duration(*user.Timeout) * time.Second
 	}
-	if ready := p.used[target].Add(timeout); now.Before(ready) {
-		return ready.Sub(now), timeout, false
-	}
-	p.used[target] = now
-	return 0, timeout, true
+	wait, ok = p.used.ClaimFor(target, timeout)
+	return wait, timeout, ok
 }
 
 func (p *Plugin) timeoutFor(target, nick, name string, mods []byte) time.Duration {
@@ -239,32 +235,13 @@ func (p *Plugin) timeoutFor(target, nick, name string, mods []byte) time.Duratio
 }
 
 func (p *Plugin) maySpeak(key string) bool {
-	now := time.Now()
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if now.Sub(p.spoke[key]) < chatterWait {
-		return false
-	}
-	// Keys are nicks and channels, so the map only grows if someone keeps
-	// changing nick. Drop the expired ones when it gets big.
-	if len(p.spoke) > maxTracked {
-		for k, when := range p.spoke {
-			if now.Sub(when) >= chatterWait {
-				delete(p.spoke, k)
-			}
-		}
-	}
-	p.spoke[key] = now
-	return true
+	_, ok := p.spoke.Claim(key)
+	return ok
 }
 
 // penalise puts a target on the shorter miss cooldown.
 func (p *Plugin) penalise(target string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.used[target] = time.Now().Add(p.cfg.MissWait() - p.cfg.Wait())
+	p.used.Delay(target, p.cfg.MissWait())
 }
 
 func (p *Plugin) remember(target string, s sighting) {
@@ -302,10 +279,7 @@ func (p *Plugin) sayHelp(m *bot.Message, to string) {
 	prefix := p.bot.Prefix()
 	status := "Ready to deer!"
 
-	p.mu.Lock()
-	ready := p.used[to].Add(p.cfg.Wait())
-	p.mu.Unlock()
-	if wait := time.Until(ready); wait > 0 {
+	if wait := p.used.Until(to); wait > 0 {
 		status = strconv.Itoa(int(wait.Seconds())+1) + " seconds until deer."
 	}
 

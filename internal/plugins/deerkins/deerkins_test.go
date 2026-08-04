@@ -20,6 +20,7 @@ import (
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 )
 
@@ -199,9 +200,7 @@ func (h *harness) silence(t *testing.T) []string {
 // forget clears the gate on the replies that aren't art, standing in for the
 // wait between them.
 func (h *harness) forget() {
-	h.plugin.mu.Lock()
-	defer h.plugin.mu.Unlock()
-	clear(h.plugin.spoke)
+	h.plugin.spoke = ratelimit.New(chatterWait)
 }
 
 func (h *harness) drain(first time.Duration) []string {
@@ -401,7 +400,7 @@ func TestDeermeThrottlesEachChannelSeparately(t *testing.T) {
 
 func TestPunishesRepeats(t *testing.T) {
 	cfg := testConfig(t)
-	p := &Plugin{cfg: cfg, last: map[string]sighting{}, used: map[string]time.Time{}}
+	p := &Plugin{cfg: cfg, last: map[string]sighting{}, used: ratelimit.New(cfg.Wait())}
 	p.last["#pank"] = sighting{deer: "slime", nick: "mallow", seen: true}
 
 	normal := cfg.Wait()
@@ -431,11 +430,7 @@ func TestAMissCostsLessThanADeer(t *testing.T) {
 	h.plugin.cmdDeerme(message("mallow", "#pank", "!deerme nosuchdeer"))
 	h.collect(t)
 
-	h.plugin.mu.Lock()
-	ready := h.plugin.used["#pank"].Add(cfg.Wait())
-	h.plugin.mu.Unlock()
-
-	if wait := time.Until(ready); wait > cfg.MissWait() || wait <= 0 {
+	if wait := h.plugin.used.Until("#pank"); wait > cfg.MissWait() || wait <= 0 {
 		t.Errorf("wait after a miss = %v, want at most %v", wait, cfg.MissWait())
 	}
 }

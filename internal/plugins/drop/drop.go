@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
@@ -20,10 +21,6 @@ import (
 // whoisWait bounds the lookup. The bot's resolver has its own ceiling; this is
 // so a wedged one cannot pin a command handler forever.
 const whoisWait = 15 * time.Second
-
-// maxTracked caps the cooldown map so a channel full of strangers cannot grow
-// it without bound.
-const maxTracked = 1000
 
 // pollBatch bounds one round of announcements, so a backlog is spread over
 // several polls rather than flooding a channel in one go.
@@ -43,20 +40,22 @@ type Plugin struct {
 
 	wg sync.WaitGroup
 
-	mu     sync.Mutex
-	minted map[string]time.Time // lowercased nick -> when it last got a link
+	minted *ratelimit.Limiter // when a nick last got a link
 }
 
 func New(b *bot.Bot, cfg config.DropConfig, st store.Store) *Plugin {
-	return &Plugin{
+	p := &Plugin{
 		bot:    b,
 		cfg:    cfg,
 		log:    b.Logger().With("plugin", "drop"),
 		store:  st,
 		db:     newQueue(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
 		now:    time.Now,
-		minted: map[string]time.Time{},
+		minted: ratelimit.New(cfg.CooldownWait()),
 	}
+	// Read through p.now so a test can wind the clock after construction.
+	p.minted.Now = func() time.Time { return p.now() }
+	return p
 }
 
 func (p *Plugin) Register() {
@@ -260,31 +259,7 @@ func (p *Plugin) shared(theirs []string) []string {
 
 // claim takes this nick's turn, reporting how long is left when it cannot.
 func (p *Plugin) claim(nick string) (time.Duration, bool) {
-	key := strings.ToLower(nick)
-	now := p.now()
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if last, ok := p.minted[key]; ok {
-		if wait := p.cfg.CooldownWait() - now.Sub(last); wait > 0 {
-			return wait, false
-		}
-	}
-	if len(p.minted) >= maxTracked {
-		p.forgetOld(now)
-	}
-	p.minted[key] = now
-	return 0, true
-}
-
-// forgetOld drops entries whose cooldown has run out. Called with mu held.
-func (p *Plugin) forgetOld(now time.Time) {
-	for key, last := range p.minted {
-		if now.Sub(last) >= p.cfg.CooldownWait() {
-			delete(p.minted, key)
-		}
-	}
+	return p.minted.Claim(strings.ToLower(nick))
 }
 
 func humanWait(d time.Duration) string {

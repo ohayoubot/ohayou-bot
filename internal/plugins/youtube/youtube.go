@@ -8,17 +8,13 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 )
-
-// maxTracked caps the seen maps so a busy network cannot grow them without
-// bound.
-const maxTracked = 1000
 
 type Plugin struct {
 	bot *bot.Bot
@@ -30,22 +26,25 @@ type Plugin struct {
 
 	now func() time.Time
 
-	mu    sync.Mutex
-	spoke map[string]time.Time // target -> when it last got a preview
-	said  map[string]time.Time // target+id -> when that video was last named
+	spoke *ratelimit.Limiter // when a target last got a preview
+	said  *ratelimit.Limiter // when a video was last named in a target
 }
 
 func New(b *bot.Bot, cfg config.YouTubeConfig) *Plugin {
-	return &Plugin{
+	p := &Plugin{
 		bot:         b,
 		cfg:         cfg,
 		log:         b.Logger().With("plugin", "youtube"),
 		api:         newClient(oembedBase, cfg.RequestTimeout()),
 		banChannels: lowerSet(cfg.IgnoreChannels),
 		now:         time.Now,
-		spoke:       map[string]time.Time{},
-		said:        map[string]time.Time{},
+		spoke:       ratelimit.New(cfg.CooldownWait()),
+		said:        ratelimit.New(cfg.RepeatWait()),
 	}
+	// Read through p.now so a test can wind the clock after construction.
+	clock := func() time.Time { return p.now() }
+	p.spoke.Now, p.said.Now = clock, clock
+	return p
 }
 
 func (p *Plugin) Register() { p.bot.Watch(p.onLine) }
@@ -103,48 +102,15 @@ func (p *Plugin) onLine(m *bot.Message) {
 
 // claim takes the target's turn, reporting whether it was free.
 func (p *Plugin) claim(target string) bool {
-	key := strings.ToLower(target)
-	now := p.now()
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if last, ok := p.spoke[key]; ok && now.Sub(last) < p.cfg.CooldownWait() {
-		return false
-	}
-	if len(p.spoke) >= maxTracked {
-		forgetOld(p.spoke, now, p.cfg.CooldownWait())
-	}
-	p.spoke[key] = now
-	return true
+	_, ok := p.spoke.Claim(strings.ToLower(target))
+	return ok
 }
 
 // fresh reports whether this video is worth naming in this target again, and
 // records that it was.
 func (p *Plugin) fresh(target, id string) bool {
-	key := strings.ToLower(target) + " " + id
-	now := p.now()
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if last, ok := p.said[key]; ok && now.Sub(last) < p.cfg.RepeatWait() {
-		return false
-	}
-	if len(p.said) >= maxTracked {
-		forgetOld(p.said, now, p.cfg.RepeatWait())
-	}
-	p.said[key] = now
-	return true
-}
-
-// forgetOld drops entries whose window has run out. Called with mu held.
-func forgetOld(seen map[string]time.Time, now time.Time, window time.Duration) {
-	for key, last := range seen {
-		if now.Sub(last) >= window {
-			delete(seen, key)
-		}
-	}
+	_, ok := p.said.Claim(strings.ToLower(target) + " " + id)
+	return ok
 }
 
 // line is what the channel sees.
