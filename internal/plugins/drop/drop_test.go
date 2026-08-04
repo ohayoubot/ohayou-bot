@@ -117,7 +117,7 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 	}
 	deps := testDeps(b)
 	deps.Store = db
-	if err := h.plugin.Register(deps); err != nil {
+	if err := h.plugin.Register(deps.For("drop")); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
@@ -518,7 +518,7 @@ func TestAnnounceSavesTheCursor(t *testing.T) {
 	h.plugin.announce(context.Background(), 0)
 	h.collect(t)
 
-	got, err := h.plugin.store.GetKV(context.Background(), cursorKey)
+	got, err := h.plugin.kv.Get(context.Background(), cursorKey)
 	if err != nil || got != "9" {
 		t.Errorf("stored cursor = %q, %v; want 9", got, err)
 	}
@@ -538,7 +538,7 @@ func TestStartAtBeginsAtTheEndOfTheQueue(t *testing.T) {
 		t.Errorf("startAt = %d, want 120", got)
 	}
 
-	saved, err := h.plugin.store.GetKV(context.Background(), cursorKey)
+	saved, err := h.plugin.kv.Get(context.Background(), cursorKey)
 	if err != nil || saved != "120" {
 		t.Errorf("stored cursor = %q, %v; want 120", saved, err)
 	}
@@ -547,7 +547,7 @@ func TestStartAtBeginsAtTheEndOfTheQueue(t *testing.T) {
 func TestStartAtResumesFromTheStoredCursor(t *testing.T) {
 	h, fake := announceHarness(t)
 	fake.newest = 999
-	if err := h.plugin.store.SetKV(context.Background(), cursorKey, "12"); err != nil {
+	if err := h.plugin.kv.Set(context.Background(), cursorKey, "12"); err != nil {
 		t.Fatal(err)
 	}
 

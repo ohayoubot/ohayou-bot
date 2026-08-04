@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 	_ "time/tzdata"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
@@ -98,6 +99,12 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 	// store writes before the deferred db.Close runs.
 	err = b.Run(ctx)
 	b.Wait()
+
+	// The base context is cancelled by now, so the plugins get a fresh one to
+	// write their final state with, while the store is still open.
+	stopCtx, cancelStop := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelStop()
+	reg.Stop(stopCtx)
 	return err
 }
 

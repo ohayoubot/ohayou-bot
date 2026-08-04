@@ -18,6 +18,20 @@ type Deps struct {
 	Bot   *bot.Bot
 	Store store.Store
 	Log   *slog.Logger
+	// KV is the plugin's own corner of the store, for the state it wants back
+	// after a restart. Keys are already scoped to the plugin.
+	KV *store.KV
+}
+
+// For scopes deps to one plugin: its own logger, and its own corner of the
+// store. The registry does this for every plugin, and a test wiring one up by
+// hand should too.
+func (d Deps) For(name string) Deps {
+	d.Log = d.Log.With("plugin", name)
+	if d.Store != nil {
+		d.KV = store.Namespace(d.Store, name)
+	}
+	return d
 }
 
 // Plugin is anything the bot can be taught to do. Register claims commands and
@@ -46,6 +60,13 @@ type Configurable interface {
 // long-running belongs in a goroutine from Deps.Bot.Go, which shutdown drains.
 type Starter interface {
 	Start(ctx context.Context) error
+}
+
+// Stopper is a plugin with state worth writing down before the bot exits. Stop
+// runs after the connection is closed and the tracked goroutines have drained,
+// with the store still open.
+type Stopper interface {
+	Stop(ctx context.Context) error
 }
 
 // Registry holds the plugins in the order they were added, which is the order
@@ -117,9 +138,7 @@ func (r *Registry) Names() []string {
 // the one outcome the operator did not ask for.
 func (r *Registry) Register() error {
 	for _, p := range r.plugins {
-		deps := r.deps
-		deps.Log = r.deps.Log.With("plugin", p.Name())
-		if err := p.Register(deps); err != nil {
+		if err := p.Register(r.deps.For(p.Name())); err != nil {
 			return fmt.Errorf("plugin %s: %w", p.Name(), err)
 		}
 	}
@@ -139,4 +158,19 @@ func (r *Registry) Start(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// Stop gives every plugin a chance to write down what it wants back. A failure
+// is logged rather than returned: one plugin failing to save is no reason to
+// deny the others the chance.
+func (r *Registry) Stop(ctx context.Context) {
+	for _, p := range r.plugins {
+		s, ok := p.(Stopper)
+		if !ok {
+			continue
+		}
+		if err := s.Stop(ctx); err != nil {
+			r.deps.Log.Error("stopping plugin", "plugin", p.Name(), "err", err)
+		}
+	}
 }

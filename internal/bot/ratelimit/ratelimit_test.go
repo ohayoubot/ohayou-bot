@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -190,5 +191,85 @@ func TestConcurrentClaimsGrantOneTurn(t *testing.T) {
 
 	if n := len(granted); n != 1 {
 		t.Errorf("%d goroutines got the turn, want 1", n)
+	}
+}
+
+func TestDumpAndRestoreCarryTheWindowOver(t *testing.T) {
+	before, c := newTest(time.Minute)
+	before.Claim("#chan")
+
+	raw, err := before.Dump()
+	if err != nil {
+		t.Fatalf("Dump: %v", err)
+	}
+
+	c.advance(20 * time.Second)
+	after := New(time.Minute)
+	after.Now = c.now
+	if err := after.Restore(raw); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+
+	wait, ok := after.Claim("#chan")
+	if ok {
+		t.Fatal("the restored limiter granted a turn that was still warm")
+	}
+	if want := 40 * time.Second; wait != want {
+		t.Errorf("wait = %v, want %v", wait, want)
+	}
+}
+
+// Anything whose window ran out while the bot was down is not worth carrying.
+func TestExpiredEntriesAreNotRestored(t *testing.T) {
+	before, c := newTest(time.Minute)
+	before.Claim("#chan")
+	raw, _ := before.Dump()
+
+	c.advance(2 * time.Minute)
+	after := New(time.Minute)
+	after.Now = c.now
+	if err := after.Restore(raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := after.Claim("#chan"); !ok {
+		t.Error("an entry whose window had run out was carried over anyway")
+	}
+}
+
+func TestDumpLeavesOutWhatAlreadyExpired(t *testing.T) {
+	l, c := newTest(time.Minute)
+	l.Claim("old")
+	c.advance(2 * time.Minute)
+	l.Claim("new")
+
+	raw, err := l.Dump()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(raw, "old") {
+		t.Errorf("dump = %s, want the expired entry left out", raw)
+	}
+	if !strings.Contains(raw, "new") {
+		t.Errorf("dump = %s, want the live entry kept", raw)
+	}
+}
+
+func TestRestoreRejectsRubbish(t *testing.T) {
+	l, _ := newTest(time.Minute)
+	if err := l.Restore("not json"); err == nil {
+		t.Error("Restore accepted something it did not write")
+	}
+}
+
+func TestRestoreDoesNotForgetATurnAlreadyTaken(t *testing.T) {
+	l, _ := newTest(time.Minute)
+	l.Claim("#chan")
+
+	// A dump from a run that knew nothing about this channel.
+	if err := l.Restore(`{}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := l.Claim("#chan"); ok {
+		t.Error("restoring an unrelated snapshot cleared a live turn")
 	}
 }

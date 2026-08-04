@@ -71,6 +71,11 @@ func (d *DB) SetKV(ctx context.Context, key, value string) error {
 	return err
 }
 
+func (d *DB) DeleteKV(ctx context.Context, key string) error {
+	_, err := d.db.ExecContext(ctx, `DELETE FROM kv WHERE key=?`, key)
+	return err
+}
+
 func unix(t time.Time) int64 {
 	if t.IsZero() {
 		return 0
