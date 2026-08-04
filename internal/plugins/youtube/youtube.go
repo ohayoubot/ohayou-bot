@@ -10,14 +10,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 )
-
-const ircLineLimit = 512
 
 // maxTracked caps the seen maps so a busy network cannot grow them without
 // bound.
@@ -152,61 +149,11 @@ func forgetOld(seen map[string]time.Time, now time.Time, window time.Duration) {
 
 // line is what the channel sees.
 func line(target string, v video) string {
-	msg := "YouTube: " + clean(v.Title)
-	if author := clean(v.Author); author != "" {
+	msg := "YouTube: " + irctext.Clean(v.Title)
+	if author := irctext.Clean(v.Author); author != "" {
 		msg += " (" + author + ")"
 	}
-	return fit(target, msg)
-}
-
-// clean flattens a title into something safe to send: one line, no control
-// characters, no runs of whitespace. A title is whatever its uploader typed,
-// including the colour codes and newlines that would otherwise let them write
-// the rest of the bot's output for it.
-func clean(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	space := false
-	for _, r := range s {
-		switch {
-		// Newlines and tabs are whitespace before they are control characters.
-		// they separate words, so they leave a space behind rather than
-		// joining what they sat between.
-		case unicode.IsSpace(r):
-			space = b.Len() > 0
-		case r == utf8.RuneError, unicode.IsControl(r):
-			continue
-		default:
-			if space {
-				b.WriteRune(' ')
-				space = false
-			}
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-// fit trims a message to what will survive the trip to the target as one line.
-func fit(target, msg string) string {
-	budget := ircLineLimit - len("PRIVMSG "+target+" :") - len("\r\n")
-	if budget < 1 {
-		return ""
-	}
-	if len(msg) <= budget {
-		return msg
-	}
-
-	const ellipsis = "..."
-	cut := budget - len(ellipsis)
-	if cut < 1 {
-		return msg[:budget]
-	}
-	// Never split a rune in half.
-	for cut > 0 && !utf8.RuneStart(msg[cut]) {
-		cut--
-	}
-	return strings.TrimRight(msg[:cut], " ") + ellipsis
+	return irctext.Fit(target, msg)
 }
 
 func lowerSet(names []string) map[string]bool {
