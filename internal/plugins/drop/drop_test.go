@@ -17,6 +17,7 @@ import (
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
 
@@ -36,6 +37,11 @@ type harness struct {
 	whois  map[string]whoisReply
 	asked  []string
 	silent bool // when set, a WHOIS gets no reply at all
+}
+
+// testDeps is what the registry would hand the plugin.
+func testDeps(b *bot.Bot) plugin.Deps {
+	return plugin.Deps{Bot: b, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
 }
 
 func newHarness(t *testing.T) *harness {
@@ -98,14 +104,19 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 		t.Fatalf("init store: %v", err)
 	}
 
-	h.plugin = New(b, config.DropConfig{
+	h.plugin = New(config.DropConfig{
 		Secret:      testSecret,
 		URL:         "https://hemera.day/drop/",
 		ImageBase:   "https://img.hemera.day",
 		GrantTTL:    300,
 		Cooldown:    60,
 		PollSeconds: 10,
-	}, db)
+	})
+	deps := testDeps(b)
+	deps.Store = db
+	if err := h.plugin.Register(deps); err != nil {
+		t.Fatalf("register: %v", err)
+	}
 
 	return h
 }

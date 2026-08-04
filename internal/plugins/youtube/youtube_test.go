@@ -19,7 +19,13 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
+
+// testDeps is what the registry would hand the plugin.
+func testDeps(b *bot.Bot) plugin.Deps {
+	return plugin.Deps{Bot: b, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+}
 
 const testID = "dQw4w9WgXcQ"
 
@@ -90,7 +96,7 @@ func newHarness(t *testing.T) *harness {
 		t.Fatal("the bot never registered with the fake server")
 	}
 
-	h.plugin = New(b, config.YouTubeConfig{
+	h.plugin = New(config.YouTubeConfig{
 		MaxLinks:         2,
 		Cooldown:         10,
 		Repeat:           600,
@@ -99,7 +105,9 @@ func newHarness(t *testing.T) *harness {
 	})
 	h.plugin.api = newClient(oembed.URL, 2*time.Second)
 	h.plugin.now = h.now
-	h.plugin.Register()
+	if err := h.plugin.Register(testDeps(b)); err != nil {
+		t.Fatalf("register: %v", err)
+	}
 
 	return h
 }

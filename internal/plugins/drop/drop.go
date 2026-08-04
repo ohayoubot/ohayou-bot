@@ -14,6 +14,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
@@ -40,12 +41,9 @@ type Plugin struct {
 	minted *ratelimit.Limiter // when a nick last got a link
 }
 
-func New(b *bot.Bot, cfg config.DropConfig, st store.Store) *Plugin {
+func New(cfg config.DropConfig) *Plugin {
 	p := &Plugin{
-		bot:    b,
 		cfg:    cfg,
-		log:    b.Logger().With("plugin", "drop"),
-		store:  st,
 		db:     newQueue(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
 		now:    time.Now,
 		minted: ratelimit.New(cfg.CooldownWait()),
@@ -55,14 +53,20 @@ func New(b *bot.Bot, cfg config.DropConfig, st store.Store) *Plugin {
 	return p
 }
 
-func (p *Plugin) Register() {
+func (p *Plugin) Name() string { return "drop" }
+
+func (p *Plugin) Register(deps plugin.Deps) error {
+	p.bot, p.log, p.store = deps.Bot, deps.Log, deps.Store
 	p.bot.HandleFunc("upload", false, p.cmdUpload)
+	p.log.Info("enabled", "database", p.cfg.DatabaseID, "url", p.cfg.URL)
+	return nil
 }
 
 // Start begins announcing uploads. The bot drains the poller on shutdown, so
 // the cursor's final write lands before the store is closed.
-func (p *Plugin) Start(ctx context.Context) {
+func (p *Plugin) Start(ctx context.Context) error {
 	p.bot.Go(func() { p.poll(ctx) })
+	return nil
 }
 
 func (p *Plugin) poll(ctx context.Context) {

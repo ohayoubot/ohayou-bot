@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
 
 const api = "https://catfact.ninja/fact"
@@ -17,16 +18,17 @@ type Plugin struct {
 	client *http.Client
 }
 
-func New(b *bot.Bot) *Plugin {
-	return &Plugin{
-		bot:    b,
-		client: &http.Client{Timeout: 10 * time.Second},
-	}
+func New() *Plugin {
+	return &Plugin{client: &http.Client{Timeout: 10 * time.Second}}
 }
 
-func (p *Plugin) Register() {
+func (p *Plugin) Name() string { return "catfact" }
+
+func (p *Plugin) Register(deps plugin.Deps) error {
+	p.bot = deps.Bot
 	p.bot.HandleFunc("cat", false, p.handle)
 	p.bot.HandleFunc("catfact", false, p.handle)
+	return nil
 }
 
 func (p *Plugin) handle(m *bot.Message) {

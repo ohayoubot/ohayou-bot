@@ -22,7 +22,13 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
+	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
+
+// testDeps is what the registry would hand the plugin.
+func testDeps(b *bot.Bot) plugin.Deps {
+	return plugin.Deps{Bot: b, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+}
 
 const senordeer = "        GGGG\n      GGGGGGGG\n         AA\n        AAA\n         AA\n  AGDGDGAAA\n AAGGDGGAAA\n AAAAAAAAAA\n A A    A A\n A A    A A\n A A    A A"
 
@@ -177,9 +183,12 @@ func newHarness(t *testing.T, cfg config.DeerkinsConfig) *harness {
 	fake := &fakeD1{}
 	srv := fake.start(t)
 
-	p := New(b, cfg)
+	p := New(cfg)
 	p.db = newGallery(srv.URL, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout())
 	p.roll = func(int) int { return 0 }
+	if err := p.Register(testDeps(b)); err != nil {
+		t.Fatalf("register: %v", err)
+	}
 
 	return &harness{plugin: p, d1: fake, lines: lines}
 }
