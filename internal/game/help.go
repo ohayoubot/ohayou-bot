@@ -86,12 +86,12 @@ var commandList = []string{
 }
 
 func (g *Game) cmdHelp(m *bot.Message) {
-	to := replyTarget(m)
+	to := m.ReplyTo()
 	p := g.p()
 	topics := helpTopics(p)
 
 	if m.HasArgs() {
-		want := strings.ToLower(m.Args[1])
+		want := strings.ToLower(m.Arg(1))
 		if alias, ok := helpAlias[want]; ok {
 			want = alias
 		}
@@ -103,7 +103,7 @@ func (g *Game) cmdHelp(m *bot.Message) {
 				return
 			}
 		}
-		g.say(to, "No help for \""+m.Args[1]+"\". Type "+p+"help to see the topics.")
+		g.say(to, "No help for \""+m.Arg(1)+"\". Type "+p+"help to see the topics.")
 		return
 	}
 

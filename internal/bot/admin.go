@@ -13,26 +13,26 @@ func (b *Bot) registerAdminCommands() {
 		if !m.HasArgs() {
 			return
 		}
-		if isChannel(m.Args[1]) {
-			b.Say(m.Args[1], strings.Join(m.Args[2:], " "))
+		if isChannel(m.Arg(1)) {
+			b.Say(m.Arg(1), m.Rest(2))
 		} else {
-			b.Say(m.Target, strings.Join(m.Args[1:], " "))
+			b.Say(m.Target, m.Rest(1))
 		}
 	})
 
 	// pm <target> hello
 	admin("pm", func(m *Message) {
 		if len(m.Args) > 2 {
-			b.Say(m.Args[1], strings.Join(m.Args[2:], " "))
+			b.Say(m.Arg(1), m.Rest(2))
 		}
 	})
 
 	// join #channel [key]
 	admin("join", func(m *Message) {
-		if m.HasArgs() && isChannel(m.Args[1]) {
-			b.log.Info("admin join", "by", m.Nick, "channel", m.Args[1])
-			b.conn.Join(strings.Join(m.Args[1:], " "))
-			b.addChannel(m.Args[1])
+		if m.HasArgs() && isChannel(m.Arg(1)) {
+			b.log.Info("admin join", "by", m.Nick, "channel", m.Arg(1))
+			b.conn.Join(m.Rest(1))
+			b.addChannel(m.Arg(1))
 		}
 	})
 
@@ -40,8 +40,8 @@ func (b *Bot) registerAdminCommands() {
 	// part #channel
 	admin("part", func(m *Message) {
 		target := m.Target
-		if m.HasArgs() && isChannel(m.Args[1]) {
-			target = m.Args[1]
+		if m.HasArgs() && isChannel(m.Arg(1)) {
+			target = m.Arg(1)
 		}
 		if isChannel(target) {
 			b.log.Info("admin part", "by", m.Nick, "channel", target)
@@ -53,7 +53,7 @@ func (b *Bot) registerAdminCommands() {
 	// notice <target> hello
 	admin("notice", func(m *Message) {
 		if len(m.Args) > 2 {
-			b.Notice(m.Args[1], strings.Join(m.Args[2:], " "))
+			b.Notice(m.Arg(1), m.Rest(2))
 		}
 	})
 
@@ -63,10 +63,10 @@ func (b *Bot) registerAdminCommands() {
 		if !m.HasArgs() {
 			return
 		}
-		if isChannel(m.Args[1]) {
-			b.Action(m.Args[1], strings.Join(m.Args[2:], " "))
+		if isChannel(m.Arg(1)) {
+			b.Action(m.Arg(1), m.Rest(2))
 		} else {
-			b.Action(m.Target, strings.Join(m.Args[1:], " "))
+			b.Action(m.Target, m.Rest(1))
 		}
 	})
 
@@ -76,14 +76,14 @@ func (b *Bot) registerAdminCommands() {
 		if !m.HasArgs() {
 			return
 		}
-		if isChannel(m.Args[1]) {
+		if isChannel(m.Arg(1)) {
 			if len(m.Args) > 2 {
-				b.log.Info("admin kick", "by", m.Nick, "channel", m.Args[1], "target", m.Args[2])
-				b.conn.Kick(m.Args[2], m.Args[1], strings.Join(m.Args[3:], " "))
+				b.log.Info("admin kick", "by", m.Nick, "channel", m.Arg(1), "target", m.Arg(2))
+				b.conn.Kick(m.Arg(2), m.Arg(1), m.Rest(3))
 			}
 		} else {
-			b.log.Info("admin kick", "by", m.Nick, "channel", m.Target, "target", m.Args[1])
-			b.conn.Kick(m.Args[1], m.Target, strings.Join(m.Args[2:], " "))
+			b.log.Info("admin kick", "by", m.Nick, "channel", m.Target, "target", m.Arg(1))
+			b.conn.Kick(m.Arg(1), m.Target, m.Rest(2))
 		}
 	})
 
@@ -106,11 +106,11 @@ func (b *Bot) registerAdminCommands() {
 		}
 		reason := "No reason given."
 		if len(m.Args) > 2 {
-			reason = strings.Join(m.Args[2:], " ")
+			reason = m.Rest(2)
 		}
-		b.addIgnore(m.Args[1], reason)
-		b.log.Info("admin ignore", "by", m.Nick, "nick", m.Args[1], "reason", reason)
-		b.Say(m.Target, "Added "+m.Args[1]+" to ignore list. Reason: "+reason)
+		b.addIgnore(m.Arg(1), reason)
+		b.log.Info("admin ignore", "by", m.Nick, "nick", m.Arg(1), "reason", reason)
+		b.Say(m.Target, "Added "+m.Arg(1)+" to ignore list. Reason: "+reason)
 	})
 
 	// ignorelist
@@ -127,11 +127,11 @@ func (b *Bot) registerAdminCommands() {
 		if !m.HasArgs() {
 			return
 		}
-		if b.removeIgnore(m.Args[1]) {
-			b.log.Info("admin unignore", "by", m.Nick, "nick", m.Args[1])
-			b.Say(m.Target, "Unignored "+m.Args[1]+".")
+		if b.removeIgnore(m.Arg(1)) {
+			b.log.Info("admin unignore", "by", m.Nick, "nick", m.Arg(1))
+			b.Say(m.Target, "Unignored "+m.Arg(1)+".")
 		} else {
-			b.Say(m.Target, m.Args[1]+" is not ignored.")
+			b.Say(m.Target, m.Arg(1)+" is not ignored.")
 		}
 	})
 }
