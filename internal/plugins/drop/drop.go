@@ -44,6 +44,11 @@ type Plugin struct {
 	now func() time.Time
 
 	minted *ratelimit.Limiter // when a nick last got a link
+
+	// cursor is how far through the upload queue the poller has read. Only the
+	// poller touches it, and Every runs one at a time.
+	cursor  int64
+	started bool
 }
 
 func New() *Plugin { return &Plugin{now: time.Now} }
@@ -85,7 +90,7 @@ func (p *Plugin) Start(ctx context.Context) error {
 		p.log.Warn("reading cooldowns", "err", err)
 	}
 
-	p.bot.Go(func() { p.poll(ctx) })
+	p.bot.Every(ctx, p.cfg.PollWait(), func() { p.poll(ctx) })
 	return nil
 }
 
@@ -98,35 +103,21 @@ func (p *Plugin) Stop(ctx context.Context) error {
 	return p.kv.Set(ctx, cooldownKey, raw)
 }
 
+// poll is one round of announcements. Finding the starting point is retried
+// rather than fatal: the table may not exist yet, or d1 may be briefly
+// unreachable, and neither is a reason to stay silent until someone restarts
+// the bot.
 func (p *Plugin) poll(ctx context.Context) {
-	ticker := time.NewTicker(p.cfg.PollWait())
-	defer ticker.Stop()
-
-	var cursor int64
-	var started bool
-
-	for {
-		select {
-		case <-ctx.Done():
+	if !p.started {
+		from, err := p.startAt(ctx)
+		if err != nil {
+			p.log.Warn("waiting to announce uploads", "err", err)
 			return
-		case <-ticker.C:
 		}
-
-		// Finding the starting point is retried rather than fatal. The table
-		// may not exist yet, or d1 may be briefly unreachable, and neither is
-		// a reason to stay silent until someone restarts the bot.
-		if !started {
-			from, err := p.startAt(ctx)
-			if err != nil {
-				p.log.Warn("waiting to announce uploads", "err", err)
-				continue
-			}
-			cursor, started = from, true
-			p.log.Info("announcing uploads", "from", cursor, "every", p.cfg.PollWait())
-		}
-
-		cursor = p.announce(ctx, cursor)
+		p.cursor, p.started = from, true
+		p.log.Info("announcing uploads", "from", p.cursor, "every", p.cfg.PollWait())
 	}
+	p.cursor = p.announce(ctx, p.cursor)
 }
 
 // startAt resumes from the stored cursor, or begins at the end of the queue.

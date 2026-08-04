@@ -114,6 +114,23 @@ func (b *Bot) Go(fn func()) {
 	}()
 }
 
+// Every runs fn on an interval in a tracked goroutine until ctx is cancelled.
+// The first run is one interval away, not immediate.
+func (b *Bot) Every(ctx context.Context, d time.Duration, fn func()) {
+	b.Go(func() {
+		t := time.NewTicker(d)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+			fn()
+		}
+	})
+}
+
 // Wait blocks until everything started with Go has finished. Callers cancel
 // the context they gave Run first, or it waits for work that will not stop.
 func (b *Bot) Wait() { b.wg.Wait() }

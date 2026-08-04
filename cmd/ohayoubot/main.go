@@ -19,6 +19,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/ohayou"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/youtube"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
+	"github.com/ohayoubot/ohayou-bot/internal/task"
 )
 
 func main() {
@@ -52,8 +53,9 @@ func run(configPath string, log *slog.Logger) error {
 	}
 
 	b := bot.New(cfg, log)
+	runner := task.NewRunner(db, b, log)
 
-	reg := plugin.NewRegistry(plugin.Deps{Bot: b, Store: db, Log: log})
+	reg := plugin.NewRegistry(plugin.Deps{Bot: b, Store: db, Log: log, Runner: runner})
 	reg.Add(plugins()...)
 	if err := reg.Configure(cfg); err != nil {
 		return err
@@ -62,6 +64,10 @@ func run(configPath string, log *slog.Logger) error {
 		return err
 	}
 	if err := reg.Start(ctx); err != nil {
+		return err
+	}
+	// After the plugins, so every handler is claimed before anything is fired.
+	if err := runner.Start(ctx); err != nil {
 		return err
 	}
 

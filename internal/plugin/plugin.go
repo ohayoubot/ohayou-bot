@@ -11,6 +11,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
+	"github.com/ohayoubot/ohayou-bot/internal/task"
 )
 
 // Deps is what the bot lends a plugin.
@@ -18,9 +19,14 @@ type Deps struct {
 	Bot   *bot.Bot
 	Store store.Store
 	Log   *slog.Logger
+	// Runner is the bot-wide task clock. Plugins use the scoped Tasks below.
+	Runner *task.Runner
 	// KV is the plugin's own corner of the store, for the state it wants back
 	// after a restart. Keys are already scoped to the plugin.
 	KV *store.KV
+	// Tasks schedules work for later, including after a restart. Already scoped
+	// to the plugin.
+	Tasks *task.Queue
 }
 
 // For scopes deps to one plugin: its own logger, and its own corner of the
@@ -30,6 +36,9 @@ func (d Deps) For(name string) Deps {
 	d.Log = d.Log.With("plugin", name)
 	if d.Store != nil {
 		d.KV = store.Namespace(d.Store, name)
+	}
+	if d.Runner != nil {
+		d.Tasks = d.Runner.For(name)
 	}
 	return d
 }
