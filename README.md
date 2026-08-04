@@ -30,6 +30,9 @@
      and a token are all present. See [Deerkins](#deerkins).
    - `drop` - image uploads. Off unless `OHAYOU_DROP_SECRET` is set and `url`
      is filled in. See [Drop](#drop).
+   - `youtube` - names the videos linked in a channel. Needs no credentials, so
+     it is **on** unless you set `"enabled": false`. See
+     [YouTube previews](#youtube-previews).
 2. Build and run:
    ```sh
    go build ./cmd/ohayoubot
@@ -111,6 +114,37 @@ In the `drop` block, `url` is the site and `imageBase` is where the bucket is
 served. `imageBase` must match the site's `PUBLIC_IMAGE_BASE` or every link the
 bot announces is dead. `accountId` and `databaseId` default to the deerkins
 block; set them once the upload tables move to their own database.
+
+## YouTube previews
+
+When someone links a video the bot says what it is:
+
+```
+<someone> have you seen https://youtu.be/dQw4w9WgXcQ yet
+<ohayoubot> YouTube: Rick Astley - Never Gonna Give You Up (Rick Astley)
+```
+
+It reads youtube's public [oembed][oembed] endpoint, which needs no account,
+API key or quota, so there is nothing to set up. It is on by default; turn it
+off with `"enabled": false` in the `youtube` block.
+
+[oembed]: https://oembed.com/
+
+`watch?v=`, `youtu.be`, `/shorts/`, `/live/`, `/embed/` and the `m.`, `music.`
+and `youtube-nocookie.com` spellings are all recognized.
+
+- `maxLinks` - how many videos one message may name (default `2`), so pasting a
+  playlist costs a line or two and no more.
+- `cooldown` - seconds a channel waits between previews (default `10`).
+- `repeat` - seconds before the same video is worth naming again in the same
+  channel (default `600`), so a link going round doesn't get announced each
+  time.
+- `requestTimeout` - ms for one lookup (default `8000`).
+- `ignoreChannels` - channels to stay quiet in.
+
+Titles are flattened to one line and trimmed to fit an IRC message, and the
+plugin only ever sees lines that aren't commands, from nicks that aren't on the
+`ignoreList`.
 
 ## Running as a service
 

@@ -25,6 +25,7 @@ type Bot struct {
 	log  *slog.Logger
 
 	commands map[string]Command
+	watchers []Watcher
 
 	joined atomic.Bool // set once channels have been joined
 
@@ -82,6 +83,11 @@ func (b *Bot) Handle(c Command) { b.commands[c.Name] = c }
 func (b *Bot) HandleFunc(name string, admin bool, h Handler) {
 	b.Handle(Command{Name: name, Admin: admin, Handler: h})
 }
+
+// Watch registers w to receive every message that isn't a command, each in its
+// own goroutine. Like Handle it is for startup: the list is read without a lock
+// once the connection is up.
+func (b *Bot) Watch(w Watcher) { b.watchers = append(b.watchers, w) }
 
 func (b *Bot) Say(target, msg string)    { b.send.Privmsg(target, msg) }
 func (b *Bot) Notice(target, msg string) { b.send.Notice(target, msg) }

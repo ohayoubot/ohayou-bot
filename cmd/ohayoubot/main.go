@@ -16,6 +16,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/catfact"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/deerkins"
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/drop"
+	"github.com/ohayoubot/ohayou-bot/internal/plugins/youtube"
 	"github.com/ohayoubot/ohayou-bot/internal/seed"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 )
@@ -75,6 +76,11 @@ func run(configPath, dataDir string, log *slog.Logger) error {
 	if cfg.Deerkins.Use() {
 		deerkins.New(b, cfg.Deerkins).Register()
 		log.Info("deerkins enabled", "database", cfg.Deerkins.DatabaseID, "editor", cfg.Deerkins.Editor)
+	}
+
+	if cfg.YouTube.Use() {
+		youtube.New(b, cfg.YouTube).Register()
+		log.Info("youtube previews enabled", "cooldown", cfg.YouTube.CooldownWait())
 	}
 
 	var drops *drop.Plugin

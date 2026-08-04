@@ -29,6 +29,7 @@ type Config struct {
 	Database      string            `json:"database"` // path to the sqlite .db file
 	Deerkins      DeerkinsConfig    `json:"deerkins"`
 	Drop          DropConfig        `json:"drop"`
+	YouTube       YouTubeConfig     `json:"youtube"`
 }
 
 type SASLConfig struct {
@@ -148,6 +149,49 @@ type DropConfig struct {
 	Cooldown int `json:"cooldown"`
 	// RequestTimeoutMS bounds a single D1 request.
 	RequestTimeoutMS int `json:"requestTimeout"`
+}
+
+// YouTubeConfig configures the youtube plugin, which names the videos linked
+// in a channel. It reads youtube's public oembed endpoint, so unlike the other
+// plugins it needs no account, key or quota, and is therefore on unless the
+// operator says otherwise.
+type YouTubeConfig struct {
+	Enabled *bool `json:"enabled"`
+	// MaxLinks caps how many videos one message may name, so a paste of a
+	// playlist's worth of links costs a channel a line or two and no more.
+	MaxLinks int `json:"maxLinks"`
+	// Cooldown is the seconds a channel waits between previews.
+	Cooldown int `json:"cooldown"`
+	// Repeat is the seconds before the same video is worth naming again in the
+	// same channel.
+	Repeat int `json:"repeat"`
+	// RequestTimeoutMS bounds a single oembed request.
+	RequestTimeoutMS int      `json:"requestTimeout"`
+	IgnoreChannels   []string `json:"ignoreChannels"`
+}
+
+// Use returns whether the youtube plugin should be registered. It needs no
+// credentials, so it is on unless it is explicitly turned off.
+func (y YouTubeConfig) Use() bool {
+	if y.Enabled != nil {
+		return *y.Enabled
+	}
+	return true
+}
+
+// CooldownWait is the gap between previews in one channel.
+func (y YouTubeConfig) CooldownWait() time.Duration {
+	return time.Duration(y.Cooldown) * time.Second
+}
+
+// RepeatWait is how long a video stays "already said" in a channel.
+func (y YouTubeConfig) RepeatWait() time.Duration {
+	return time.Duration(y.Repeat) * time.Second
+}
+
+// RequestTimeout bounds a single oembed request.
+func (y YouTubeConfig) RequestTimeout() time.Duration {
+	return time.Duration(y.RequestTimeoutMS) * time.Millisecond
 }
 
 // maxGrantTTL matches the ceiling the worker enforces when it verifies a grant.
@@ -327,6 +371,9 @@ func Load(path string) (*Config, error) {
 	if err := cfg.loadDrop(); err != nil {
 		return nil, err
 	}
+	if err := cfg.loadYouTube(); err != nil {
+		return nil, err
+	}
 	// Normalize nicks to lower case for admins
 	admins := make(map[string]string, len(cfg.Admins))
 	for nick, host := range cfg.Admins {
@@ -457,6 +504,34 @@ func (c *Config) loadDrop() error {
 	}
 	if d.Cooldown < 0 || d.RequestTimeoutMS < 1 {
 		return fmt.Errorf("config: drop cooldown and requestTimeout must be positive")
+	}
+	return nil
+}
+
+// loadYouTube fills in the defaults. There is nothing to authenticate, so the
+// only way to get this wrong is a nonsense number.
+func (c *Config) loadYouTube() error {
+	y := &c.YouTube
+	if !y.Use() {
+		return nil
+	}
+	if y.MaxLinks == 0 {
+		y.MaxLinks = 2
+	}
+	if y.Cooldown == 0 {
+		y.Cooldown = 10
+	}
+	if y.Repeat == 0 {
+		y.Repeat = 600
+	}
+	if y.RequestTimeoutMS == 0 {
+		y.RequestTimeoutMS = 8000
+	}
+	if y.MaxLinks < 1 {
+		return fmt.Errorf("config: youtube maxLinks must be at least 1")
+	}
+	if y.Cooldown < 0 || y.Repeat < 0 || y.RequestTimeoutMS < 1 {
+		return fmt.Errorf("config: youtube cooldown, repeat and requestTimeout must be positive")
 	}
 	return nil
 }

@@ -52,6 +52,14 @@
 		"ignoreHosts": [],
 		"ignoreChannels": []
 	},
+	"youtube": {
+		"enabled": true,
+		"maxLinks": 2,
+		"cooldown": 10,
+		"repeat": 600,
+		"requestTimeout": 8000,
+		"ignoreChannels": []
+	},
 	"drop": {
 		"url": "https://hemera.day/drop/",
 		"imageBase": "https://img.hemera.day",
