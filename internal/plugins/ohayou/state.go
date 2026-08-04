@@ -1,59 +1,85 @@
 package ohayou
 
-import "sync"
+import (
+	"encoding/json"
+	"sync"
+	"time"
+)
 
-// policeRegistry stores police protection data for a user who has been
-// robbed and asked for protection.
-// index 0 is the ohayou-steal defense bonus, index 1 the cat-steal bonus.
-// mutex guarded because of goroutines/timers
+// guard is the protection the Ohayou Police are giving one user: what it takes
+// off a thief's odds, and what it loses each hour.
+type guard struct {
+	Ohayou    int `json:"ohayou"`
+	Cat       int `json:"cat"`
+	DecOhayou int `json:"decOhayou"`
+	DecCat    int `json:"decCat"`
+	// Since is when the guard last decayed, so a run that missed several hours
+	// can catch up on all of them at once.
+	Since time.Time `json:"since"`
+}
+
+// policeRegistry stores the protection of users who were robbed and reported
+// it. Mutex guarded because timers and command handlers both reach it.
 type policeRegistry struct {
 	mu sync.Mutex
-	m  map[string][2]int
+	m  map[string]guard
 }
 
 func newPoliceRegistry() *policeRegistry {
-	return &policeRegistry{m: map[string][2]int{}}
+	return &policeRegistry{m: map[string]guard{}}
 }
 
-// reserve claims a slot for user with a zero bonus. It returns false if the
-// user is already protected (or a report is already pending).
+// reserve claims a slot for user with nothing in it. It returns false if the
+// user is already protected, or a report is already pending.
 func (r *policeRegistry) reserve(user string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.m[user]; ok {
 		return false
 	}
-	r.m[user] = [2]int{0, 0}
+	r.m[user] = guard{}
 	return true
 }
 
-// set stores the active protection bonuses for user.
-func (r *policeRegistry) set(user string, ohayou, cat int) {
+// set stores the protection now in force for user.
+func (r *policeRegistry) set(user string, g guard) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.m[user] = [2]int{ohayou, cat}
+	r.m[user] = g
 }
 
-// bonus returns the current bonuses for user, and whether they are protected.
+// bonus returns what the guard takes off a thief's odds, and whether the user
+// is protected at all.
 func (r *policeRegistry) bonus(user string) (ohayou, cat int, ok bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	v, ok := r.m[user]
-	return v[0], v[1], ok
+	return v.Ohayou, v.Cat, ok
 }
 
-// decay subtracts the given amounts. When the ohayou bonus reaches zero the
-// user is removed. It reports whether the user is still protected afterward.
-func (r *policeRegistry) decay(user string, ohayouDec, catDec int) bool {
+// decay ages a guard by however many whole periods have passed since it last
+// did, so a bot that was down for three hours does not hand those three hours
+// back. It reports whether the user is still protected afterwards.
+func (r *policeRegistry) decay(user string, now time.Time, every time.Duration) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	v, ok := r.m[user]
 	if !ok {
 		return false
 	}
-	v[0] -= ohayouDec
-	v[1] -= catDec
-	if v[0] <= 0 {
+
+	steps := 1
+	if every > 0 && !v.Since.IsZero() {
+		if elapsed := int(now.Sub(v.Since) / every); elapsed > steps {
+			steps = elapsed
+		}
+	}
+	v.Ohayou -= v.DecOhayou * steps
+	v.Cat -= v.DecCat * steps
+	v.Since = now
+
+	if v.Ohayou <= 0 {
 		delete(r.m, user)
 		return false
 	}
@@ -66,6 +92,39 @@ func (r *policeRegistry) remove(user string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.m, user)
+}
+
+// protectedUsers lists who is under guard.
+func (r *policeRegistry) protectedUsers() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]string, 0, len(r.m))
+	for user := range r.m {
+		out = append(out, user)
+	}
+	return out
+}
+
+// dump serialises the guards for a caller that wants them back after a restart.
+func (r *policeRegistry) dump() (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	raw, err := json.Marshal(r.m)
+	return string(raw), err
+}
+
+// restore reads back what dump wrote.
+func (r *policeRegistry) restore(raw string) error {
+	var saved map[string]guard
+	if err := json.Unmarshal([]byte(raw), &saved); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for user, g := range saved {
+		r.m[user] = g
+	}
+	return nil
 }
 
 // offers holds the robbery victims the police have PM'd and are waiting on. A

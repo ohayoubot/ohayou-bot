@@ -17,6 +17,10 @@ const (
 	taskMining   = "mining"
 	taskPumping  = "pumping"
 	taskBreeding = "breeding"
+	// taskPolice weakens a guard the Ohayou Police put on a robbery victim.
+	taskPolice = "police"
+	// policeKey is where the guards themselves are kept between restarts.
+	policeKey = "police"
 )
 
 // runs maps a task kind to the status flag it holds while it is outstanding.
@@ -30,6 +34,9 @@ func (g *Plugin) registerTasks(q *task.Queue) {
 	q.Handle(taskMining, task.Fire, g.runMining)
 	q.Handle(taskPumping, task.Fire, g.runPumping)
 	q.Handle(taskBreeding, task.Fire, g.runBreeding)
+	// Fire rather than Reschedule: a guard that went unwatched for hours has
+	// still been weakening, and the handler ages it by however long that was.
+	q.Handle(taskPolice, task.Fire, g.runPoliceDecay)
 }
 
 // startRun queues an activity and marks the user as busy with it.

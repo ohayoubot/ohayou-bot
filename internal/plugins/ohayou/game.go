@@ -124,6 +124,9 @@ func (g *Plugin) Start(ctx context.Context) error {
 	if err := g.resumeDoubleOhayou(ctx); err != nil {
 		g.log.Error("resuming the distributor", "err", err)
 	}
+	if err := g.resumePolice(ctx); err != nil {
+		g.log.Error("resuming police guards", "err", err)
+	}
 
 	g.log.Info("events started")
 	g.bot.Go(func() { g.catEvent(ctx) })

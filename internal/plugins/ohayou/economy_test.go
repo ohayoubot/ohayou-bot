@@ -31,34 +31,25 @@ func testGame(t *testing.T) (*Plugin, *sqlite.DB) {
 	if err := db.Migrate(context.Background(), "ohayou", schema); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	b := testBot(t)
-	g := &Plugin{
-		tasks:   task.NewRunner(db, b, log).For("ohayou"),
-		bot:     b,
-		store:   db,
-		log:     log,
-		est:     time.UTC,
-		baseCtx: context.Background(),
-	}
-	return g, db
+	return testGameOn(t, db), db
 }
 
-// testGameOn builds a second plugin over a store that already exists, standing
-// in for the process restarting.
-func testGameOn(t *testing.T, db *sqlite.DB) (*Plugin, *sqlite.DB) {
+// testGameOn builds a plugin over a store that already exists, which is also
+// what standing in for a restart looks like. It starts from New so it cannot
+// drift from what the real constructor sets up.
+func testGameOn(t *testing.T, db *sqlite.DB) *Plugin {
 	t.Helper()
+
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	b := testBot(t)
-	return &Plugin{
-		tasks:   task.NewRunner(db, b, log).For("ohayou"),
-		kv:      store.Namespace(db, "ohayou"),
-		bot:     b,
-		store:   db,
-		log:     log,
-		est:     time.UTC,
-		baseCtx: context.Background(),
-	}, db
+
+	g := New()
+	g.bot, g.store, g.log = b, db, log
+	g.est = time.UTC
+	g.baseCtx = context.Background()
+	g.tasks = task.NewRunner(db, b, log).For("ohayou")
+	g.kv = store.Namespace(db, "ohayou")
+	return g
 }
 
 // A negative deposit or withdraw must be rejected outright, or "!deposit

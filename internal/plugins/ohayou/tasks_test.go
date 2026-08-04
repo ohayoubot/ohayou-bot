@@ -59,7 +59,7 @@ func TestARunSurvivesARestart(t *testing.T) {
 	startedRun(t, g, taskMining, "alice", miningTime)
 
 	// A second plugin over the same store stands in for the process restarting.
-	fresh, _ := testGameOn(t, db)
+	fresh := testGameOn(t, db)
 	if err := fresh.reconcileRuns(ctx); err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
