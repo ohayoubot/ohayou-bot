@@ -1,13 +1,7 @@
 package youtube
 
 import (
-	"bufio"
-	"context"
 	"encoding/json"
-	"fmt"
-	"io"
-	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,27 +10,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/bottest"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
-	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 )
-
-// testDeps is what the registry would hand the plugin.
-func testDeps(b *bot.Bot) plugin.Deps {
-	return plugin.Deps{Bot: b, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
-}
 
 const testID = "dQw4w9WgXcQ"
 
 // harness runs the plugin against a fake irc server and a fake oembed endpoint,
 // so a test can put a line in a channel and read what comes back out.
 type harness struct {
+	*bottest.Harness
 	plugin *Plugin
-	lines  chan string
 
 	mu     sync.Mutex
-	server net.Conn
 	asked  []string         // the video ids oembed was asked about
 	videos map[string]video // what oembed knows
 	status map[string]int   // ids that answer with an error instead
@@ -47,10 +34,10 @@ func newHarness(t *testing.T) *harness {
 	t.Helper()
 
 	h := &harness{
-		lines:  make(chan string, 64),
-		videos: map[string]video{},
-		status: map[string]int{},
-		clock:  time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+		Harness: bottest.New(t, bottest.Ignoring("spammer")),
+		videos:  map[string]video{},
+		status:  map[string]int{},
+		clock:   time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
 	}
 	h.videos[testID] = video{
 		Title:  "Rick Astley - Never Gonna Give You Up",
@@ -60,42 +47,6 @@ func newHarness(t *testing.T) *harness {
 	oembed := httptest.NewServer(http.HandlerFunc(h.oembed))
 	t.Cleanup(oembed.Close)
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	t.Cleanup(func() { ln.Close() })
-
-	ready := make(chan struct{})
-	go h.serve(ln, ready)
-
-	botCfg := &config.Config{
-		Nick: "ohayoubot", User: "ohayoubot",
-		Server: "127.0.0.1", Port: ln.Addr().(*net.TCPAddr).Port,
-		CommandPrefix: "!",
-		Channels:      []string{"#chan"},
-		Admins:        map[string]string{},
-		IgnoreList:    map[string]string{"spammer": "posts too much"},
-	}
-	b := bot.New(botCfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- b.Run(ctx) }()
-	t.Cleanup(func() {
-		cancel()
-		select {
-		case <-done:
-		case <-time.After(250 * time.Millisecond):
-		}
-	})
-
-	select {
-	case <-ready:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the bot never registered with the fake server")
-	}
-
 	h.plugin = New()
 	h.plugin.now = h.now
 	if _, err := h.plugin.Configure(plugin.Config{Block: json.RawMessage(`{
@@ -104,11 +55,13 @@ func newHarness(t *testing.T) *harness {
 	}`)}); err != nil {
 		t.Fatalf("configure: %v", err)
 	}
-	if err := h.plugin.Register(testDeps(b)); err != nil {
+	deps := plugin.Deps{Bot: h.Bot, Log: h.Log}
+	if err := h.plugin.Register(deps.For("youtube")); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	h.plugin.api = newClient(oembed.URL, 2*time.Second)
 
+	h.Start()
 	return h
 }
 
@@ -163,72 +116,6 @@ func (h *harness) oembed(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// serve is the fake irc server: it welcomes the bot, keeps the connection so
-// the test can push lines down it, and collects everything the bot says.
-func (h *harness) serve(ln net.Listener, ready chan struct{}) {
-	conn, err := ln.Accept()
-	if err != nil {
-		return
-	}
-	defer conn.Close()
-
-	r := bufio.NewReader(conn)
-	welcomed := false
-	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			return
-		}
-		line = strings.TrimRight(line, "\r\n")
-
-		switch {
-		case strings.HasPrefix(line, "NICK") && !welcomed:
-			welcomed = true
-			h.mu.Lock()
-			h.server = conn
-			h.mu.Unlock()
-			io.WriteString(conn, ":srv 001 ohayoubot :Welcome\r\n")
-			close(ready)
-		case strings.HasPrefix(line, "PRIVMSG"), strings.HasPrefix(line, "NOTICE"):
-			h.lines <- line
-		}
-	}
-}
-
-// say puts a line in a channel as nick.
-func (h *harness) say(t *testing.T, nick, target, text string) {
-	t.Helper()
-	h.mu.Lock()
-	conn := h.server
-	h.mu.Unlock()
-	if conn == nil {
-		t.Fatal("the fake server has no connection yet")
-	}
-	fmt.Fprintf(conn, ":%s!%s@example.net PRIVMSG %s :%s\r\n", nick, nick, target, text)
-}
-
-// next waits for a line from the bot.
-func (h *harness) next(t *testing.T) string {
-	t.Helper()
-	select {
-	case line := <-h.lines:
-		return line
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for the bot to say something")
-		return ""
-	}
-}
-
-// silent fails if the bot says anything in the next moment.
-func (h *harness) silent(t *testing.T) {
-	t.Helper()
-	select {
-	case line := <-h.lines:
-		t.Fatalf("expected silence, got %q", line)
-	case <-time.After(300 * time.Millisecond):
-	}
-}
-
 func (h *harness) askedFor() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -238,10 +125,10 @@ func (h *harness) askedFor() []string {
 func TestPreviewsALink(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "someone", "#chan", "have you seen https://youtu.be/"+testID+" yet")
+	h.Say("someone", "#chan", "have you seen https://youtu.be/"+testID+" yet")
 
 	want := "PRIVMSG #chan :YouTube: Rick Astley - Never Gonna Give You Up (Rick Astley)"
-	if got := h.next(t); got != want {
+	if got := h.Next(); got != want {
 		t.Errorf("bot said %q, want %q", got, want)
 	}
 }
@@ -249,9 +136,9 @@ func TestPreviewsALink(t *testing.T) {
 func TestPreviewsInAPrivateMessage(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "someone", "ohayoubot", "https://www.youtube.com/watch?v="+testID)
+	h.Say("someone", "ohayoubot", "https://www.youtube.com/watch?v="+testID)
 
-	if got := h.next(t); !strings.HasPrefix(got, "PRIVMSG someone :YouTube: ") {
+	if got := h.Next(); !strings.HasPrefix(got, "PRIVMSG someone :YouTube: ") {
 		t.Errorf("bot said %q, want a preview back to the sender", got)
 	}
 }
@@ -259,8 +146,8 @@ func TestPreviewsInAPrivateMessage(t *testing.T) {
 func TestIgnoresLinesWithoutAVideo(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "someone", "#chan", "https://example.com/watch?v="+testID+" is not youtube")
-	h.silent(t)
+	h.Say("someone", "#chan", "https://example.com/watch?v="+testID+" is not youtube")
+	h.Silent()
 
 	if asked := h.askedFor(); len(asked) != 0 {
 		t.Errorf("oembed was asked about %v, want nothing", asked)
@@ -270,8 +157,8 @@ func TestIgnoresLinesWithoutAVideo(t *testing.T) {
 func TestSaysNothingAboutAMissingVideo(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "someone", "#chan", "https://youtu.be/oHg5SJYRHA0")
-	h.silent(t)
+	h.Say("someone", "#chan", "https://youtu.be/oHg5SJYRHA0")
+	h.Silent()
 
 	if asked := h.askedFor(); len(asked) != 1 || asked[0] != "oHg5SJYRHA0" {
 		t.Errorf("oembed was asked about %v, want the one id", asked)
@@ -281,17 +168,17 @@ func TestSaysNothingAboutAMissingVideo(t *testing.T) {
 func TestCooldownHoldsTheChannel(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "someone", "#chan", "https://youtu.be/"+testID)
-	h.next(t)
+	h.Say("someone", "#chan", "https://youtu.be/"+testID)
+	h.Next()
 
 	// A different video, still inside the channel's cooldown.
 	h.knows("oHg5SJYRHA0", video{Title: "Another one", Author: "Someone"})
-	h.say(t, "someone", "#chan", "https://youtu.be/oHg5SJYRHA0")
-	h.silent(t)
+	h.Say("someone", "#chan", "https://youtu.be/oHg5SJYRHA0")
+	h.Silent()
 
 	h.advance(11 * time.Second)
-	h.say(t, "someone", "#chan", "https://youtu.be/oHg5SJYRHA0")
-	if got := h.next(t); !strings.Contains(got, "Another one") {
+	h.Say("someone", "#chan", "https://youtu.be/oHg5SJYRHA0")
+	if got := h.Next(); !strings.Contains(got, "Another one") {
 		t.Errorf("bot said %q, want the second video once the cooldown passed", got)
 	}
 }
@@ -299,17 +186,17 @@ func TestCooldownHoldsTheChannel(t *testing.T) {
 func TestDoesNotRepeatTheSameVideo(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "someone", "#chan", "https://youtu.be/"+testID)
-	h.next(t)
+	h.Say("someone", "#chan", "https://youtu.be/"+testID)
+	h.Next()
 
 	// Past the cooldown, but well inside the repeat window.
 	h.advance(time.Minute)
-	h.say(t, "friend", "#chan", "https://www.youtube.com/watch?v="+testID)
-	h.silent(t)
+	h.Say("friend", "#chan", "https://www.youtube.com/watch?v="+testID)
+	h.Silent()
 
 	h.advance(10 * time.Minute)
-	h.say(t, "friend", "#chan", "https://www.youtube.com/watch?v="+testID)
-	if got := h.next(t); !strings.Contains(got, "Never Gonna Give You Up") {
+	h.Say("friend", "#chan", "https://www.youtube.com/watch?v="+testID)
+	if got := h.Next(); !strings.Contains(got, "Never Gonna Give You Up") {
 		t.Errorf("bot said %q, want the video again once the repeat window passed", got)
 	}
 }
@@ -319,49 +206,49 @@ func TestNamesEveryVideoInOneLineUpToMax(t *testing.T) {
 	h.knows("oHg5SJYRHA0", video{Title: "Another one", Author: "Someone"})
 	h.knows("QH2-TGUlwu4", video{Title: "A third", Author: "Someone"})
 
-	h.say(t, "someone", "#chan", "https://youtu.be/"+testID+
+	h.Say("someone", "#chan", "https://youtu.be/"+testID+
 		" https://youtu.be/oHg5SJYRHA0 https://youtu.be/QH2-TGUlwu4")
 
-	if got := h.next(t); !strings.Contains(got, "Never Gonna Give You Up") {
+	if got := h.Next(); !strings.Contains(got, "Never Gonna Give You Up") {
 		t.Errorf("first line was %q", got)
 	}
-	if got := h.next(t); !strings.Contains(got, "Another one") {
+	if got := h.Next(); !strings.Contains(got, "Another one") {
 		t.Errorf("second line was %q", got)
 	}
-	h.silent(t)
+	h.Silent()
 }
 
 func TestIgnoredChannelStaysQuiet(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "someone", "#quiet", "https://youtu.be/"+testID)
-	h.silent(t)
+	h.Say("someone", "#quiet", "https://youtu.be/"+testID)
+	h.Silent()
 }
 
 func TestIgnoredNickGetsNoPreview(t *testing.T) {
 	h := newHarness(t)
 
-	h.say(t, "spammer", "#chan", "https://youtu.be/"+testID)
-	h.silent(t)
+	h.Say("spammer", "#chan", "https://youtu.be/"+testID)
+	h.Silent()
 }
 
 func TestCommandsDoNotReachTheWatcher(t *testing.T) {
 	h := newHarness(t)
 
 	// !code is a real command, and it answers with its own line.
-	h.say(t, "someone", "#chan", "!code https://youtu.be/"+testID)
-	if got := h.next(t); strings.Contains(got, "YouTube:") {
+	h.Say("someone", "#chan", "!code https://youtu.be/"+testID)
+	if got := h.Next(); strings.Contains(got, "YouTube:") {
 		t.Errorf("bot previewed a link inside a command: %q", got)
 	}
-	h.silent(t)
+	h.Silent()
 }
 
 func TestOembedErrorSaysNothing(t *testing.T) {
 	h := newHarness(t)
 	h.fails(testID, http.StatusInternalServerError)
 
-	h.say(t, "someone", "#chan", "https://youtu.be/"+testID)
-	h.silent(t)
+	h.Say("someone", "#chan", "https://youtu.be/"+testID)
+	h.Silent()
 }
 
 func TestLineIsCleanedAndFitted(t *testing.T) {
