@@ -4,7 +4,13 @@ import (
 	"strings"
 
 	irc "github.com/ohayoubot/go-ircevent"
+
+	"github.com/ohayoubot/ohayou-bot/internal/bot/access"
 )
+
+// adminRule is the bar for the admin commands: the nick must be listed and be
+// coming from the host listed against it.
+var adminRule = access.Rule{ByNick: true, ByHost: true}
 
 func (b *Bot) onPrivmsg(e *irc.Event) {
 	text := e.Message()
@@ -13,8 +19,8 @@ func (b *Bot) onPrivmsg(e *irc.Event) {
 		return
 	}
 
-	host, isAdmin := b.cfg.Admins[strings.ToLower(e.Nick)]
-	admin := isAdmin && host == e.Host
+	who := adminRule.Find(b.cfg.Admins, e.Nick, e.Host)
+	admin := who.OK
 
 	m := &Message{
 		Prefix: b.cfg.CommandPrefix,
@@ -30,7 +36,7 @@ func (b *Bot) onPrivmsg(e *irc.Event) {
 	if !ok {
 		// Not addressed to the bot. Watchers get the line instead, on the same
 		// terms as a command: nothing from an ignored nick reaches them.
-		if !b.isIgnored(e.Nick) {
+		if !b.Ignored(e.Nick) {
 			for _, w := range b.watchers {
 				b.Go(func() { w(m) })
 			}
@@ -42,15 +48,15 @@ func (b *Bot) onPrivmsg(e *irc.Event) {
 	if cmd.Admin && !admin {
 		// A configured admin whose current host doesn't
 		// match the mask is the most likely issue. log it
-		if isAdmin {
+		if who.Listed {
 			b.log.Warn("admin command denied: host mismatch",
-				"command", cmd.Name, "nick", e.Nick, "gotHost", e.Host, "wantHost", host)
+				"command", cmd.Name, "nick", e.Nick, "gotHost", e.Host, "wantHost", who.WantHost)
 		}
 		return
 	}
 
 	// Non-admin commands from ignored users are dropped.
-	if !admin && b.isIgnored(e.Nick) {
+	if !admin && b.Ignored(e.Nick) {
 		b.log.Debug("ignored", "nick", e.Nick)
 		return
 	}
