@@ -3,8 +3,6 @@ package bot
 import (
 	"context"
 	"strings"
-
-	irc "github.com/ohayoubot/go-ircevent"
 )
 
 // Verify asks the network whether nick is logged in to services. An error is
@@ -41,21 +39,21 @@ func (b *Bot) Identified(nick string) bool {
 }
 
 // registerIdentity drops a nick's proof when they change nick or disconnect,
-// which is as long as it is worth anything. Registered once for the life of
-// the connection, so nothing may ClearCallback these codes.
+// which is as long as it is worth anything.
 func (b *Bot) registerIdentity() {
-	drop := func(e *irc.Event) {
-		key := strings.ToLower(e.Nick)
+	b.OnNick(func(e NickEvent) { b.forget(e.From, "nick change") })
+	b.OnQuit(func(e QuitEvent) { b.forget(e.Nick, "quit") })
+}
 
-		b.identMu.Lock()
-		_, had := b.identified[key]
-		delete(b.identified, key)
-		b.identMu.Unlock()
+func (b *Bot) forget(nick, why string) {
+	key := strings.ToLower(nick)
 
-		if had {
-			b.log.Debug("identity dropped", "nick", key, "reason", e.Code)
-		}
+	b.identMu.Lock()
+	_, had := b.identified[key]
+	delete(b.identified, key)
+	b.identMu.Unlock()
+
+	if had {
+		b.log.Debug("identity dropped", "nick", key, "reason", why)
 	}
-	b.conn.AddCallback("NICK", drop)
-	b.conn.AddCallback("QUIT", drop)
 }

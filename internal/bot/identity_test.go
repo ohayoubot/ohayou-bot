@@ -100,6 +100,7 @@ func TestChangingNickDropsTheProof(t *testing.T) {
 	identify(t, b, "someone", "SomeAccount")
 
 	b.conn.RunCallbacks(&irc.Event{Code: "NICK", Nick: "someone", Arguments: []string{"someoneelse"}})
+	b.Wait() // handlers run in their own goroutines
 
 	if b.Identified("someone") {
 		t.Error("the old nick is still identified after a nick change")
@@ -114,6 +115,7 @@ func TestQuittingDropsTheProof(t *testing.T) {
 	identify(t, b, "someone", "SomeAccount")
 
 	b.conn.RunCallbacks(&irc.Event{Code: "QUIT", Nick: "someone"})
+	b.Wait()
 
 	if b.Identified("someone") {
 		t.Error("a nick that quit is still identified")
@@ -126,6 +128,7 @@ func TestOneNickQuittingLeavesAnotherAlone(t *testing.T) {
 	identify(t, b, "another", "AnotherAccount")
 
 	b.conn.RunCallbacks(&irc.Event{Code: "QUIT", Nick: "someone"})
+	b.Wait()
 
 	if !b.Identified("another") {
 		t.Error("one nick quitting dropped another's proof")

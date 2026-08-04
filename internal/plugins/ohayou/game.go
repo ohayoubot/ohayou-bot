@@ -37,6 +37,7 @@ type Plugin struct {
 	baseCtx context.Context
 
 	police *policeRegistry
+	offers *offers
 
 	// event state
 	evtMu        sync.Mutex // the event guard on state
@@ -49,6 +50,7 @@ func New() *Plugin {
 	return &Plugin{
 		baseCtx:  context.Background(),
 		police:   newPoliceRegistry(),
+		offers:   newOffers(),
 		catAdopt: make(chan string),
 	}
 }
@@ -94,6 +96,7 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 	g.bot.HandleFunc("register", false, g.cmdRegister)
 	g.bot.HandleFunc("identify", false, g.cmdIdentify)
 	g.bot.HandleFunc("quarry", false, g.cmdQuarry)
+	g.bot.HandleFunc("report", false, g.cmdReport)
 	g.bot.Help(helpTopics(g.p())...)
 
 	g.log.Info("enabled", "timezone", g.cfg.Timezone, "fortunes", len(g.fortunes))
