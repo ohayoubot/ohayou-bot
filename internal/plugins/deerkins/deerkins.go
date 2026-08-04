@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/access"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
@@ -35,9 +36,14 @@ type Plugin struct {
 	log *slog.Logger
 	db  *gallery
 
-	banNicks    map[string]bool
-	banHosts    map[string]bool
-	banChannels map[string]bool
+	banNicks    access.Set
+	banHosts    access.Set
+	banChannels access.Set
+
+	// rule and hosts are the privileged list, projected to what access.Find
+	// takes: a lowercased nick mapped to the host it must come from.
+	rule  access.Rule
+	hosts map[string]string
 
 	roll func(int) int
 
@@ -69,9 +75,11 @@ func New(b *bot.Bot, cfg config.DeerkinsConfig) *Plugin {
 		cfg:         cfg,
 		log:         b.Logger().With("plugin", "deerkins"),
 		db:          newGallery(d1.APIBase, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout()),
-		banNicks:    lowerSet(cfg.IgnoreNicks),
-		banHosts:    lowerSet(cfg.IgnoreHosts),
-		banChannels: lowerSet(cfg.IgnoreChannels),
+		banNicks:    access.NewSet(cfg.IgnoreNicks),
+		banHosts:    access.NewSet(cfg.IgnoreHosts),
+		banChannels: access.NewSet(cfg.IgnoreChannels),
+		rule:        access.Rule{ByNick: cfg.MatchNick(), ByHost: cfg.MatchHost()},
+		hosts:       privilegedHosts(cfg.Privileged),
 		roll:        rand.IntN,
 		used:        ratelimit.New(cfg.Wait()),
 		spoke:       ratelimit.New(chatterWait),
@@ -338,11 +346,11 @@ func (p *Plugin) total() (int, error) {
 // bannedBy returns which field matched the ignore lists, or "".
 func (p *Plugin) bannedBy(m *bot.Message) string {
 	switch {
-	case p.banNicks[strings.ToLower(m.Nick)]:
+	case p.banNicks.Has(m.Nick):
 		return "nick"
-	case p.banHosts[strings.ToLower(m.Host)]:
+	case p.banHosts.Has(m.Host):
 		return "host"
-	case m.FromChannel() && p.banChannels[strings.ToLower(m.Target)]:
+	case m.FromChannel() && p.banChannels.Has(m.Target):
 		return "channel"
 	}
 	return ""
@@ -350,33 +358,26 @@ func (p *Plugin) bannedBy(m *bot.Message) string {
 
 // privilegedFor matches the sender against the privileged list on whichever of
 // nick and host the config asks for. Listing both (the default) means both must
-// match, the same bar the bot's admin commands use, since a nick alone is
-// trivially borrowed.
+// match, the same bar the bot's admin commands use.
 func (p *Plugin) privilegedFor(m *bot.Message) (config.DeerkinsUser, bool) {
-	byNick, byHost := p.cfg.MatchNick(), p.cfg.MatchHost()
-	if !byNick && !byHost {
-		return config.DeerkinsUser{}, false
-	}
-
-	if !byNick {
-		for _, user := range p.cfg.Privileged {
-			if user.Host != "" && strings.EqualFold(user.Host, m.Host) {
-				return user, true
-			}
+	who := p.rule.Find(p.hosts, m.Nick, m.Host)
+	if !who.OK {
+		if who.Listed {
+			p.log.Warn("privileged deer denied: host mismatch",
+				"nick", m.Nick, "gotHost", m.Host, "wantHost", who.WantHost)
 		}
 		return config.DeerkinsUser{}, false
 	}
+	return p.cfg.Privileged[who.Key], true
+}
 
-	user, ok := p.cfg.Privileged[strings.ToLower(m.Nick)]
-	if !ok {
-		return config.DeerkinsUser{}, false
+// privilegedHosts is the privileged list keyed the way access.Find reads it.
+func privilegedHosts(users map[string]config.DeerkinsUser) map[string]string {
+	hosts := make(map[string]string, len(users))
+	for nick, user := range users {
+		hosts[strings.ToLower(nick)] = user.Host
 	}
-	if byHost && !strings.EqualFold(user.Host, m.Host) {
-		p.log.Warn("privileged deer denied: host mismatch",
-			"nick", m.Nick, "gotHost", m.Host, "wantHost", user.Host)
-		return config.DeerkinsUser{}, false
-	}
-	return user, true
+	return hosts
 }
 
 // lineBudget is how many bytes of art fit on one line to this target.
@@ -417,14 +418,4 @@ func sanitiseName(name string) string {
 // that.
 func sanitiseText(s string) string {
 	return irctext.Truncate(irctext.Clean(s), maxTextLen)
-}
-
-func lowerSet(values []string) map[string]bool {
-	set := make(map[string]bool, len(values))
-	for _, v := range values {
-		if v = strings.ToLower(strings.TrimSpace(v)); v != "" {
-			set[v] = true
-		}
-	}
-	return set
 }

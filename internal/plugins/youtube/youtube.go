@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/access"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
@@ -22,7 +23,7 @@ type Plugin struct {
 	log *slog.Logger
 	api *client
 
-	banChannels map[string]bool
+	banChannels access.Set
 
 	now func() time.Time
 
@@ -36,7 +37,7 @@ func New(b *bot.Bot, cfg config.YouTubeConfig) *Plugin {
 		cfg:         cfg,
 		log:         b.Logger().With("plugin", "youtube"),
 		api:         newClient(oembedBase, cfg.RequestTimeout()),
-		banChannels: lowerSet(cfg.IgnoreChannels),
+		banChannels: access.NewSet(cfg.IgnoreChannels),
 		now:         time.Now,
 		spoke:       ratelimit.New(cfg.CooldownWait()),
 		said:        ratelimit.New(cfg.RepeatWait()),
@@ -57,7 +58,7 @@ func (p *Plugin) onLine(m *bot.Message) {
 		to = m.Nick
 	}
 
-	if p.banChannels[strings.ToLower(to)] {
+	if p.banChannels.Has(to) {
 		return
 	}
 
@@ -120,12 +121,4 @@ func line(target string, v video) string {
 		msg += " (" + author + ")"
 	}
 	return irctext.Fit(target, msg)
-}
-
-func lowerSet(names []string) map[string]bool {
-	set := make(map[string]bool, len(names))
-	for _, n := range names {
-		set[strings.ToLower(strings.TrimSpace(n))] = true
-	}
-	return set
 }

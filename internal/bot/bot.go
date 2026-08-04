@@ -154,7 +154,9 @@ func (b *Bot) removeChannel(name string) {
 	}
 }
 
-func (b *Bot) isIgnored(nick string) bool {
+// Ignored reports whether the bot is ignoring nick, so a plugin reading the
+// lines the router hands it can apply the same bar.
+func (b *Bot) Ignored(nick string) bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	_, ok := b.ignore[strings.ToLower(nick)]
