@@ -1,12 +1,9 @@
 package deerkins
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"io"
-	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -17,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/bottest"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
@@ -25,10 +23,6 @@ import (
 )
 
 // testDeps is what the registry would hand the plugin.
-func testDeps(b *bot.Bot) plugin.Deps {
-	return plugin.Deps{Bot: b, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
-}
-
 const senordeer = "        GGGG\n      GGGGGGGG\n         AA\n        AAA\n         AA\n  AGDGDGAAA\n AAGGDGGAAA\n AAAAAAAAAA\n A A    A A\n A A    A A\n A A    A A"
 
 // fakeD1 answers query calls the way the cloudflare API does. It records the
@@ -108,75 +102,15 @@ func testConfig(t *testing.T) Config {
 // harness wires the plugin to a bot talking to a fake irc server and a fake D1,
 // and hands back everything the bot writes to the network.
 type harness struct {
+	*bottest.Harness
 	plugin *Plugin
 	d1     *fakeD1
-	lines  chan string
 }
 
 func newHarness(t *testing.T, cfg Config) *harness {
 	t.Helper()
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	t.Cleanup(func() { ln.Close() })
-
-	lines := make(chan string, 256)
-	ready := make(chan struct{})
-	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-		r := bufio.NewReader(conn)
-		welcomed := false
-		for {
-			line, err := r.ReadString('\n')
-			if err != nil {
-				return
-			}
-			line = strings.TrimRight(line, "\r\n")
-			if strings.HasPrefix(line, "NICK") && !welcomed {
-				welcomed = true
-				io.WriteString(conn, ":srv 001 ohayoubot :Welcome\r\n")
-				close(ready)
-			}
-			if strings.HasPrefix(line, "PRIVMSG") || strings.HasPrefix(line, "NOTICE") {
-				lines <- line
-			}
-		}
-	}()
-
-	botCfg := &config.Config{
-		Nick: "ohayoubot", User: "ohayoubot",
-		Server: "127.0.0.1", Port: ln.Addr().(*net.TCPAddr).Port,
-		CommandPrefix: "!",
-		Admins:        map[string]string{},
-		IgnoreList:    map[string]string{},
-	}
-	b := bot.New(botCfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- b.Run(ctx) }()
-	t.Cleanup(func() {
-		cancel()
-		select {
-		case <-done:
-		case <-time.After(250 * time.Millisecond):
-		}
-	})
-
-	select {
-	case <-ready:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the bot never registered with the fake server")
-	}
-
-	fake := &fakeD1{}
-	srv := fake.start(t)
+	h := &harness{Harness: bottest.New(t, bottest.InChannels("#pank"))}
 
 	db, err := sqlite.Open(":memory:")
 	if err != nil {
@@ -187,50 +121,39 @@ func newHarness(t *testing.T, cfg Config) *harness {
 		t.Fatalf("init store: %v", err)
 	}
 
+	h.d1 = &fakeD1{}
+	srv := h.d1.start(t)
+
 	p := New()
 	p.cfg = cfg
 	p.roll = func(int) int { return 0 }
-	deps := testDeps(b)
-	deps.Store = db
+	deps := plugin.Deps{Bot: h.Bot, Store: db, Log: h.Log}
 	if err := p.Register(deps.For("deerkins")); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	p.db = newGallery(srv.URL, cfg.AccountID, cfg.DatabaseID, cfg.APIToken, cfg.RequestTimeout())
+	h.plugin = p
 
-	return &harness{plugin: p, d1: fake, lines: lines}
+	h.Start()
+	return h
 }
 
-// collect drains the lines the bot sent, waiting for the first one and then
-// for the rest to stop arriving.
+// collect drains the lines the bot sent, giving it time to paint a whole deer.
 func (h *harness) collect(t *testing.T) []string {
 	t.Helper()
-	return h.drain(2 * time.Second)
+	return h.DrainFor(2 * time.Second)
 }
 
 // silence returns whatever the bot said when it should have said nothing.
 func (h *harness) silence(t *testing.T) []string {
 	t.Helper()
-	return h.drain(300 * time.Millisecond)
+	return h.DrainFor(300 * time.Millisecond)
 }
 
 // forget clears the gate on the replies that aren't art, standing in for the
 // wait between them.
 func (h *harness) forget() {
 	h.plugin.spoke = ratelimit.New(chatterWait)
-}
-
-func (h *harness) drain(first time.Duration) []string {
-	var out []string
-	timeout := time.After(first)
-	for {
-		select {
-		case line := <-h.lines:
-			out = append(out, line)
-			timeout = time.After(100 * time.Millisecond)
-		case <-timeout:
-			return out
-		}
-	}
 }
 
 func message(nick, target, text string) *bot.Message {

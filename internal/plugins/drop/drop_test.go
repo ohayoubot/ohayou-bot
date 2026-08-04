@@ -1,21 +1,17 @@
 package drop
 
 import (
-	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
-	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/bottest"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
@@ -23,25 +19,9 @@ import (
 
 const testSecret = "0123456789abcdef0123456789abcdef"
 
-// whoisReply is what the fake server says about a nick.
-type whoisReply struct {
-	account  string
-	channels string
-}
-
 type harness struct {
+	*bottest.Harness
 	plugin *Plugin
-	lines  chan string
-
-	mu     sync.Mutex
-	whois  map[string]whoisReply
-	asked  []string
-	silent bool // when set, a WHOIS gets no reply at all
-}
-
-// testDeps is what the registry would hand the plugin.
-func testDeps(b *bot.Bot) plugin.Deps {
-	return plugin.Deps{Bot: b, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
 }
 
 func newHarness(t *testing.T) *harness {
@@ -51,49 +31,12 @@ func newHarness(t *testing.T) *harness {
 
 // newHarnessIn builds a bot already in the given channels, which is what
 // shared() intersects a nick's whois against.
+// newHarnessIn builds a bot already in the given channels, which is what
+// shared() intersects a nick's whois against.
 func newHarnessIn(t *testing.T, channels []string) *harness {
 	t.Helper()
 
-	h := &harness{
-		lines: make(chan string, 256),
-		whois: map[string]whoisReply{},
-	}
-
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	t.Cleanup(func() { ln.Close() })
-
-	ready := make(chan struct{})
-	go h.serve(ln, ready)
-
-	botCfg := &config.Config{
-		Nick: "ohayoubot", User: "ohayoubot",
-		Server: "127.0.0.1", Port: ln.Addr().(*net.TCPAddr).Port,
-		CommandPrefix: "!",
-		Channels:      channels,
-		Admins:        map[string]string{},
-		IgnoreList:    map[string]string{},
-	}
-	b := bot.New(botCfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- b.Run(ctx) }()
-	t.Cleanup(func() {
-		cancel()
-		select {
-		case <-done:
-		case <-time.After(250 * time.Millisecond):
-		}
-	})
-
-	select {
-	case <-ready:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the bot never registered with the fake server")
-	}
+	h := &harness{Harness: bottest.New(t, bottest.InChannels(channels...))}
 
 	db, err := sqlite.Open(":memory:")
 	if err != nil {
@@ -115,100 +58,13 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 	}); err != nil {
 		t.Fatalf("configure: %v", err)
 	}
-	deps := testDeps(b)
-	deps.Store = db
+	deps := plugin.Deps{Bot: h.Bot, Store: db, Log: h.Log}
 	if err := h.plugin.Register(deps.For("drop")); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
+	h.Start()
 	return h
-}
-
-func (h *harness) serve(ln net.Listener, ready chan struct{}) {
-	conn, err := ln.Accept()
-	if err != nil {
-		return
-	}
-	defer conn.Close()
-
-	r := bufio.NewReader(conn)
-	welcomed := false
-	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			return
-		}
-		line = strings.TrimRight(line, "\r\n")
-
-		switch {
-		case strings.HasPrefix(line, "NICK") && !welcomed:
-			welcomed = true
-			io.WriteString(conn, ":srv 001 ohayoubot :Welcome\r\n")
-			close(ready)
-		case strings.HasPrefix(line, "WHOIS "):
-			h.answerWhois(conn, strings.TrimSpace(strings.TrimPrefix(line, "WHOIS ")))
-		case strings.HasPrefix(line, "PRIVMSG"), strings.HasPrefix(line, "NOTICE"):
-			h.lines <- line
-		}
-	}
-}
-
-func (h *harness) answerWhois(conn net.Conn, nick string) {
-	h.mu.Lock()
-	reply, known := h.whois[strings.ToLower(nick)]
-	silent := h.silent
-	// The bot whoises itself on connect to log its own host. That is not a
-	// lookup any command asked for, so it does not count.
-	if !strings.EqualFold(nick, "ohayoubot") {
-		h.asked = append(h.asked, nick)
-	}
-	h.mu.Unlock()
-
-	if silent {
-		return
-	}
-	if !known {
-		fmt.Fprintf(conn, ":srv 401 ohayoubot %s :No such nick/channel\r\n", nick)
-		return
-	}
-	if reply.account != "" {
-		fmt.Fprintf(conn, ":srv 330 ohayoubot %s %s :is logged in as\r\n", nick, reply.account)
-	}
-	if reply.channels != "" {
-		fmt.Fprintf(conn, ":srv 319 ohayoubot %s :%s\r\n", nick, reply.channels)
-	}
-	fmt.Fprintf(conn, ":srv 318 ohayoubot %s :End of /WHOIS list\r\n", nick)
-}
-
-func (h *harness) says(nick string, reply whoisReply) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.whois[strings.ToLower(nick)] = reply
-}
-
-func (h *harness) whoisCount() int {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return len(h.asked)
-}
-
-func (h *harness) drain(first time.Duration) []string {
-	var out []string
-	timeout := time.After(first)
-	for {
-		select {
-		case line := <-h.lines:
-			out = append(out, line)
-			timeout = time.After(150 * time.Millisecond)
-		case <-timeout:
-			return out
-		}
-	}
-}
-
-func (h *harness) collect(t *testing.T) []string {
-	t.Helper()
-	return h.drain(3 * time.Second)
 }
 
 func message(nick, target, text string) *bot.Message {
@@ -250,10 +106,10 @@ func payloadOf(t *testing.T, token string) grant {
 
 func TestUploadSendsTheLinkPrivately(t *testing.T) {
 	h := newHarness(t)
-	h.says("mallow", whoisReply{account: "Mallow", channels: "@#chan +#other"})
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "@#chan +#other"})
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
-	lines := h.collect(t)
+	lines := h.Collect()
 
 	target, token := linkIn(t, lines)
 	if target != "mallow" {
@@ -280,10 +136,10 @@ func TestUploadSendsTheLinkPrivately(t *testing.T) {
 
 func TestUploadGrantCarriesAccountAndSharedChannels(t *testing.T) {
 	h := newHarness(t)
-	h.says("mallow", whoisReply{account: "Mallow", channels: "@#chan +#other #elsewhere"})
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "@#chan +#other #elsewhere"})
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
-	_, token := linkIn(t, h.collect(t))
+	_, token := linkIn(t, h.Collect())
 
 	g := payloadOf(t, token)
 	if g.A != "Mallow" {
@@ -304,10 +160,10 @@ func TestUploadGrantCarriesAccountAndSharedChannels(t *testing.T) {
 
 func TestUploadRefusesAnUnidentifiedNick(t *testing.T) {
 	h := newHarness(t)
-	h.says("mallow", whoisReply{channels: "#chan"})
+	h.Says("mallow", bottest.Whois{Channels: "#chan"})
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
-	lines := h.collect(t)
+	lines := h.Collect()
 
 	for _, line := range lines {
 		if strings.Contains(line, "hemera.day/drop/#") {
@@ -321,10 +177,10 @@ func TestUploadRefusesAnUnidentifiedNick(t *testing.T) {
 
 func TestUploadRefusesWhenNoChannelIsShared(t *testing.T) {
 	h := newHarness(t)
-	h.says("mallow", whoisReply{account: "Mallow", channels: "#elsewhere"})
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#elsewhere"})
 
 	h.plugin.cmdUpload(message("mallow", "mallow", "!upload"))
-	lines := h.collect(t)
+	lines := h.Collect()
 
 	for _, line := range lines {
 		if strings.Contains(line, "hemera.day/drop/#") {
@@ -339,9 +195,7 @@ func TestUploadRefusesWhenNoChannelIsShared(t *testing.T) {
 // A lookup that fails is not a "no": the nick may well be identified.
 func TestUploadRefusesWhenTheLookupFails(t *testing.T) {
 	h := newHarness(t)
-	h.mu.Lock()
-	h.silent = true
-	h.mu.Unlock()
+	h.NeverAnswers()
 
 	done := make(chan struct{})
 	go func() {
@@ -355,7 +209,7 @@ func TestUploadRefusesWhenTheLookupFails(t *testing.T) {
 		t.Fatal("the command never gave up on the whois")
 	}
 
-	lines := h.drain(time.Second)
+	lines := h.Drain()
 	for _, line := range lines {
 		if strings.Contains(line, "hemera.day/drop/#") {
 			t.Fatalf("a failed lookup produced a link: %s", line)
@@ -368,18 +222,18 @@ func TestUploadRefusesWhenTheLookupFails(t *testing.T) {
 
 func TestUploadCooldownStopsRepeatWhois(t *testing.T) {
 	h := newHarness(t)
-	h.says("mallow", whoisReply{account: "Mallow", channels: "#chan"})
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
-	h.collect(t)
-	if n := h.whoisCount(); n != 1 {
+	h.Collect()
+	if n := h.WhoisCount(); n != 1 {
 		t.Fatalf("%d whois for the first link, want 1", n)
 	}
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
-	lines := h.collect(t)
+	lines := h.Collect()
 
-	if n := h.whoisCount(); n != 1 {
+	if n := h.WhoisCount(); n != 1 {
 		t.Errorf("%d whois after a repeat, want the second to be refused before asking", n)
 	}
 	if !said(lines, "Try again in") {
@@ -389,29 +243,29 @@ func TestUploadCooldownStopsRepeatWhois(t *testing.T) {
 
 func TestUploadCooldownExpires(t *testing.T) {
 	h := newHarness(t)
-	h.says("mallow", whoisReply{account: "Mallow", channels: "#chan"})
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
 
 	now := time.Now()
 	h.plugin.now = func() time.Time { return now }
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
-	h.collect(t)
+	h.Collect()
 
 	now = now.Add(61 * time.Second)
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
-	h.collect(t)
+	h.Collect()
 
-	if n := h.whoisCount(); n != 2 {
+	if n := h.WhoisCount(); n != 2 {
 		t.Errorf("%d whois, want 2 once the cooldown has run out", n)
 	}
 }
 
 func TestUploadInPrivateSaysNothingInChannel(t *testing.T) {
 	h := newHarness(t)
-	h.says("mallow", whoisReply{account: "Mallow", channels: "#chan"})
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
 
 	h.plugin.cmdUpload(message("mallow", "mallow", "!upload"))
-	lines := h.collect(t)
+	lines := h.Collect()
 
 	for _, line := range lines {
 		if strings.HasPrefix(strings.Fields(line)[1], "#") {
@@ -470,7 +324,7 @@ func TestAnnouncePostsUploadsInOrder(t *testing.T) {
 		t.Errorf("cursor = %d, want 2", got)
 	}
 
-	lines := h.collect(t)
+	lines := h.Collect()
 	if len(lines) != 2 {
 		t.Fatalf("said %d lines, want 2: %v", len(lines), lines)
 	}
@@ -494,7 +348,7 @@ func TestAnnounceSkipsChannelsTheBotHasLeft(t *testing.T) {
 		t.Errorf("cursor = %d, want 6", got)
 	}
 
-	lines := h.collect(t)
+	lines := h.Collect()
 	if len(lines) != 1 || !strings.HasPrefix(lines[0], "PRIVMSG #chan :svaj") {
 		t.Fatalf("said %v, want only the #chan line", lines)
 	}
@@ -516,7 +370,7 @@ func TestAnnounceSavesTheCursor(t *testing.T) {
 	fake.set(map[string]any{"id": 9, "nick": "mallow", "channel": "#chan", "key": "a.png"})
 
 	h.plugin.announce(context.Background(), 0)
-	h.collect(t)
+	h.Collect()
 
 	got, err := h.plugin.kv.Get(context.Background(), cursorKey)
 	if err != nil || got != "9" {
@@ -597,7 +451,7 @@ func TestPollRetriesAFailedStart(t *testing.T) {
 
 	// Two ticks with d1 unreachable. The old behaviour returned here for good.
 	time.Sleep(2500 * time.Millisecond)
-	if lines := h.drain(200 * time.Millisecond); len(lines) != 0 {
+	if lines := h.Drain(); len(lines) != 0 {
 		t.Fatalf("said something while d1 was down: %v", lines)
 	}
 
@@ -606,7 +460,9 @@ func TestPollRetriesAFailedStart(t *testing.T) {
 	fake.status = 0
 	fake.mu.Unlock()
 
-	lines := h.drain(5 * time.Second)
+	// Collect rather than Drain: the next poll is a tick away, so this has to
+	// wait for a line rather than take what has already arrived.
+	lines := h.Collect()
 	if len(lines) != 1 || !strings.Contains(lines[0], "whatapath uploaded: https://img.hemera.day/a.png") {
 		t.Fatalf("did not recover once d1 came back: %v", lines)
 	}
