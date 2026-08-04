@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ import (
 // each item type occupies must be summed: checking every type independently
 // (and returning on the first that fits) only accounted for the single
 // largest-consuming type, so a full plot could still host another quarry.
-func (g *Game) freeAcre(u *store.User, amt int) bool {
+func (g *Plugin) freeAcre(u *store.User, amt int) bool {
 	ctx := g.ctx()
 	var usedAcres int
 	for itm, uAmt := range u.Items {
@@ -27,7 +27,7 @@ func (g *Game) freeAcre(u *store.User, amt int) bool {
 }
 
 // buy attempts to purchase amt of itm for u and returns the result message.
-func (g *Game) buy(u *store.User, itm string, amt int) string {
+func (g *Plugin) buy(u *store.User, itm string, amt int) string {
 	ctx := g.ctx()
 
 	item, err := g.store.GetItem(ctx, itm)
@@ -83,7 +83,7 @@ func (g *Game) buy(u *store.User, itm string, amt int) string {
 
 // findMax returns the largest quantity of itm the user can currently buy,
 // respecting affordability and per-acre limits.
-func (g *Game) findMax(u *store.User, itm string) int {
+func (g *Plugin) findMax(u *store.User, itm string) int {
 	item, err := g.store.GetItem(g.ctx(), itm)
 	if err != nil {
 		return 1

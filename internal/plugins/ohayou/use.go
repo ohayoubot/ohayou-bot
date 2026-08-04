@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 )
 
 // use applies an item's effect for a user and returns the announcement.
-func (g *Game) use(u *store.User, nick, itm, on string) string {
+func (g *Plugin) use(u *store.User, nick, itm, on string) string {
 	ctx := g.ctx()
 
 	if msg, blocked := g.mustIdentify(u); blocked {
@@ -51,7 +51,7 @@ func (g *Game) use(u *store.User, nick, itm, on string) string {
 
 // runItemFunc dispatches an item's special function by name, i.e. maps the name in items.json
 // to an actual function. this is manually maintained.
-func (g *Game) runItemFunc(name string, u *store.User, itm string) string {
+func (g *Plugin) runItemFunc(name string, u *store.User, itm string) string {
 	switch name {
 	case "goldenRooster":
 		return g.goldenRooster(u, itm)
@@ -76,7 +76,7 @@ func (g *Game) runItemFunc(name string, u *store.User, itm string) string {
 	}
 }
 
-func (g *Game) goldenRooster(u *store.User, itm string) string {
+func (g *Plugin) goldenRooster(u *store.User, itm string) string {
 	if usedToday(u.LastUsed[itm], g.est) {
 		return " but the rooster has already crowed today."
 	}
@@ -89,7 +89,7 @@ func (g *Game) goldenRooster(u *store.User, itm string) string {
 	return " and shortly thereafter feels good enough to " + g.p() + "ohayou again."
 }
 
-func (g *Game) adoptCat(u *store.User) string {
+func (g *Plugin) adoptCat(u *store.User) string {
 	if g.getCanAdopt() {
 		select {
 		case g.catAdopt <- u.Username:
@@ -99,14 +99,14 @@ func (g *Game) adoptCat(u *store.User) string {
 	return ""
 }
 
-func (g *Game) makeVault(u *store.User) string {
+func (g *Plugin) makeVault(u *store.User) string {
 	if err := g.store.InstallVault(g.ctx(), u.Username); err != nil {
 		g.log.Error("install vault", "nick", u.Username, "err", err)
 	}
 	return ""
 }
 
-func (g *Game) attemptBreedCat(u *store.User) string {
+func (g *Plugin) attemptBreedCat(u *store.User) string {
 	if u.Items["cat"] < 2 {
 		return " but doesn't have any cats to breed! What are you doing! You need " +
 			"at least two cats to do that."
@@ -118,7 +118,7 @@ func (g *Game) attemptBreedCat(u *store.User) string {
 	return " for a few hours."
 }
 
-func (g *Game) startMining(u *store.User) string {
+func (g *Plugin) startMining(u *store.User) string {
 	if u.Status["mining"] {
 		return " but is already mining! Wait until it's finished and try again."
 	}
@@ -126,7 +126,7 @@ func (g *Game) startMining(u *store.User) string {
 	return " for a few hours."
 }
 
-func (g *Game) startPumping(u *store.User) string {
+func (g *Plugin) startPumping(u *store.User) string {
 	if u.Status["pumping"] {
 		return " but is already pumping oil! Wait until it's finished and try again."
 	}

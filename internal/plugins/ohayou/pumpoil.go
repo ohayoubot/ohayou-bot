@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 )
 
 // pumpOil. wells is how many oil wells the user owns (multiplies).
-func (g *Game) pumpOil(username string, wells int) {
+func (g *Plugin) pumpOil(username string, wells int) {
 	g.setStatus(username, "pumping", true)
 	defer g.setStatus(username, "pumping", false)
 

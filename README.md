@@ -38,15 +38,28 @@
      - `youtube` - names the videos linked in a channel. Needs no credentials,
        so it is **on** unless you set `"enabled": false`. See
        [YouTube previews](#youtube-previews).
+     - `ohayou` - the daily economy game. On unless you set `"enabled": false`.
+       `dataDir` is where `items.json` and `fortunes.txt` live (default
+       `data`), and `timezone` is the calendar a daily ration runs on (default
+       `America/New_York`). See [Ohayou](#ohayou).
 2. Build and run:
    ```sh
    go build ./cmd/ohayoubot
-   ./ohayoubot -config conf.json -data data
+   ./ohayoubot -config conf.json
    ```
 
 On first run the item catalog in `data/items.json` is seeded into the database.
 Running `sudo deploy/install.sh` will update prices/descriptions/etc if run
 against an already seeded database.
+
+## Ohayou
+
+The game the bot is named after. `!ohayou` once a day collects a ration; spend
+them on land, animals, industry and thievery. `!help` lists its topics, and
+`!commands` everything it answers to.
+
+It is a plugin like any other: turn it off with `"enabled": false` in its block
+and the bot keeps its other commands, needing no `data/` directory at all.
 
 ## Deerkins
 

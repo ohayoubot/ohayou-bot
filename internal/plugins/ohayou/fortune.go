@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"math/rand/v2"
@@ -8,7 +8,7 @@ import (
 )
 
 // fortune is the item function for fortune-telling items.
-func (g *Game) fortune(u *store.User, itm string) string {
+func (g *Plugin) fortune(u *store.User, itm string) string {
 	if usedToday(u.LastUsed[itm], g.est) {
 		return "- here's today's fortune again: " + u.Fortune
 	}
@@ -20,7 +20,7 @@ func (g *Game) fortune(u *store.User, itm string) string {
 
 // newFortune picks a random fortune, persists it as the user's current fortune,
 // and returns it.
-func (g *Game) newFortune(username string) string {
+func (g *Plugin) newFortune(username string) string {
 	if len(g.fortunes) == 0 {
 		return "The future is unclear."
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"strings"
@@ -20,6 +21,9 @@ func TestExampleConfigThroughTheRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("conf-example.json does not load: %v", err)
 	}
+	// The example points at a data directory beside the binary; the test runs
+	// from this package.
+	cfg.Plugins["ohayou"] = json.RawMessage(`{"dataDir": "../../data"}`)
 
 	reg := plugin.NewRegistry(plugin.Deps{Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	reg.Add(plugins()...)
@@ -28,7 +32,7 @@ func TestExampleConfigThroughTheRegistry(t *testing.T) {
 	}
 
 	// The example ships no credentials, so only what needs none comes up.
-	if got := strings.Join(reg.Names(), " "); got != "catfact youtube" {
+	if got := strings.Join(reg.Names(), " "); got != "catfact youtube ohayou" {
 		t.Errorf("enabled = %q, want only the plugins needing no credentials", got)
 	}
 }

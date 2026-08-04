@@ -9,7 +9,7 @@ Type=simple
 User=ohayoubot
 Group=ohayoubot
 WorkingDirectory=/opt/ohayoubot
-ExecStart=/opt/ohayoubot/ohayoubot -config /opt/ohayoubot/conf.json -data /opt/ohayoubot/data
+ExecStart=/opt/ohayoubot/ohayoubot -config /opt/ohayoubot/conf.json
 
 # optional secrets that are better kept out of conf.json:
 # OHAYOU_CF_API_TOKEN, OHAYOU_DROP_SECRET.

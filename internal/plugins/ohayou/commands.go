@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ import (
 
 // requireUser loads the command sender, sending the standard "you haven't
 // ohayou'd" message to failTo when they have no account.
-func (g *Game) requireUser(m *bot.Message, failTo string) (*store.User, bool) {
+func (g *Plugin) requireUser(m *bot.Message, failTo string) (*store.User, bool) {
 	user, err := g.store.GetUser(g.ctx(), strings.ToLower(m.Nick))
 	if errors.Is(err, store.ErrNotFound) {
 		g.say(failTo, "You can't do that because you haven't ohayou'd yet! Type "+
@@ -28,7 +28,7 @@ func (g *Game) requireUser(m *bot.Message, failTo string) (*store.User, bool) {
 	return user, true
 }
 
-func (g *Game) cmdOhayou(m *bot.Message) {
+func (g *Plugin) cmdOhayou(m *bot.Message) {
 	if !m.FromChannel() {
 		g.say(m.Nick, "You can only do that in a channel I'm in.")
 		return
@@ -36,7 +36,7 @@ func (g *Game) cmdOhayou(m *bot.Message) {
 	g.say(m.Target, g.Ohayou(strings.ToLower(m.Nick)))
 }
 
-func (g *Game) cmdBuy(m *bot.Message) {
+func (g *Plugin) cmdBuy(m *bot.Message) {
 	if !m.FromChannel() {
 		g.say(m.Nick, "You must buy things in a channel I'm in.")
 		return
@@ -78,7 +78,7 @@ func (g *Game) cmdBuy(m *bot.Message) {
 	g.say(m.Target, g.buy(user, itm, amt))
 }
 
-func (g *Game) cmdUse(m *bot.Message) {
+func (g *Plugin) cmdUse(m *bot.Message) {
 	if !m.FromChannel() {
 		g.say(m.Nick, "You can only do that in a channel I'm in.")
 		return
@@ -102,7 +102,7 @@ func (g *Game) cmdUse(m *bot.Message) {
 	g.say(m.Target, g.use(user, m.Nick, itm, on))
 }
 
-func (g *Game) cmdSteal(m *bot.Message) {
+func (g *Plugin) cmdSteal(m *bot.Message) {
 	if !m.FromChannel() {
 		g.say(m.Nick, "You can only do that in a channel I'm in.")
 		return
@@ -136,7 +136,7 @@ func (g *Game) cmdSteal(m *bot.Message) {
 	g.bot.Go(func() { g.stealFrom(user, victim, m.Target, m.Nick, m.Arg(1)) })
 }
 
-func (g *Game) cmdEquip(m *bot.Message) {
+func (g *Plugin) cmdEquip(m *bot.Message) {
 	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
@@ -150,7 +150,7 @@ func (g *Game) cmdEquip(m *bot.Message) {
 	g.say(to, g.equip(user, strings.ToLower(m.Arg(1))))
 }
 
-func (g *Game) cmdUnequip(m *bot.Message) {
+func (g *Plugin) cmdUnequip(m *bot.Message) {
 	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
@@ -164,7 +164,7 @@ func (g *Game) cmdUnequip(m *bot.Message) {
 	g.say(to, g.unequip(user, strings.ToLower(m.Arg(1))))
 }
 
-func (g *Game) cmdItems(m *bot.Message) {
+func (g *Plugin) cmdItems(m *bot.Message) {
 	to := m.ReplyTo()
 	if !m.HasArgs() {
 		cats, err := g.store.Categories(g.ctx())
@@ -186,7 +186,7 @@ func (g *Game) cmdItems(m *bot.Message) {
 	}
 }
 
-func (g *Game) cmdItem(m *bot.Message) {
+func (g *Plugin) cmdItem(m *bot.Message) {
 	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Gives information about a specific item. Usage: "+g.p()+
@@ -220,7 +220,7 @@ func (g *Game) cmdItem(m *bot.Message) {
 	g.say(to, info)
 }
 
-func (g *Game) cmdDeposit(m *bot.Message) {
+func (g *Plugin) cmdDeposit(m *bot.Message) {
 	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Deposits ohayous to your vault. Usage: "+g.p()+"deposit <num> -- "+
@@ -241,7 +241,7 @@ func (g *Game) cmdDeposit(m *bot.Message) {
 	g.say(to, g.deposit(user, amt))
 }
 
-func (g *Game) cmdWithdraw(m *bot.Message) {
+func (g *Plugin) cmdWithdraw(m *bot.Message) {
 	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Withdraws ohayous from your vault. Usage: "+g.p()+"withdraw <num> "+
@@ -262,7 +262,7 @@ func (g *Game) cmdWithdraw(m *bot.Message) {
 	g.say(to, g.withdraw(user, amt))
 }
 
-func (g *Game) cmdStats(m *bot.Message) {
+func (g *Plugin) cmdStats(m *bot.Message) {
 	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
@@ -271,7 +271,7 @@ func (g *Game) cmdStats(m *bot.Message) {
 	g.bot.Go(func() { g.stats(user) })
 }
 
-func (g *Game) cmdInventory(m *bot.Message) {
+func (g *Plugin) cmdInventory(m *bot.Message) {
 	user, ok := g.requireUser(m, m.Nick)
 	if !ok {
 		return
@@ -305,7 +305,7 @@ func (g *Game) cmdInventory(m *bot.Message) {
 	g.say(m.Nick, strings.TrimSuffix(inv, ", "))
 }
 
-func (g *Game) cmdQuarry(m *bot.Message) {
+func (g *Plugin) cmdQuarry(m *bot.Message) {
 	user, ok := g.requireUser(m, m.Nick)
 	if !ok {
 		return
@@ -335,7 +335,7 @@ func (g *Game) cmdQuarry(m *bot.Message) {
 	g.say(m.Nick, strings.TrimSuffix(inv, ", "))
 }
 
-func (g *Game) cmdRegister(m *bot.Message) {
+func (g *Plugin) cmdRegister(m *bot.Message) {
 	if !m.HasArgs() {
 		g.say(m.Nick, "Registering allows you to protect your ohayou assets. After "+
 			"you are registered, you will be required to identify with the bot prior "+
@@ -362,7 +362,7 @@ func (g *Game) cmdRegister(m *bot.Message) {
 	}
 }
 
-func (g *Game) cmdIdentify(m *bot.Message) {
+func (g *Plugin) cmdIdentify(m *bot.Message) {
 	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
@@ -380,7 +380,7 @@ func (g *Game) cmdIdentify(m *bot.Message) {
 	g.identify(user, to)
 }
 
-func (g *Game) cmdTop(m *bot.Message) {
+func (g *Plugin) cmdTop(m *bot.Message) {
 	top, err := g.store.Top(g.ctx(), 5)
 	if err != nil {
 		g.log.Error("top", "err", err)

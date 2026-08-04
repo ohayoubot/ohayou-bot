@@ -1,11 +1,11 @@
-package game
+package ohayou
 
 import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
 // register the user with the game
-func (g *Game) register(u *store.User) {
+func (g *Plugin) register(u *store.User) {
 	registered, err := g.bot.Verify(g.ctx(), u.Username)
 	if err != nil {
 		g.log.Error("register whois", "nick", u.Username, "err", err)
@@ -28,7 +28,7 @@ func (g *Game) register(u *store.User) {
 
 // identify verifies a registered user is identified with the network and, if
 // so, marks them identified with the bot until they change nick or quit.
-func (g *Game) identify(u *store.User, to string) {
+func (g *Plugin) identify(u *store.User, to string) {
 	registered, err := g.bot.Identify(g.ctx(), u.Username)
 	if err != nil {
 		g.log.Error("identify whois", "nick", u.Username, "err", err)

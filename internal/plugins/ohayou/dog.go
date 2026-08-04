@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"errors"
@@ -27,7 +27,7 @@ func dogDefense(u *store.User) int {
 	return defense
 }
 
-func (g *Game) dogAttacksCat(u *store.User) bool {
+func (g *Plugin) dogAttacksCat(u *store.User) bool {
 	if u.Items["dog"] == 0 || u.Items["cat"] == 0 {
 		return false
 	}
@@ -51,7 +51,7 @@ func (g *Game) dogAttacksCat(u *store.User) bool {
 	return true
 }
 
-func (g *Game) walkDog(u *store.User, itm string) string {
+func (g *Plugin) walkDog(u *store.User, itm string) string {
 	if usedToday(u.LastUsed[itm], g.est) {
 		return " but it has already had its walk today."
 	}

@@ -1,4 +1,4 @@
-package game
+package ohayou
 
 import (
 	"errors"
@@ -53,7 +53,7 @@ var recipes = func() map[string]recipe {
 	return m
 }()
 
-func (g *Game) cmdBuild(m *bot.Message) {
+func (g *Plugin) cmdBuild(m *bot.Message) {
 	to := m.ReplyTo()
 
 	if !m.HasArgs() {
@@ -117,7 +117,7 @@ func (g *Game) cmdBuild(m *bot.Message) {
 	g.say(to, fmt.Sprintf("%s built %d %s! (%s)", user.Username, rec.amount, rec.name, rec.desc))
 }
 
-func (g *Game) cmdRecipe(m *bot.Message) {
+func (g *Plugin) cmdRecipe(m *bot.Message) {
 	to := m.ReplyTo()
 	if !m.HasArgs() {
 		g.say(to, "Usage: "+g.p()+"recipe <thing> -- shows what a craftable needs.")
