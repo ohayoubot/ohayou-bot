@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 )
 
@@ -241,7 +242,7 @@ func TestDeermePaintsArtAndCredits(t *testing.T) {
 		if !strings.HasPrefix(line, "PRIVMSG #pank :") {
 			t.Errorf("line went somewhere odd: %q", line)
 		}
-		if len(line)+2 > ircLineLimit {
+		if len(line)+2 > irctext.LineLimit {
 			t.Errorf("line is %d bytes, over the protocol limit", len(line)+2)
 		}
 	}
@@ -635,8 +636,8 @@ func TestLineBudgetLeavesRoomForTheProtocol(t *testing.T) {
 	target := "#a-fairly-long-channel-name"
 	budget := lineBudget(target)
 	line := "PRIVMSG " + target + " :" + strings.Repeat("@", budget) + "\r\n"
-	if len(line) > ircLineLimit {
-		t.Errorf("a full line is %d bytes, over the %d limit", len(line), ircLineLimit)
+	if len(line) > irctext.LineLimit {
+		t.Errorf("a full line is %d bytes, over the %d limit", len(line), irctext.LineLimit)
 	}
 }
 

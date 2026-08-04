@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 )
 
@@ -355,45 +356,15 @@ func TestOembedErrorSaysNothing(t *testing.T) {
 	h.silent(t)
 }
 
-func TestClean(t *testing.T) {
-	tests := []struct {
-		in, want string
-	}{
-		{"plain title", "plain title"},
-		{"  padded  ", "padded"},
-		{"two\nlines", "two lines"},
-		{"tabs\tand   spaces", "tabs and spaces"},
-		{"colour \x03,04codes", "colour ,04codes"},
-		{"carriage\r\nreturn PRIVMSG #chan :fake", "carriage return PRIVMSG #chan :fake"},
-		{"", ""},
+func TestLineIsCleanedAndFitted(t *testing.T) {
+	v := video{Title: "a\r\nPRIVMSG #chan :fake", Author: "  some\tone  "}
+	if got, want := line("#chan", v), "YouTube: a PRIVMSG #chan :fake (some one)"; got != want {
+		t.Errorf("line = %q, want %q", got, want)
 	}
-	for _, tc := range tests {
-		if got := clean(tc.in); got != tc.want {
-			t.Errorf("clean(%q) = %q, want %q", tc.in, got, tc.want)
-		}
-	}
-}
 
-func TestFitKeepsTheLineLegal(t *testing.T) {
-	long := strings.Repeat("か", 400) // three bytes each, so far past the limit
-	got := fit("#chan", "YouTube: "+long)
-
-	if n := len("PRIVMSG #chan :"+got) + 2; n > ircLineLimit {
-		t.Errorf("line is %d bytes, want at most %d", n, ircLineLimit)
-	}
-	if !strings.HasSuffix(got, "...") {
-		t.Errorf("a trimmed line should end in an ellipsis, got %q", got)
-	}
-	for _, r := range got {
-		if r == '�' {
-			t.Fatalf("fit split a rune: %q", got)
-		}
-	}
-}
-
-func TestFitLeavesAShortLineAlone(t *testing.T) {
-	msg := "YouTube: something short (Someone)"
-	if got := fit("#chan", msg); got != msg {
-		t.Errorf("fit trimmed a short line: %q", got)
+	long := video{Title: strings.Repeat("\u304b", 400)}
+	got := line("#chan", long)
+	if n := len("PRIVMSG #chan :" + got + "\r\n"); n > irctext.LineLimit {
+		t.Errorf("line is %d bytes, over the %d limit", n, irctext.LineLimit)
 	}
 }

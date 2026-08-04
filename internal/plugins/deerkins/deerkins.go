@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/bot/irctext"
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
 )
@@ -26,9 +27,6 @@ const (
 	// chatterWait spaces out the replies that aren't art, per asker.
 	chatterWait = 15 * time.Second
 	maxTracked  = 1000
-	// ircLineLimit is the protocol's 512 bytes for a whole line, including the
-	// "PRIVMSG <target> :" the bot writes and the trailing CRLF.
-	ircLineLimit = 512
 )
 
 type Plugin struct {
@@ -409,11 +407,10 @@ func (p *Plugin) privilegedFor(m *bot.Message) (config.DeerkinsUser, bool) {
 
 // lineBudget is how many bytes of art fit on one line to this target.
 func lineBudget(target string) int {
-	budget := ircLineLimit - len("PRIVMSG ") - len(target) - len(" :") - len("\r\n")
-	if budget < len(resetCode) {
-		return len(resetCode)
+	if budget := irctext.LineBudget(target); budget > len(resetCode) {
+		return budget
 	}
-	return budget
+	return len(resetCode)
 }
 
 func isX(mods []byte) bool { return len(mods) == 1 && mods[0] == 'x' }
@@ -440,25 +437,12 @@ func sanitiseName(name string) string {
 	return head(strings.Join(strings.Fields(b.String()), " "), maxNameLen)
 }
 
-// sanitiseText strips anything that could steer the irc line (colour codes,
-// CR, LF, bidi overrides) out of a value read from the database. The web app
-// already filters these, but art migrated from the old gallery predates that.
+// sanitiseText makes a value read from the database safe to put in a credit
+// line, and short enough to leave room for the rest of it. The web app already
+// filters what Clean strips, but art migrated from the old gallery predates
+// that.
 func sanitiseText(s string) string {
-	var b strings.Builder
-	for _, r := range strings.ToValidUTF8(s, "") {
-		switch {
-		case r == '\r', r == '\n', r == '\t':
-			b.WriteByte(' ') // keep the words apart
-		case unicode.IsControl(r), unicode.Is(unicode.Cf, r):
-		default:
-			b.WriteRune(r)
-		}
-	}
-	out := []rune(strings.Join(strings.Fields(b.String()), " "))
-	if len(out) > maxTextLen {
-		out = out[:maxTextLen]
-	}
-	return string(out)
+	return irctext.Truncate(irctext.Clean(s), maxTextLen)
 }
 
 func lowerSet(values []string) map[string]bool {
