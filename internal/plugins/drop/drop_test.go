@@ -15,6 +15,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 const testSecret = "0123456789abcdef0123456789abcdef"
@@ -47,7 +48,6 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 		t.Fatalf("init store: %v", err)
 	}
 
-	t.Setenv("OHAYOU_DROP_SECRET", testSecret)
 	h.plugin = New()
 	if _, err := h.plugin.Configure(plugin.Config{
 		Block: json.RawMessage(`{
@@ -55,10 +55,11 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 			"imageBase": "https://img.hemera.day"
 		}`),
 		Cloudflare: config.Cloudflare{AccountID: "acct", DatabaseID: "db", APIToken: "token"},
+		Web:        config.Web{Secret: testSecret},
 	}); err != nil {
 		t.Fatalf("configure: %v", err)
 	}
-	deps := plugin.Deps{Bot: h.Bot, Store: db, Log: h.Log}
+	deps := plugin.Deps{Bot: h.Bot, Store: db, Log: h.Log, Web: web.NewMinter(testSecret)}
 	if err := h.plugin.Register(deps.For("drop")); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -87,7 +88,17 @@ func linkIn(t *testing.T, lines []string) (target, token string) {
 	return "", ""
 }
 
-func payloadOf(t *testing.T, token string) grant {
+// grantPayload is the wire form, decoded here rather than imported: this test
+// reads what the user was actually handed, not what the minter meant to send.
+type grantPayload struct {
+	A string   `json:"a"`
+	N string   `json:"n"`
+	C []string `json:"c"`
+	E int64    `json:"e"`
+	J string   `json:"j"`
+}
+
+func payloadOf(t *testing.T, token string) grantPayload {
 	t.Helper()
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -97,7 +108,7 @@ func payloadOf(t *testing.T, token string) grant {
 	if err != nil {
 		t.Fatalf("decoding payload: %v", err)
 	}
-	var g grant
+	var g grantPayload
 	if err := json.Unmarshal(raw, &g); err != nil {
 		t.Fatalf("payload json: %v", err)
 	}
@@ -276,13 +287,13 @@ func TestUploadInPrivateSaysNothingInChannel(t *testing.T) {
 
 func TestSharedCapsTheChannelList(t *testing.T) {
 	var all []string
-	for i := range maxChannels + 5 {
+	for i := range web.MaxChannels + 5 {
 		all = append(all, fmt.Sprintf("#c%d", i))
 	}
 	h := newHarnessIn(t, all)
 
-	if got := h.plugin.shared(all); len(got) != maxChannels {
-		t.Errorf("kept %d channels, want the worker's ceiling of %d", len(got), maxChannels)
+	if got := h.plugin.shared(all); len(got) != web.MaxChannels {
+		t.Errorf("kept %d channels, want the worker's ceiling of %d", len(got), web.MaxChannels)
 	}
 }
 

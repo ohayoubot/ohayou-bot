@@ -20,6 +20,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/plugins/youtube"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 	"github.com/ohayoubot/ohayou-bot/internal/task"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 func main() {
@@ -55,7 +56,10 @@ func run(configPath string, log *slog.Logger) error {
 	b := bot.New(cfg, log)
 	runner := task.NewRunner(db, b, log)
 
-	reg := plugin.NewRegistry(plugin.Deps{Bot: b, Store: db, Log: log, Runner: runner})
+	reg := plugin.NewRegistry(plugin.Deps{
+		Bot: b, Store: db, Log: log, Runner: runner,
+		Web: web.NewMinter(cfg.Web.Secret),
+	})
 	reg.Add(plugins()...)
 	if err := reg.Configure(cfg); err != nil {
 		return err

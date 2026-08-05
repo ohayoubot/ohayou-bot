@@ -5,6 +5,7 @@ package drop
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/d1"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 // whoisWait bounds the lookup. The bot's resolver has its own ceiling; this is
@@ -43,6 +45,7 @@ type Plugin struct {
 
 	now func() time.Time
 
+	web    *web.Minter        // signs the links
 	minted *ratelimit.Limiter // when a nick last got a link
 
 	// cursor is how far through the upload queue the poller has read. Only the
@@ -56,7 +59,10 @@ func New() *Plugin { return &Plugin{now: time.Now} }
 func (p *Plugin) Name() string { return "drop" }
 
 func (p *Plugin) Register(deps plugin.Deps) error {
-	p.bot, p.log, p.kv = deps.Bot, deps.Log, deps.KV
+	if deps.Web == nil {
+		return fmt.Errorf("the site has no signing secret, so no link can be minted")
+	}
+	p.bot, p.log, p.kv, p.web = deps.Bot, deps.Log, deps.KV, deps.Web
 	p.db = newQueue(d1.APIBase, p.cfg.AccountID, p.cfg.DatabaseID, p.cfg.APIToken, p.cfg.RequestTimeout())
 	p.minted = ratelimit.New(p.cfg.CooldownWait())
 	// Read through p.now so a test can wind the clock after construction.
@@ -215,19 +221,11 @@ func (p *Plugin) cmdUpload(m *bot.Message) {
 		return
 	}
 
-	jti, err := newJTI()
-	if err != nil {
-		p.log.Error("mint", "nick", m.Nick, "err", err)
-		p.bot.Say(to, m.Nick+": something went wrong making your link.")
-		return
-	}
-
-	token, err := mint(p.cfg.Secret, grant{
-		A: who.Account,
-		N: m.Nick,
-		C: channels,
-		E: expiry(p.now(), p.cfg.GrantWait()),
-		J: jti,
+	token, id, err := p.web.Mint(web.Grant{
+		Account:  who.Account,
+		Nick:     m.Nick,
+		Channels: channels,
+		TTL:      p.cfg.GrantWait(),
 	})
 	if err != nil {
 		p.log.Error("mint", "nick", m.Nick, "err", err)
@@ -243,7 +241,7 @@ func (p *Plugin) cmdUpload(m *bot.Message) {
 	}
 
 	p.log.Info("grant minted", "nick", m.Nick, "account", who.Account,
-		"channels", strings.Join(channels, " "), "jti", jti)
+		"channels", strings.Join(channels, " "), "grant", id)
 }
 
 // shared returns the channels both the asker and the bot are in, spelled the
@@ -265,7 +263,7 @@ func (p *Plugin) shared(theirs []string) []string {
 		}
 		seen[key] = true
 		out = append(out, canonical)
-		if len(out) == maxChannels {
+		if len(out) == web.MaxChannels {
 			break
 		}
 	}
