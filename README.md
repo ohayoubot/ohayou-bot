@@ -65,22 +65,22 @@ them on land, animals, industry and thievery. `!help` lists its topics, and
 It is a plugin like any other: turn it off with `"enabled": false` in its block
 and the bot keeps its other commands, needing no `data/` directory at all.
 
-Every player's land is drawn on the website's world map. A plot only carries a
-name when its owner says so with `!territory on`; until then it shows the size
-of the holding and nothing about whose it is. `!territory flag <deer>` flies a
-drawing from the [deerkins](#deerkins) gallery over it, which is the one place
-the two halves of the bot meet.
+Every player's land appears on the website's world map. A plot is unnamed until
+its owner says otherwise:
 
-Signed in, the site can ask for those same two things: a flag, and taking your
-name back off the map. It asks rather than does. The site appends to a queue,
-the bot reads it past a cursor and applies it through the same store methods irc
-uses, so every guard still stands between a browser and a player's ohayous.
-Nothing that spends or earns is on the list: the game is played in irc, and a
-site that could play for you would remove the reason to be in the channel.
+```
+!territory              where you stand
+!territory on|off       put your nick on your plot, or take it off
+!territory flag <deer>  fly a deerkins drawing over it
+!territory flag none    take the flag down
+```
 
-Set `databaseId` in the `ohayou` block to switch that on. The token is the
-shared `cloudflare` one and needs `D1:Read` and nothing more; the worker makes
-every write.
+An unnamed plot shows acreage and a wealth band only. Balances, vaults and
+defences are never published.
+
+Set `databaseId` in the `ohayou` block to let the site queue `territory` and
+`flag` changes for the bot to apply. Nothing that spends or earns can be asked
+for from the site.
 
 ## Deerkins
 
@@ -175,61 +175,37 @@ plugin only ever sees lines that aren't commands, from nicks that aren't on the
 
 ## Secrets
 
-Five values, and nothing else is a secret. Each has one name, and the one the
-bot and the site share has the same name on both sides.
-
-| Name | Who needs it | What it is |
+| Name | Needed by | Purpose |
 | --- | --- | --- |
-| `OHAYOU_WEB_SECRET` | bot **and** site | signs the links `!web` and `!upload` hand out, and the projections the bot publishes. One value, both ends. `openssl rand -hex 32` |
-| `OHAYOU_CF_API_TOKEN` | bot | reads D1. Needs `D1:Read` and nothing more: the site makes every write |
-| `OHAYOU_NICK_PW` | bot | NickServ password, if the nick has one |
-| `OHAYOU_SASL_PASSWORD` | bot | SASL password, if SASL is used |
-| `IP_SALT` | site | salts hashed client ips so no address is stored |
+| `OHAYOU_WEB_SECRET` | bot, site | signs `!web` and `!upload` links, and published projections. Same value both ends |
+| `OHAYOU_CF_API_TOKEN` | bot | reads D1. `D1:Read` only |
+| `OHAYOU_NICK_PW` | bot | NickServ password |
+| `OHAYOU_SASL_PASSWORD` | bot | SASL password |
+| `IP_SALT` | site | salts hashed client ips |
 
-Both sides key `OHAYOU_WEB_SECRET` on the string's bytes, so it is used as
-written and not decoded from the hex it looks like.
+Generate the shared secret with `openssl rand -hex 32`. Both sides key on the
+string's bytes; do not decode the hex.
 
-### Setting them for the bot
+`OHAYOU_WEB_SECRET` and `OHAYOU_CF_API_TOKEN` have no `conf.json` field and are
+read from the environment only. The irc passwords may be in `conf.json`, and the
+environment overrides them.
 
-All of them come from the environment. `OHAYOU_WEB_SECRET` and
-`OHAYOU_CF_API_TOKEN` have no config field at all, so they cannot be written
-into `conf.json` even on purpose; the two irc passwords may be in the file, and
-the environment wins when it is set.
-
-`deploy/ohayoubot.service` reads `/opt/ohayoubot/ohayoubot.env` if it is there.
-Everything in it is optional: leave out what the deployment does not use.
+`deploy/ohayoubot.service` reads `/opt/ohayoubot/ohayoubot.env`. Include only
+the lines the deployment needs:
 
 ```sh
 install -m 600 /dev/null /opt/ohayoubot/ohayoubot.env
 cat > /opt/ohayoubot/ohayoubot.env <<'EOF'
-# The site holds this same value under this same name. Both sides key on the
-# bytes of the string, so do not decode the hex.
 OHAYOU_WEB_SECRET=
-
-# D1:Read on the account, nothing more. Needed by deerkins, drop, and by ohayou
-# if it takes requests from the site.
 OHAYOU_CF_API_TOKEN=
-
-# Only if the nick is registered and SASL is not in use.
 OHAYOU_NICK_PW=
-
-# Only if conf.json configures SASL.
 OHAYOU_SASL_PASSWORD=
 EOF
 chown ohayoubot:ohayoubot /opt/ohayoubot/ohayoubot.env
-chmod 600 /opt/ohayoubot/ohayoubot.env
 systemctl restart ohayoubot
 ```
 
-`conf.json` keeps `accountId` and `databaseId`, which name a database rather
-than granting anything.
-
-### Setting them for the site
-
-Pages secrets, set once per environment. `wrangler pages secret put` writes to
-Production only; Preview needs its own, from the dashboard, and `IP_SALT`
-should differ between the two so the environments cannot produce matching
-hashes. See `web/README.md`.
+The site's two are Pages secrets, set per environment: see `web/README.md`.
 
 ## Running as a service
 
@@ -275,19 +251,13 @@ skips the migration runner, so apply anything in `deploy/migrations/` yourself
 
 ## Web
 
-`web/` is the Cloudflare Pages project the bot's plugins are read from and, for
-drop, write through: the gallery at `/deerkins/` and the uploader at `/drop/`.
-It was its own repository until it grew past the one plugin it was named after.
-See `web/README.md` for its databases, secrets and deploys.
+`web/` is the Cloudflare Pages project `ohayou-web`, built with its root
+directory set to `web`. It serves the world map at `/ohayou/`, the gallery at
+`/deerkins/` and the uploader at `/drop/`. See `web/README.md` for its
+databases, secrets and deploys.
 
-`!web` PMs an identified user a one-shot link that signs them in to everything
-on the site they can use: the link carries the scopes of the enabled plugins
-that asked for one, so there is no link per plugin. `web.url` is the site's
-front door.
-
-The Pages project builds with its root directory set to `web`, and keeps the
-name `deerkins`: Pages does not rename a project in place, and the name is not
-visible behind the custom domain.
+`!web` PMs an identified user a one-shot link that signs them in to every part
+of the site they can use. Set `web.url` to the site's front door.
 
 ## Dev
 
