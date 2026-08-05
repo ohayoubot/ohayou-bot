@@ -5,13 +5,30 @@
 # Rerunning will rebuild and replace binary, data files, and systemd unit, but
 # NEVER the existing conf.json or sqlite db.
 #
-# Usage: sudo deploy/install.sh
+# Usage: sudo deploy/install.sh [--yes]
+#
+#   --yes   restart a running bot without asking
 set -euo pipefail
 
 PREFIX=/opt/ohayoubot
 SVC_USER=ohayoubot
 UNIT=/etc/systemd/system/ohayoubot.service
 BACKUPS_KEEP=10
+ASSUME_YES=no
+
+for arg in "$@"; do
+	case "$arg" in
+	-y | --yes) ASSUME_YES=yes ;;
+	-h | --help)
+		sed -n '3,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	*)
+		echo "unknown option: $arg" >&2
+		exit 1
+		;;
+	esac
+done
 
 if [[ $EUID -ne 0 ]]; then
 	echo "This installer must run as root: sudo $0" >&2
@@ -150,6 +167,22 @@ check_config() {
 	}
 }
 
+# Asks before taking a running bot down. The migrations need it stopped, so this
+# comes before the stop rather than before the start: answering no leaves it
+# running on the old build with the new one installed but not loaded.
+confirm_restart() {
+	local reply
+
+	[[ "$ASSUME_YES" == yes ]] && return 0
+	if [[ ! -t 0 ]]; then
+		echo ">> Not a terminal, so nothing was restarted. Re-run with --yes."
+		return 1
+	fi
+
+	read -r -p "Stop ohayoubot, back up the database, apply migrations and restart? [y/N] " reply
+	[[ "$reply" == [yY] || "$reply" == [yY][eE][sS] ]]
+}
+
 # Resolve the sqlite path from conf.json (defaulting to ohayoubot.db), relative
 # to the service WorkingDirectory ($PREFIX) unless it is already absolute.
 db_path="$(sed -n 's/.*"database"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PREFIX/conf.json" 2>/dev/null | head -n1)"
@@ -163,6 +196,12 @@ check_config "$PREFIX"
 
 was_active=no
 if systemctl is-active --quiet ohayoubot.service; then
+	if ! confirm_restart; then
+		echo
+		echo "Done. The new build is installed; the bot is still on the old one."
+		echo "  Apply it with: sudo $0 --yes"
+		exit 0
+	fi
 	was_active=yes
 	echo ">> Stopping ohayoubot to back up the database and apply migrations..."
 	systemctl stop ohayoubot.service
