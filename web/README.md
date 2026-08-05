@@ -105,6 +105,32 @@ the project. This is a separate step.
 The project serves everything. The app is the `deerkins` subdirectory of
 `public`, so it ends up at `<domain>/deerkins/`.
 
+## Ingest
+
+`POST /api/ingest` is how the bot publishes a projection, and the only way game
+data reaches the site. The bot still holds no D1 credential: it signs a json
+body with `UPLOAD_HMAC_SECRET` and this end makes the write.
+
+`lib/site/ingest.js` holds the allowlist of what each plugin may write and the
+exact shape of a row. A field the bot starts sending is refused until it is
+added there, on purpose. That list is the boundary between the game and the
+internet; treat a change to it as a change to what is public.
+
+The game has its own database so a mistake publishing territories cannot reach
+the art or the live sessions:
+
+```sh
+pnpm exec wrangler d1 create ohayou
+pnpm exec wrangler d1 create ohayou-preview
+```
+
+Put the ids they print into `wrangler.toml`, then apply the schema to both:
+
+```sh
+pnpm db init ohayou remote --yes
+pnpm db init ohayou preview --yes
+```
+
 ## Drop
 
 `/drop/` trades a signed link from the irc bot for a cookie, uploads images to

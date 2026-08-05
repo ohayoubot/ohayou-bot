@@ -7,6 +7,13 @@ binding = "DB"
 database_name = "deerkins"
 database_id = "ec3b15b6-64ef-45ce-a8a7-d11ff3b842b7"
 
+# The ohayou game's projection. Its own database, so a mistake publishing
+# territories cannot reach the art or the live sessions.
+[[d1_databases]]
+binding = "GAME"
+database_name = "ohayou"
+database_id = "721d347e-a9dc-4475-996f-e78f1412586a"
+
 # Uploaded images. Served from PUBLIC_IMAGE_BASE
 [[r2_buckets]]
 binding = "UPLOADS"
@@ -23,6 +30,11 @@ PUBLIC_IMAGE_BASE = "https://img.hemera.day"
 binding = "DB"
 database_name = "deerkins-preview"
 database_id = "8b865cbc-148c-4dfb-8be8-932dc9ca5562"
+
+[[env.preview.d1_databases]]
+binding = "GAME"
+database_name = "ohayou-preview"
+database_id = "b3e4fc17-8e99-4182-b982-d19202860184"
 
 [[env.preview.r2_buckets]]
 binding = "UPLOADS"
