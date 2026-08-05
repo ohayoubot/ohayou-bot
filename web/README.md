@@ -136,7 +136,7 @@ The project serves everything. The app is the `deerkins` subdirectory of
 
 `POST /api/ingest` is how the bot publishes a projection, and the only way game
 data reaches the site. The bot still holds no D1 credential: it signs a json
-body with `UPLOAD_HMAC_SECRET` and this end makes the write.
+body with `OHAYOU_WEB_SECRET` and this end makes the write.
 
 `lib/site/ingest.js` holds the allowlist of what each plugin may write and the
 exact shape of a row. A field the bot starts sending is refused until it is
@@ -192,10 +192,11 @@ still says `!ohayou`, just not where.
 `/drop/` trades a signed link from the irc bot for a cookie, uploads images to
 the `hemera` bucket, and queues a line for the bot to say in a channel.
 
-The bot signs those links, so both ends need the same secret:
+The bot signs those links, so both ends need the same secret, under the same
+name:
 
 ```sh
-openssl rand -hex 32 | pnpm exec wrangler pages secret put UPLOAD_HMAC_SECRET --project-name deerkins
+openssl rand -hex 32 | pnpm exec wrangler pages secret put OHAYOU_WEB_SECRET --project-name deerkins
 ```
 
 Give the bot the same value as `OHAYOU_UPLOAD_SECRET`. It keys on the utf-8
@@ -209,10 +210,11 @@ hostname the cookie is not scoped to; that header is the third layer.
 
 ## Checks after deploying
 
-Under project settings, confirm `IP_SALT` and `UPLOAD_HMAC_SECRET` are listed
+Under project settings, confirm `IP_SALT` and `OHAYOU_WEB_SECRET` are listed
 under Production and not only Preview, that the Production `DB` and `UPLOADS`
-bindings point at `deerkins` and `hemera`, and that the Preview ones point at
-`deerkins-preview` and `hemera-preview`. If Preview still shows the production
+bindings point at `ohayou-site` and `hemera`, and that the Preview ones point
+at `ohayou-site-preview` and `hemera-preview`, with `GAME` on `ohayou-game` and
+`ohayou-game-preview`. If Preview still shows the production
 names, a branch build can write to production data.
 
 Per-deployment preview URLs return 404 for `/deerkins/api/*`. The production

@@ -43,12 +43,12 @@ export const onRequestPost = guard(async ({ request, env }) => {
 	const blocked = rejectCrossOrigin(request);
 	if (blocked) return blocked;
 
-	if (!env.UPLOAD_HMAC_SECRET) return fail(503, "sign-in is not configured");
+	if (!env.OHAYOU_WEB_SECRET) return fail(503, "sign-in is not configured");
 
 	const { body, error } = await readJson(request);
 	if (error) return fail(400, error);
 
-	const grant = await verifyGrant(body.token, env.UPLOAD_HMAC_SECRET);
+	const grant = await verifyGrant(body.token, env.OHAYOU_WEB_SECRET);
 	if (!grant.ok) return refuse(grant.reason);
 
 	if (!(await claim(env, grant.payload))) return refuse("already redeemed");

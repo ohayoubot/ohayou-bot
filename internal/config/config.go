@@ -12,7 +12,7 @@ import (
 type Config struct {
 	Nick          string            `json:"nick"`
 	User          string            `json:"user"`
-	NickPW        string            `json:"nickPw"`
+	NickPW        string            `json:"nickPw"` // or OHAYOU_NICK_PW
 	Server        string            `json:"server"`
 	Port          int               `json:"port"`
 	TLS           bool              `json:"tls"`
@@ -39,9 +39,10 @@ type Config struct {
 type Cloudflare struct {
 	AccountID  string `json:"accountId"`
 	DatabaseID string `json:"databaseId"`
-	// APIToken needs the D1:Read permission on the account. OHAYOU_CF_API_TOKEN
-	// overrides it so the token need not be written to disk.
-	APIToken string `json:"apiToken"`
+	// APIToken needs D1:Read on the account and nothing more: the site makes
+	// every write. No config field, so it cannot be written to disk by
+	// accident: OHAYOU_CF_API_TOKEN only.
+	APIToken string `json:"-"`
 }
 
 // Web is the website the bot mints signed links for, shared by the plugins with
@@ -50,10 +51,10 @@ type Web struct {
 	// URL is the site's front door, e.g. "https://hemera.day/". A link is minted
 	// against it, so an empty one means the bot hands out none.
 	URL string `json:"url"`
-	// Secret signs the links. It has no config field on purpose, so it cannot be
-	// committed by accident: it comes from OHAYOU_WEB_SECRET only. The worker
-	// holds the same value as UPLOAD_HMAC_SECRET, and both sides key on its utf-8
-	// bytes rather than decoding the hex.
+	// Secret signs the links and the projections. No config field on purpose, so
+	// it cannot be committed by accident: OHAYOU_WEB_SECRET only. The site holds
+	// the same value under the same name, and both sides key on its utf-8 bytes
+	// rather than decoding the hex it is written as.
 	Secret string `json:"-"`
 }
 
@@ -77,7 +78,7 @@ func MS(n int) time.Duration   { return time.Duration(n) * time.Millisecond }
 type SASLConfig struct {
 	Enabled   *bool  `json:"enabled"`
 	Login     string `json:"login"`
-	Password  string `json:"password"`
+	Password  string `json:"password"`  // or OHAYOU_SASL_PASSWORD
 	Mechanism string `json:"mechanism"` // PLAIN (default) or EXTERNAL
 }
 
@@ -197,8 +198,15 @@ func Load(path string) (*Config, error) {
 	if cfg.Database == "" {
 		cfg.Database = "ohayoubot.db"
 	}
-	if token := os.Getenv("OHAYOU_CF_API_TOKEN"); token != "" {
-		cfg.Cloudflare.APIToken = token
+	// Everything that authenticates the bot comes from the environment, so a
+	// deployment keeps no credential in a file. The two with no config field
+	// cannot be put in one at all; the irc passwords override what is there.
+	cfg.Cloudflare.APIToken = os.Getenv("OHAYOU_CF_API_TOKEN")
+	if pw := os.Getenv("OHAYOU_NICK_PW"); pw != "" {
+		cfg.NickPW = pw
+	}
+	if pw := os.Getenv("OHAYOU_SASL_PASSWORD"); pw != "" {
+		cfg.SASL.Password = pw
 	}
 	cfg.Web.Secret = os.Getenv("OHAYOU_WEB_SECRET")
 	// Normalize nicks to lower case for admins

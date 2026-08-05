@@ -11,11 +11,10 @@ Group=ohayoubot
 WorkingDirectory=/opt/ohayoubot
 ExecStart=/opt/ohayoubot/ohayoubot -config /opt/ohayoubot/conf.json
 
-# optional secrets that are better kept out of conf.json:
-# OHAYOU_CF_API_TOKEN, OHAYOU_WEB_SECRET.
-# deerkins.env is the old name for the same file, read if it is still there.
+# Credentials: OHAYOU_WEB_SECRET, OHAYOU_CF_API_TOKEN, OHAYOU_NICK_PW,
+# OHAYOU_SASL_PASSWORD. The first two have no conf.json field and are read from
+# here only. See README.md, Secrets.
 EnvironmentFile=-/opt/ohayoubot/ohayoubot.env
-EnvironmentFile=-/opt/ohayoubot/deerkins.env
 
 # main handles SIGTERM and sends a clean IRC QUIT. give it a moment to close
 KillSignal=SIGTERM

@@ -36,8 +36,7 @@
 	},
 	"cloudflare": {
 		"accountId": "",
-		"databaseId": "",
-		"apiToken": ""
+		"databaseId": ""
 	},
 	"plugins": {
 		"deerkins": {

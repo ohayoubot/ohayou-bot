@@ -15,10 +15,11 @@ import (
 // until it has somewhere to read from.
 type Config struct {
 	Enabled *bool `json:"enabled"`
-	// AccountID, DatabaseID and APIToken default to the shared cloudflare block.
+	// AccountID and DatabaseID default to the shared cloudflare block.
 	AccountID  string `json:"accountId"`
 	DatabaseID string `json:"databaseId"`
-	APIToken   string `json:"apiToken"`
+	// APIToken comes from the environment, never from a block.
+	APIToken string `json:"-"`
 	// Editor is the url of the drawing app, quoted in help and 404s.
 	Editor string `json:"editor"`
 	// Timeout is the seconds a channel must wait between deer.
@@ -101,7 +102,7 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 	case c.DatabaseID == "":
 		return false, fmt.Errorf("databaseId is required")
 	case c.APIToken == "":
-		return false, fmt.Errorf("apiToken (or OHAYOU_CF_API_TOKEN) is required")
+		return false, fmt.Errorf("OHAYOU_CF_API_TOKEN is required")
 	}
 
 	if c.Editor == "" {

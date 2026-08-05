@@ -10,5 +10,5 @@ conf.json
 # built binary
 /ohayoubot
 
-# deerkins
-deerkins.env
+# credentials, read by the systemd unit
+ohayoubot.env
