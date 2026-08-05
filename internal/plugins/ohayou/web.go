@@ -95,10 +95,12 @@ func wealth(cumulative int) string {
 	return wealthBands[len(wealthBands)-1].name
 }
 
-// publishable is checked before a plot is named. An account is required too:
-// without one there is no identity a nick change cannot move.
+// publishable is checked before a plot is named. Hidden is the only visibility
+// that withholds a nick; unset publishes, so a player who has never been asked
+// still appears. An account is required either way: without one there is no
+// identity a nick change cannot move.
 func publishable(u *store.User) bool {
-	return u.Web == store.VisibilityPublic && u.Account != ""
+	return u.Web != store.VisibilityHidden && u.Account != ""
 }
 
 func (g *Plugin) publicPlot(u *store.User) Plot {

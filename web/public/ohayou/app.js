@@ -6,7 +6,7 @@
 import { normalise, toDataURL } from "../deerkins/kins.js";
 import { nav } from "../nav.js";
 import { nameOf } from "./catalog.js";
-import { drawWorld } from "./map.js";
+import { ANONYMOUS, drawWorld } from "./map.js";
 import { usage } from "./plot.js";
 import { spriteURL } from "./sprites.js";
 import { BANDS } from "./terrain.js";
@@ -108,7 +108,7 @@ function ledger(totals, updated) {
 	$("#unfiled").textContent = unfiled
 		? `${unfiled} of ${totals.players} ${
 				totals.players === 1 ? "parcel is" : "parcels are"
-			} held anonymously. Say !territory on and yours carries your nick.`
+			} drawn as Anonymous: either their holder asked not to be named, or they have not registered with the bot.`
 		: "";
 
 	$("#ledger").replaceChildren(
@@ -142,7 +142,7 @@ function deed(plot) {
 	const parts = [];
 
 	const name = document.createElement("h3");
-	name.textContent = plot.named ? plot.nick : "Unfiled parcel";
+	name.textContent = plot.named ? plot.nick : ANONYMOUS;
 	if (!plot.named) name.className = "anon";
 	parts.push(name);
 
@@ -178,7 +178,7 @@ function deed(plot) {
 	} else {
 		parts.push(
 			hint(
-				"Held by somebody who has not filed a name. The registry publishes the acreage and nothing else.",
+				"Held by somebody who asked not to be named. The registry publishes the acreage and nothing else.",
 			),
 		);
 	}

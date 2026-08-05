@@ -64,9 +64,11 @@
     <ul class="bands" id="bands"></ul>
     <p class="hint" id="unfiled"></p>
     <p class="hint">
-      A parcel is drawn at the size of the holding it describes. Unfiled parcels
-      are shown as bare ground: the registry knows the acreage, not the owner.
-      Ohayous on hand, vaults and defences are never published.
+      A parcel is drawn at the size of the holding it describes. Parcels are
+      filed under their holder's nick by default; one drawn as
+      <b>Anonymous</b> is bare ground, and the registry publishes its acreage
+      and nothing else. Ohayous on hand, vaults and defences are never
+      published, named or not.
     </p>
   </section>
 
@@ -79,9 +81,10 @@
     <span class="stamp">Filing a claim</span>
     <p>
       Parcels are filed under a services account, not a nick, so nobody can take
-      yours by taking your name. Say <code>!territory on</code> to the bot and
-      the registry prints your nick on your land; <code>!territory off</code>
-      takes it back off.
+      yours by taking your name. Your land carries your nick by default; say
+      <code>!territory off</code> to the bot and it is drawn as Anonymous
+      instead, with the acreage still shown and nothing that says it is yours.
+      <code>!territory on</code> puts the name back.
     </p>
     <p class="hint" id="signedout">
       Already playing? Say <code>!web</code> to the bot and it sends you a

@@ -13,6 +13,9 @@ import { spriteURL } from "./sprites.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 
+/** What a parcel is called when its holder asked not to be named. */
+export const ANONYMOUS = "Anonymous";
+
 /** Sea around the coast, in tiles. */
 const MARGIN = 3;
 
@@ -288,14 +291,14 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 	const banner = flag(plot, flags, w);
 	if (banner) g.append(banner);
 
-	if (plot.named) {
+	{
 		const label = el("text", {
 			class: "nameplate",
 			x: w / 2,
 			y: h + 0.85,
 			"font-size": NAMEPLATE,
 		});
-		label.textContent = fit(plot.nick, w + VERGE * 2);
+		label.textContent = fit(plot.named ? plot.nick : ANONYMOUS, w + VERGE * 2);
 		g.append(label);
 	}
 
@@ -367,7 +370,7 @@ function fit(nick, tiles) {
 }
 
 function describe(plot, acres) {
-	const who = plot.named ? plot.nick : "an unclaimed plot";
+	const who = plot.named ? plot.nick : ANONYMOUS;
 	const size = `${acres} ${acres === 1 ? "acre" : "acres"}`;
 	return plot.named ? `${who}, ${size}, ${plot.wealth}` : `${who}, ${size}`;
 }

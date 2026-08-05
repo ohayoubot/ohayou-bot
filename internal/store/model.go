@@ -2,9 +2,10 @@ package store
 
 import "time"
 
-// Visibility is whether a user's holdings may be shown outside irc. Unset is
-// its own state, not a default: somebody who has never been asked is not on the
-// website, and is not treated as having agreed to be.
+// Visibility is whether a user's holdings may be shown outside irc. Unset means
+// nobody has said either way, which publishes: a plot carries its owner's nick
+// unless they ask for it not to. Hidden is the opt out, and is the only state
+// that keeps a nick off the site.
 type Visibility string
 
 const (
