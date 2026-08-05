@@ -31,6 +31,12 @@ type Deps struct {
 	// Web mints the signed links a plugin hands a user to prove who they are on
 	// the website. Nil when no secret is configured.
 	Web *web.Minter
+	// Publisher is the bot-wide connection to the site. Plugins use the scoped
+	// Feed below.
+	Publisher *web.Publisher
+	// Feed publishes this plugin's projection to the site. Already scoped to the
+	// plugin, and nil when there is no site to publish to.
+	Feed *web.Feed
 }
 
 // For scopes deps to one plugin: its own logger, and its own corner of the
@@ -43,6 +49,9 @@ func (d Deps) For(name string) Deps {
 	}
 	if d.Runner != nil {
 		d.Tasks = d.Runner.For(name)
+	}
+	if d.Publisher != nil {
+		d.Feed = d.Publisher.For(name)
 	}
 	return d
 }

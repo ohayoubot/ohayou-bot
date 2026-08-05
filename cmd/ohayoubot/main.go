@@ -57,8 +57,10 @@ func run(configPath string, log *slog.Logger) error {
 	runner := task.NewRunner(db, b, log)
 
 	minter := web.NewMinter(cfg.Web.Secret)
+	publisher := web.NewPublisher(cfg.Web.URL, cfg.Web.Secret)
 	reg := plugin.NewRegistry(plugin.Deps{
-		Bot: b, Store: db, Log: log, Runner: runner, Web: minter,
+		Bot: b, Store: db, Log: log, Runner: runner,
+		Web: minter, Publisher: publisher,
 	})
 	reg.Add(plugins()...)
 	if err := reg.Configure(cfg); err != nil {
