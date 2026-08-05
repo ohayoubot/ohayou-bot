@@ -52,7 +52,7 @@ async function post(body, { scopes = SCOPE_OHAYOU, env, account } = {}) {
 		headers: {
 			"content-type": "application/json",
 			origin: "https://hemera.day",
-			cookie: "__Host-hemera=abc",
+			cookie: "__Host-ohayou=abc",
 		},
 		body: JSON.stringify(body),
 	});

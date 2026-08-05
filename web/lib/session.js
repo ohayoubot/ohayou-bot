@@ -17,7 +17,7 @@
 
 import { b64urlEncode } from "./hmac.js";
 
-const COOKIE = "__Host-hemera";
+const COOKIE = "__Host-ohayou";
 
 const TTL = 12 * 3600_000;
 

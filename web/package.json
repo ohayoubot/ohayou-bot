@@ -1,9 +1,9 @@
 {
-  "name": "deerkins",
+  "name": "ohayou-web",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "The ohayou bot's website: the deerkins gallery and the drop uploader. Cloudflare Pages + D1.",
+  "description": "The ohayou bot's website: the deerkins gallery, the drop uploader and the world map. Cloudflare Pages + D1.",
   "scripts": {
     "dev": "wrangler pages dev",
     "deploy": "wrangler pages deploy",

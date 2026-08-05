@@ -1,7 +1,32 @@
 # web
 
-The bot's Cloudflare Pages project: the deerkins gallery at `/deerkins/` and the
-drop uploader at `/drop/`. Every command below runs from this directory.
+The ohayou bot's Cloudflare Pages project: the world map at `/ohayou/`, the
+deerkins gallery at `/deerkins/` and the drop uploader at `/drop/`. Every
+command below runs from this directory.
+
+## Names
+
+The project is `ohayou`, after the bot and the game that is most of it.
+`deerkins` is the gallery and keeps its name. `hemera` is only the domain.
+
+The databases are `ohayou-site` (sessions, the gallery, drop's queue) and
+`ohayou-game` (the projection and the request queue), each with a `-preview`
+twin. Both were moved from names that came first: the site's was `deerkins-db`,
+after one of the three things in it.
+
+Two names are still wrong, and Cloudflare has no rename for either. A Pages
+project and an R2 bucket can only be created and deleted.
+
+| Now | Should be | Why it is still there |
+| --- | --- | --- |
+| R2 `hemera` | `ohayou-uploads` | every image link already said in a channel points at it |
+| Pages `deerkins` | `ohayou` | a new project, with the custom domain, secrets and build settings moved to it, for a name nobody sees behind the domain |
+
+Moving a database, should it come up again: `wrangler d1 export` the old one,
+`wrangler d1 create` the new one, `wrangler d1 execute --file` the dump into
+it, then put the id in `wrangler.toml`. The export writes explicit primary
+keys and carries `sqlite_sequence`, so drop's queue ids survive and the bot's
+cursor still means what it meant.
 
 ## Requirements
 
@@ -75,8 +100,10 @@ pnpm db init deerkins preview --yes
 pnpm db seed deerkins preview --yes  # optional, for real data to click around
 ```
 
-`init` is idempotent, so re-run it against production *and* preview whenever
-`schema/` changes. A table added for production only fails at runtime on a
+One database may hold several plugins' tables, so a schema is several files:
+`db init deerkins` applies `site.sql`, `deerkins.sql` and `drop.sql` in turn,
+each owned by whoever the tables belong to. `init` is idempotent, so re-run it
+against production *and* preview whenever `schema/` changes. A table added for production only fails at runtime on a
 branch build, not at deploy.
 
 `wrangler pages secret put` writes to Production only. Preview needs its own

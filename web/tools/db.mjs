@@ -14,16 +14,20 @@ import { existsSync } from "node:fs";
 import { argv, exit } from "node:process";
 import { fileURLToPath } from "node:url";
 
+/**
+ * Each database, and the sql that builds it. A schema may be several files: one
+ * database holds the tables of more than one plugin, and each owns its own.
+ */
 export const DATABASES = {
-	ohayou: {
-		schema: "schema/ohayou.sql",
+	"ohayou-game": {
+		schema: ["schema/ohayou.sql"],
 		// The projection is rebuildable, so it has a way to be rebuilt.
-		reset: "schema/ohayou.reset.sql",
+		reset: ["schema/ohayou.reset.sql"],
 	},
-	deerkins: {
-		schema: "schema/deerkins.sql",
-		seed: "seed.sql",
-		purge: "tools/purge.sql",
+	"ohayou-site": {
+		schema: ["schema/site.sql", "schema/deerkins.sql", "schema/drop.sql"],
+		seed: ["seed.sql"],
+		purge: ["tools/purge.sql"],
 	},
 };
 
@@ -76,10 +80,12 @@ function main(args) {
 		usage(`unknown environment ${environment}`);
 	}
 
-	const file = DATABASES[database][ACTIONS[action]];
-	if (!file) usage(`${database} has no ${action}`);
-	if (!existsSync(new URL(`../${file}`, import.meta.url))) {
-		usage(`${file} does not exist`);
+	const files = DATABASES[database][ACTIONS[action]];
+	if (!files) usage(`${database} has no ${action}`);
+	for (const file of files) {
+		if (!existsSync(new URL(`../${file}`, import.meta.url))) {
+			usage(`${file} does not exist`);
+		}
 	}
 
 	// The README's deploy steps run these against production. Making that an
@@ -88,14 +94,18 @@ function main(args) {
 		usage(`${action} on ${target(database, environment)} needs --yes`);
 	}
 
-	const [command, ...rest] = wranglerArgs(database, environment, file);
-	console.log(`> pnpm exec ${command} ${rest.join(" ")}`);
+	// One wrangler call per file: d1 execute takes a single --file.
+	for (const file of files) {
+		const [command, ...rest] = wranglerArgs(database, environment, file);
+		console.log(`> pnpm exec ${command} ${rest.join(" ")}`);
 
-	const run = spawnSync("pnpm", ["exec", command, ...rest], {
-		stdio: "inherit",
-		cwd: fileURLToPath(new URL("..", import.meta.url)),
-	});
-	exit(run.status ?? 1);
+		const run = spawnSync("pnpm", ["exec", command, ...rest], {
+			stdio: "inherit",
+			cwd: fileURLToPath(new URL("..", import.meta.url)),
+		});
+		if (run.status !== 0) exit(run.status ?? 1);
+	}
+	exit(0);
 }
 
 if (argv[1] === fileURLToPath(import.meta.url)) main(argv.slice(2));
