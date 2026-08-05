@@ -28,8 +28,8 @@ ____________`,
 ____________
 _G__G_______
 _GGGGG___G__
-_GG GG__GG__
-_GGGGG_AGG__
+_G G GG_GG__
+_GGGGG__GG__
 _GGGGGGGGG__
 __GGGGGGGG__
 __GGGGGGGG__

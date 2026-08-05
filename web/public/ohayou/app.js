@@ -45,7 +45,12 @@ async function start() {
 	zoom(svg);
 
 	const own = world.plots.find((p) => p.named && p.id === mine);
-	deed(own ?? world.plots[0]);
+	// Failing your own, the largest parcel anybody has put a name to: opening on
+	// an anonymous one explains nothing about what the map is showing.
+	const notable = [...world.plots]
+		.filter((p) => p.named)
+		.sort((a, b) => b.acres - a.acres)[0];
+	deed(own ?? notable ?? world.plots[0]);
 	if (own) {
 		const find = $("#findme");
 		find.hidden = false;
@@ -98,6 +103,13 @@ function ledger(totals, updated) {
 		div.append(dd, dt);
 		return div;
 	};
+
+	const unfiled = totals.players - totals.named;
+	$("#unfiled").textContent = unfiled
+		? `${unfiled} of ${totals.players} ${
+				totals.players === 1 ? "parcel is" : "parcels are"
+			} held anonymously. Say !territory on and yours carries your nick.`
+		: "";
 
 	$("#ledger").replaceChildren(
 		entry("acres surveyed", totals.acres.toLocaleString()),

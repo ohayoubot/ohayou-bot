@@ -10,7 +10,7 @@
 	--turf-lit: #1c3a14;
 	--soil: #3d2f18;
 	--pasture: #2b5417;
-	--fallow: #46402c;
+	--fallow: #574d33;
 	--hedge: #16300d;
 }
 
@@ -178,23 +178,29 @@
 	cursor: pointer;
 }
 
-.parcel.unnamed .field {
+.worldmap .bare {
 	fill: var(--fallow);
 }
 
+.worldmap .clod {
+	stroke: #6d6144;
+	stroke-width: 0.14;
+	stroke-linecap: round;
+}
+
 .parcel.unnamed .hedge {
-	stroke: #3a3527;
+	stroke: #756848;
 	stroke-dasharray: 0.5 0.4;
 }
 
+/* Sized in map.js, which also clips the nick to fit. */
 .parcel .nameplate {
 	font-family: var(--mono);
-	font-size: 0.85px;
 	fill: var(--ink);
 	text-anchor: middle;
 	paint-order: stroke;
 	stroke: #000;
-	stroke-width: 0.28px;
+	stroke-width: 0.18px;
 	stroke-linejoin: round;
 	pointer-events: none;
 }

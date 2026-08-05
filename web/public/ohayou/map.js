@@ -16,6 +16,13 @@ const SVG = "http://www.w3.org/2000/svg";
 /** Sea around the coast, in tiles. */
 const MARGIN = 3;
 
+/**
+ * Nameplate height in tiles. Set here rather than in css because fit() below
+ * measures against it: a label sized by one and clipped by the other would
+ * overrun its neighbours.
+ */
+const NAMEPLATE = 0.55;
+
 const el = (name, attrs = {}) => {
 	const node = document.createElementNS(SVG, name);
 	for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
@@ -90,6 +97,20 @@ function defs() {
 		el("path", { d: "M.6 2.2 v-.5 M2.2 1 v-.5 M1.4 2.6 v-.4", class: "tuft" }),
 	);
 	defs.append(grass);
+
+	// Most parcels are unfiled, so bare ground is the common case and a flat
+	// rectangle of it is most of the map.
+	const fallow = el("pattern", {
+		id: "fallow",
+		width: 2,
+		height: 2,
+		patternUnits: "userSpaceOnUse",
+	});
+	fallow.append(el("rect", { width: 2, height: 2, class: "bare" }));
+	fallow.append(
+		el("path", { d: "M.5 1.4 h.3 M1.4 .5 h.3 M1.1 1.7 h.2", class: "clod" }),
+	);
+	defs.append(fallow);
 
 	const pasture = el("pattern", {
 		id: "pasture",
@@ -240,7 +261,7 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 			width: w,
 			height: h,
 			rx: 0.2,
-			fill: plot.named ? "url(#pasture)" : null,
+			fill: plot.named ? "url(#pasture)" : "url(#fallow)",
 		}),
 	);
 
@@ -268,8 +289,13 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 	if (banner) g.append(banner);
 
 	if (plot.named) {
-		const label = el("text", { class: "nameplate", x: w / 2, y: h + 0.95 });
-		label.textContent = plot.nick;
+		const label = el("text", {
+			class: "nameplate",
+			x: w / 2,
+			y: h + 0.85,
+			"font-size": NAMEPLATE,
+		});
+		label.textContent = fit(plot.nick, w + VERGE * 2);
 		g.append(label);
 	}
 
@@ -327,6 +353,17 @@ function flag(plot, flags, w) {
 		}),
 	);
 	return g;
+}
+
+/**
+ * A nick clipped to the tiles it has to sit in, verges included. Most parcels
+ * are one acre wide and most nicks are not, so without this every label runs
+ * over its neighbours.
+ */
+function fit(nick, tiles) {
+	// Monospace advance is about 0.6em.
+	const room = Math.max(3, Math.floor(tiles / (NAMEPLATE * 0.6)));
+	return nick.length > room ? `${nick.slice(0, room - 1)}\u2026` : nick;
 }
 
 function describe(plot, acres) {

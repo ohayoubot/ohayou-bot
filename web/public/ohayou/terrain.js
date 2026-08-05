@@ -11,7 +11,7 @@ export const TERRAIN = {
 	"turf-lit": "#1c3a14",
 	soil: "#3d2f18",
 	pasture: "#2b5417",
-	fallow: "#46402c",
+	fallow: "#574d33",
 	hedge: "#16300d",
 };
 

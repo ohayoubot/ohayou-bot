@@ -76,9 +76,13 @@ ${details(plot, flag, acres, built, band)}
 /** The parcel itself, on its own patch of ground. */
 function survey(plot, x, y, w, h) {
 	const { wide, tall, tiles } = layout(plot);
+	// Sized to fill the panel rather than to a fixed scale: most parcels are one
+	// acre, and one acre at a common scale is a stamp on a lawn. A larger
+	// holding still draws larger, which is as much comparability as one card
+	// needs; the map is where parcels are measured against each other.
 	const tile = Math.max(
-		10,
-		Math.min(96, Math.floor(Math.min(w / (wide + 2), h / (tall + 2)))),
+		18,
+		Math.min(220, Math.floor(Math.min(w / (wide + 0.6), h / (tall + 0.6)))),
 	);
 	const pw = wide * tile;
 	const ph = tall * tile;
@@ -175,7 +179,39 @@ function details(plot, flag, acres, built, band) {
 				clip(plot.flag, 22),
 			)}</text>`,
 		);
+	} else {
+		out.push(holdings(plot, x, y + 16, w));
 	}
+	return out.join("");
+}
+
+/**
+ * What is on the land, drawn, for a parcel flying no deer. Four at most: this
+ * is the shape of a holding, not an inventory.
+ */
+function holdings(plot, x, y, w) {
+	const items = Object.entries(plot.land ?? {}).sort();
+	if (items.length === 0) return "";
+
+	const shown = items.slice(0, 4);
+	const box = Math.min(74, Math.floor(w / shown.length));
+	const out = [
+		`<text x="${x}" y="${y}" fill="${DIM}" font-family="${MONO}" font-size="19" letter-spacing="2">ON THE LAND</text>`,
+	];
+
+	shown.forEach(([item, n], i) => {
+		const cx = x + i * box;
+		out.push(
+			toRects(spriteFor(item), {
+				x: cx,
+				y: y + 14,
+				cell: (box - 12) / SPRITE_SIZE,
+			}),
+			`<text x="${cx + (box - 12) / 2}" y="${
+				y + 14 + (box - 12) + 22
+			}" fill="${INK}" font-family="${MONO}" font-size="20" text-anchor="middle">${n}</text>`,
+		);
+	});
 	return out.join("");
 }
 
