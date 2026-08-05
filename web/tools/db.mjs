@@ -15,6 +15,9 @@ import { argv, exit } from "node:process";
 import { fileURLToPath } from "node:url";
 
 export const DATABASES = {
+	ohayou: {
+		schema: "schema/ohayou.sql",
+	},
 	deerkins: {
 		schema: "schema/deerkins.sql",
 		seed: "seed.sql",
