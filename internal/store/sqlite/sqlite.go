@@ -649,6 +649,27 @@ func (d *DB) VaultTransfer(ctx context.Context, nick string, ohayousDelta, vault
 		ohayousDelta, vaultDelta, unix(last), nick, ohayousDelta, vaultDelta, unix(dayStart)))
 }
 
+// Players lists everyone, in an order the world map can lay out and that does
+// not change as people play: the longest-standing first.
+func (d *DB) Players(ctx context.Context) ([]string, error) {
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT username FROM users ORDER BY times_ohayoued DESC, username`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) Top(ctx context.Context, n int) ([]store.UserOhayous, error) {
 	rows, err := d.db.QueryContext(ctx, `SELECT username,ohayous FROM users ORDER BY ohayous DESC LIMIT ?`, n)
 	if err != nil {

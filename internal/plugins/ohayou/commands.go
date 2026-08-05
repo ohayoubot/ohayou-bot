@@ -353,10 +353,11 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 	switch strings.ToLower(m.Arg(1)) {
 	case "":
 		g.say(to, m.Nick+": "+webState(user.Web))
-		g.say(to, "Public means your nick, your land and what you have built on it, "+
-			"and roughly how much you have earned. Never your ohayous on hand, your "+
-			"vault, or your defences. "+g.p()+"territory on to appear, "+g.p()+
-			"territory off to stay out.")
+		g.say(to, "Your plot is on the map either way, showing how much land you "+
+			"hold and roughly what you have earned. Naming it adds your nick and "+
+			"what you have built, and lets you see your own full standing on the "+
+			"site. Never your ohayous on hand, your vault, or your defences. "+
+			g.p()+"territory on to be named, "+g.p()+"territory off to stay unnamed.")
 		return
 	case "on", "yes", "public":
 		want = store.VisibilityPublic
@@ -382,11 +383,11 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 func webState(v store.Visibility) string {
 	switch v {
 	case store.VisibilityPublic:
-		return "Your territory appears on the website."
+		return "Your plot is named on the website."
 	case store.VisibilityHidden:
-		return "Your territory stays off the website."
+		return "Your plot is on the map, but unnamed."
 	default:
-		return "You have not said either way, so your territory stays off the website."
+		return "You have not said either way, so your plot is on the map unnamed."
 	}
 }
 

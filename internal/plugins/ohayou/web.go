@@ -15,13 +15,23 @@ import (
 // Plot is what anyone may see. Its field list is the boundary between the game
 // and the internet: web_test pins the marshalled keys, so a field added to
 // store.User cannot reach the site by being carried along.
+//
+// Every player has one, so the world is the whole world rather than the part of
+// it that opted in. A plot only carries a name when its owner said it could;
+// the rest are the same shape with the identifying half left out.
 type Plot struct {
-	Account string `json:"account"`
-	Nick    string `json:"nick"`
-	Acres   int    `json:"acres"`
-	// Land is what occupies those acres, by item name. Anything that defends is
-	// left out: a public map of who has no dog is a list of who to rob. What is
-	// left out looks like empty land, so nothing can be inferred from the total.
+	// ID is the services account for a named plot and an opaque, salted id for
+	// an unnamed one, so the two cannot be told apart or matched up.
+	ID string `json:"id"`
+	// Nick is empty unless the owner agreed to be named.
+	Nick  string `json:"nick"`
+	Named bool   `json:"named"`
+	Acres int    `json:"acres"`
+	// Land is what occupies those acres, by item name, and is empty on an
+	// unnamed plot: a distinctive set of buildings is as good as a name.
+	// Anything that defends is left out either way: a public map of who has no
+	// dog is a list of who to rob. What is left out looks like empty land, so
+	// nothing can be inferred from the total.
 	Land map[string]int `json:"land"`
 	// Wealth is a band rather than a number, and comes from lifetime earnings
 	// rather than the balance, so it ranks players without telling a thief what
@@ -34,6 +44,9 @@ type Plot struct {
 
 // PrivatePlot is what one player may see about themselves, and is served only
 // against a session holding the matching account.
+// Every column is always present: omitempty would drop a zero and the site
+// requires the column, so a player with no probation would be refused rather
+// than published.
 type PrivatePlot struct {
 	Account    string            `json:"account"`
 	Nick       string            `json:"nick"`
@@ -43,8 +56,8 @@ type PrivatePlot struct {
 	Metals     map[string]int    `json:"metals"`
 	Equipped   map[string]string `json:"equipped"`
 	Defense    int               `json:"defense"`
-	Vault      *VaultView        `json:"vault,omitempty"`
-	Probation  int64             `json:"probation,omitempty"`
+	Vault      *VaultView        `json:"vault"`
+	Probation  int64             `json:"probation"`
 	Fortune    string            `json:"fortune"`
 	// Running are the activities still counting down, which is the thing the
 	// site can tell a player that a channel line cannot.
@@ -95,10 +108,26 @@ func publishable(u *store.User) bool {
 
 func (g *Plugin) publicPlot(u *store.User) Plot {
 	return Plot{
-		Account: u.Account,
+		ID:      u.Account,
 		Nick:    u.Username,
+		Named:   true,
 		Acres:   u.Items["acre"],
 		Land:    g.land(u),
+		Wealth:  wealth(u.CumOhayous),
+		Rations: u.TimesOhayoued,
+	}
+}
+
+// anonymousPlot is what a player who has not agreed to be named contributes to
+// the map: how much land they hold and roughly how much they have earned, with
+// nothing that says who they are. The scale of a world is worth showing; whose
+// it is, is theirs to say.
+func (g *Plugin) anonymousPlot(u *store.User, id string) Plot {
+	return Plot{
+		ID:      id,
+		Named:   false,
+		Acres:   u.Items["acre"],
+		Land:    map[string]int{},
 		Wealth:  wealth(u.CumOhayous),
 		Rations: u.TimesOhayoued,
 	}

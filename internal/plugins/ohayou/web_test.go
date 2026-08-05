@@ -77,7 +77,7 @@ func TestPublicPlotCarriesOnlyWhatWasPromised(t *testing.T) {
 	plotCatalog(t, db)
 
 	got := keysOf(t, g.publicPlot(richUser()))
-	want := []string{"account", "acres", "land", "nick", "rations", "wealth"}
+	want := []string{"acres", "id", "land", "named", "nick", "rations", "wealth"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("public plot fields = %v, want %v", got, want)
 	}
@@ -85,6 +85,50 @@ func TestPublicPlotCarriesOnlyWhatWasPromised(t *testing.T) {
 
 // !web says the public tier never shows a balance, a vault or defences. This is
 // that promise, checked against the bytes rather than the field names.
+// An unnamed plot is the same shape with the identifying half left out, so the
+// site cannot tell one kind from the other by which fields arrived.
+func TestAnonymousPlotIsTheSameShapeWithoutTheName(t *testing.T) {
+	g, db := testGame(t)
+	plotCatalog(t, db)
+
+	named := keysOf(t, g.publicPlot(richUser()))
+	anonymous := keysOf(t, g.anonymousPlot(richUser(), "opaque"))
+	if strings.Join(named, ",") != strings.Join(anonymous, ",") {
+		t.Errorf("fields differ: named %v, anonymous %v", named, anonymous)
+	}
+
+	plot := g.anonymousPlot(richUser(), "opaque")
+	if plot.Named {
+		t.Error("an anonymous plot says it is named")
+	}
+	if plot.ID != "opaque" || plot.Nick != "" {
+		t.Errorf("id = %q, nick = %q, want the opaque id and no nick", plot.ID, plot.Nick)
+	}
+	if len(plot.Land) != 0 {
+		t.Errorf("land = %v, want nothing: a distinctive set of buildings names you", plot.Land)
+	}
+	// The scale is the point of being on the map at all.
+	if plot.Acres != 6 || plot.Wealth != "industrialist" || plot.Rations != 120 {
+		t.Errorf("the scale was lost: %+v", plot)
+	}
+}
+
+// The account and nick are what an anonymous plot exists not to say.
+func TestAnonymousPlotNamesNobody(t *testing.T) {
+	g, db := testGame(t)
+	plotCatalog(t, db)
+
+	raw, err := json.Marshal(g.anonymousPlot(richUser(), "opaque"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range []string{"alice", "AliceAcct", "cat", "quarry"} {
+		if strings.Contains(string(raw), secret) {
+			t.Errorf("an anonymous plot contains %q: %s", secret, raw)
+		}
+	}
+}
+
 func TestPublicPlotLeaksNoBalanceVaultOrDefence(t *testing.T) {
 	g, db := testGame(t)
 	plotCatalog(t, db)

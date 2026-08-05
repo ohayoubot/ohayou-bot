@@ -16,8 +16,9 @@ function now() {
 
 function plot(overrides = {}) {
 	return {
-		account: "Mallow",
+		id: "Mallow",
 		nick: "mallow",
+		named: true,
 		acres: 6,
 		land: { cat: 25, quarry: 1 },
 		wealth: "industrialist",
@@ -180,12 +181,14 @@ test("a column the table does not have is refused", async () => {
 
 test("a row of the wrong shape is refused", async () => {
 	for (const row of [
-		plot({ account: 7 }),
+		plot({ id: 7 }),
+		plot({ named: 1 }),
+		plot({ named: "yes" }),
 		plot({ acres: "six" }),
 		plot({ acres: 1.5 }),
 		plot({ land: undefined }),
 		plot({ land: null }),
-		{ account: "Mallow" },
+		{ id: "Mallow" },
 		null,
 		["Mallow"],
 	]) {
@@ -193,6 +196,16 @@ test("a row of the wrong shape is refused", async () => {
 		assert.equal(response.status, 400, JSON.stringify(row));
 		assert.equal(env.batches.length, 0);
 	}
+});
+
+// An unnamed plot is the same row with the identifying half left out.
+test("an anonymous plot is accepted", async () => {
+	const { response } = await post(
+		publish({
+			rows: [plot({ id: "1VNgdUZOTZrl", nick: "", named: false, land: {} })],
+		}),
+	);
+	assert.equal(response.status, 200);
 });
 
 test("a nullable json column takes null", async () => {

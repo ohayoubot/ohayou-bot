@@ -9,11 +9,21 @@
 -- put the shape of its rules in a place that cannot enforce them, and a page
 -- able to recompute a rule will eventually disagree with the bot about one.
 
--- What anyone may see. The columns are exactly what the bot's publicPlot
--- promises: no balance, no vault, no defences. See internal/plugins/ohayou/web.go.
+-- What anyone may see. Every player has a plot, so the world is the whole world
+-- rather than the part of it that opted in, but a plot only carries a name when
+-- its owner said it could.
+--
+-- An unnamed plot has an opaque id, no nick and no land: what is left is the
+-- scale of the holding, which is what a map is for. The id is salted so it
+-- cannot be worked back to an account, and stable so the map does not reshuffle
+-- between publishes.
+--
+-- The columns are exactly what the bot's publicPlot promises: no balance, no
+-- vault, no defences. See internal/plugins/ohayou/web.go.
 CREATE TABLE IF NOT EXISTS plot (
-  account  TEXT PRIMARY KEY,
-  nick     TEXT NOT NULL,
+  id       TEXT PRIMARY KEY,
+  nick     TEXT NOT NULL DEFAULT '',
+  named    INTEGER NOT NULL DEFAULT 0,
   acres    INTEGER NOT NULL DEFAULT 0,
   -- land is the json object of what occupies those acres, by item name.
   land     TEXT NOT NULL DEFAULT '{}',
@@ -26,7 +36,9 @@ CREATE TABLE IF NOT EXISTS plot (
 CREATE INDEX IF NOT EXISTS plot_rations ON plot (rations DESC);
 
 -- What one player may see about themselves, served only against a session
--- holding the matching account. There is no listing endpoint for this table and
+-- holding the matching account. Unlike plot this is consent-gated outright: a
+-- player who has not agreed to be on the site has no row here at all, so their
+-- balance and vault never leave the bot. There is no listing endpoint for this table and
 -- no route that takes an account as a parameter.
 CREATE TABLE IF NOT EXISTS plot_private (
   account    TEXT PRIMARY KEY,
