@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata"
@@ -25,14 +26,45 @@ import (
 
 func main() {
 	configPath := flag.String("config", "conf.json", "path to the JSON config file")
+	check := flag.Bool("check", false, "load the config, report what would run, and exit")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
+	run := run
+	if *check {
+		run = validate
+	}
 	if err := run(*configPath, log); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
+}
+
+// validate walks the same path startup does, as far as it can go without
+// touching the network or the store: the config file, the environment behind
+// it, and every plugin's own configuration. Those are what a bad deployment
+// fails on, and failing here costs one exit code rather than a restart loop.
+func validate(configPath string, log *slog.Logger) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	reg := plugin.NewRegistry(plugin.Deps{Log: log})
+	reg.Add(plugins()...)
+	if err := reg.Configure(cfg); err != nil {
+		return err
+	}
+
+	log.Info("config is usable",
+		"file", configPath,
+		"nick", cfg.Nick,
+		"server", cfg.Server,
+		"channels", len(cfg.Channels),
+		"plugins", strings.Join(reg.Names(), " "),
+		"website", cfg.Web.URL != "" && cfg.Web.Secret != "")
+	return nil
 }
 
 func run(configPath string, log *slog.Logger) error {
