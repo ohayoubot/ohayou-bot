@@ -19,6 +19,7 @@ function plot(overrides = {}) {
 		id: "Mallow",
 		nick: "mallow",
 		named: true,
+		flag: "senordeer",
 		acres: 6,
 		land: { cat: 25, quarry: 1 },
 		wealth: "industrialist",
@@ -202,7 +203,15 @@ test("a row of the wrong shape is refused", async () => {
 test("an anonymous plot is accepted", async () => {
 	const { response } = await post(
 		publish({
-			rows: [plot({ id: "1VNgdUZOTZrl", nick: "", named: false, land: {} })],
+			rows: [
+				plot({
+					id: "1VNgdUZOTZrl",
+					nick: "",
+					named: false,
+					flag: "",
+					land: {},
+				}),
+			],
 		}),
 	);
 	assert.equal(response.status, 200);

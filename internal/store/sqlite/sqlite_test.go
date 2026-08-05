@@ -764,7 +764,7 @@ func TestAddColumnUpgradesATableThatAlreadyExists(t *testing.T) {
 	// Mirrors addedColumns in the ohayou plugin. Applied twice, because Start
 	// runs it on every boot.
 	for i := 0; i < 2; i++ {
-		for _, column := range []string{"account", "web"} {
+		for _, column := range []string{"account", "web", "flag"} {
 			if err := db.AddColumn(ctx, "users", column, "TEXT NOT NULL DEFAULT ''"); err != nil {
 				t.Fatalf("add %s (pass %d): %v", column, i, err)
 			}

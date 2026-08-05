@@ -27,6 +27,7 @@ var schema string
 var addedColumns = []struct{ table, column, definition string }{
 	{"users", "account", "TEXT NOT NULL DEFAULT ''"},
 	{"users", "web", "TEXT NOT NULL DEFAULT ''"},
+	{"users", "flag", "TEXT NOT NULL DEFAULT ''"},
 }
 
 type Plugin struct {

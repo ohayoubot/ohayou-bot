@@ -256,3 +256,34 @@
 .panel.warn {
   border-color: oklch(65% 0.16 35 / 0.6);
 }
+
+/* ---- a plot's deer ---- */
+
+.flag {
+  margin: 0 0 0.55rem;
+}
+
+.flag figcaption {
+  margin-top: 0.2rem;
+  font-size: 0.75em;
+  opacity: 0.55;
+}
+
+/*
+ * The gallery's kinskode, one cell per character. Sized from the row length so
+ * a wide deer and a tall one both fit the panel, and pixelated on purpose:
+ * this is pixel art and should look like it.
+ */
+.banner {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  width: 100%;
+  max-width: 13rem;
+  border-radius: 4px;
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+
+.banner span {
+  aspect-ratio: 1;
+}

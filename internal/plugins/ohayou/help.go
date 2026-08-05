@@ -54,6 +54,7 @@ func helpTopics(p string) []bot.Topic {
 			Lines: []string{
 				"Every plot is on the world map, yours included, but only as much land as you hold and roughly what you have earned. Nothing says it is yours until you say " + p + "territory on.",
 				"Named means your nick and what you have built appear on your plot, and you can see your own full standing when you sign in. " + p + "territory off takes the name back off. Your ohayous on hand, your vault and your defences are never shown to anyone but you.",
+				p + "territory flag <deer> flies a drawing from the gallery over your plot, and " + p + "territory flag none takes it down. Any deer will do; draw your own with " + p + "deerme.",
 			}},
 	}
 }

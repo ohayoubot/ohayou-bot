@@ -63,6 +63,12 @@ them on land, animals, industry and thievery. `!help` lists its topics, and
 It is a plugin like any other: turn it off with `"enabled": false` in its block
 and the bot keeps its other commands, needing no `data/` directory at all.
 
+Every player's land is drawn on the website's world map. A plot only carries a
+name when its owner says so with `!territory on`; until then it shows the size
+of the holding and nothing about whose it is. `!territory flag <deer>` flies a
+drawing from the [deerkins](#deerkins) gallery over it, which is the one place
+the two halves of the bot meet.
+
 ## Deerkins
 
 `!deerme` paints art from the deerkins gallery into the channel. The drawings

@@ -335,6 +335,9 @@ func (g *Plugin) cmdQuarry(m *bot.Message) {
 	g.say(m.Nick, strings.TrimSuffix(inv, ", "))
 }
 
+// maxFlag bounds a deer name, matching the gallery ceiling in kins.js.
+const maxFlag = 48
+
 // cmdTerritory reads and sets whether a user's holdings may leave irc. What the
 // public tier promises here is what web.go's Plot is allowed to carry. The name
 // is not !web because that is the bot's, and signs you in to the whole site.
@@ -349,10 +352,15 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 		return
 	}
 
+	if strings.ToLower(m.Arg(1)) == "flag" {
+		g.setFlag(m, user, to)
+		return
+	}
+
 	want := user.Web
 	switch strings.ToLower(m.Arg(1)) {
 	case "":
-		g.say(to, m.Nick+": "+webState(user.Web))
+		g.say(to, m.Nick+": "+webState(user.Web)+flagState(user.Flag))
 		g.say(to, "Your plot is on the map either way, showing how much land you "+
 			"hold and roughly what you have earned. Naming it adds your nick and "+
 			"what you have built, and lets you see your own full standing on the "+
@@ -364,7 +372,8 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 	case "off", "no", "hidden":
 		want = store.VisibilityHidden
 	default:
-		g.say(to, "Usage: "+g.p()+"territory on, "+g.p()+"territory off, or "+g.p()+"territory to see where you stand.")
+		g.say(to, "Usage: "+g.p()+"territory on, "+g.p()+"territory off, "+g.p()+
+			"territory flag <deer>, or "+g.p()+"territory to see where you stand.")
 		return
 	}
 
@@ -378,6 +387,59 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 		return
 	}
 	g.say(to, m.Nick+": "+webState(want))
+}
+
+// setFlag flies a deer from the gallery over the user's plot. The name is not
+// checked against the gallery: the site resolves it when it draws, so a deer
+// drawn after this is chosen still appears, and one that never existed simply
+// flies nothing.
+func (g *Plugin) setFlag(m *bot.Message, u *store.User, to string) {
+	deer := strings.TrimSpace(strings.Join(m.Args[2:], " "))
+	if deer == "" {
+		if u.Flag == "" {
+			g.say(to, m.Nick+": you fly no flag. "+g.p()+"territory flag <deer> "+
+				"picks one from the gallery to fly over your plot.")
+			return
+		}
+		g.say(to, m.Nick+": you fly "+u.Flag+". "+g.p()+"territory flag none takes it down.")
+		return
+	}
+
+	if strings.EqualFold(deer, "none") || strings.EqualFold(deer, "off") {
+		deer = ""
+	}
+	if len(deer) > maxFlag {
+		g.say(to, m.Nick+": that is not a deer's name.")
+		return
+	}
+
+	if err := g.store.SetFlag(g.ctx(), u.Username, deer); err != nil {
+		g.log.Error("set flag", "nick", u.Username, "err", err)
+		g.say(to, "Something went wrong saving that. Try again.")
+		return
+	}
+	if deer == "" {
+		g.say(to, m.Nick+": your flag is down.")
+		return
+	}
+	g.say(to, m.Nick+": "+deer+" now flies over your plot"+
+		unnamedWarning(u.Web, g.p()))
+}
+
+// unnamedWarning says the quiet part: a flag is only drawn on a plot that
+// carries a name, so setting one on an unnamed plot would otherwise look broken.
+func unnamedWarning(v store.Visibility, prefix string) string {
+	if v == store.VisibilityPublic {
+		return "."
+	}
+	return ", once you name it with " + prefix + "territory on."
+}
+
+func flagState(flag string) string {
+	if flag == "" {
+		return ""
+	}
+	return " " + flag + " flies over it."
 }
 
 func webState(v store.Visibility) string {

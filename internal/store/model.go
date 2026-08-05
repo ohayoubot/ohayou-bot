@@ -21,7 +21,10 @@ type User struct {
 	// never identified. A nick can be taken by somebody else; an account cannot.
 	Account string
 	// Web is whether this user agreed to appear on the website.
-	Web            Visibility
+	Web Visibility
+	// Flag is the name of a deer from the gallery, flown over this user's plot.
+	// Empty for no flag, and only ever shown on a plot that carries a name.
+	Flag           string
 	Last           time.Time
 	Ohayous        int
 	CumOhayous     int

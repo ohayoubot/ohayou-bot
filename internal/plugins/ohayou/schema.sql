@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     username        TEXT    PRIMARY KEY,
     account         TEXT    NOT NULL DEFAULT '',
     web             TEXT    NOT NULL DEFAULT '',
+    flag            TEXT    NOT NULL DEFAULT '',
     last            INTEGER NOT NULL DEFAULT 0,
     ohayous         INTEGER NOT NULL DEFAULT 0,
     cum_ohayous     INTEGER NOT NULL DEFAULT 0,
