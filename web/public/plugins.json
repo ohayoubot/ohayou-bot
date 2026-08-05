@@ -1,0 +1,18 @@
+{
+  "plugins": [
+    {
+      "name": "deerkins",
+      "title": "deerkins",
+      "blurb": "draw pixel art for IRC.",
+      "path": "/deerkins/",
+      "api": "/deerkins/api/*"
+    },
+    {
+      "name": "drop",
+      "title": "drop",
+      "blurb": "put images in IRC.",
+      "path": "/drop/",
+      "api": "/drop/api/*"
+    }
+  ]
+}
