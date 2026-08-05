@@ -25,5 +25,11 @@
 /drop/*.js
   Cache-Control: public, max-age=600
 
+/ohayou/*.js
+  Cache-Control: public, max-age=600
+
+/ohayou/style.css
+  Cache-Control: public, max-age=600
+
 /drop/style.css
   Cache-Control: public, max-age=600
