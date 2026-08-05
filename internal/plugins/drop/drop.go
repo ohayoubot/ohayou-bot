@@ -58,6 +58,9 @@ func New() *Plugin { return &Plugin{now: time.Now} }
 
 func (p *Plugin) Name() string { return "drop" }
 
+// Scope puts the upload page behind the site login, so !web covers it too.
+func (p *Plugin) Scope() web.Scope { return web.ScopeDrop }
+
 func (p *Plugin) Register(deps plugin.Deps) error {
 	if deps.Web == nil {
 		return fmt.Errorf("the site has no signing secret, so no link can be minted")
@@ -213,7 +216,7 @@ func (p *Plugin) cmdUpload(m *bot.Message) {
 		return
 	}
 
-	channels := p.shared(who.Channels)
+	channels := web.Channels(p.bot.SharedWith(who.Channels))
 	if len(channels) == 0 {
 		p.log.Info("upload refused", "reason", "no shared channels",
 			"nick", m.Nick, "account", who.Account)
@@ -243,32 +246,6 @@ func (p *Plugin) cmdUpload(m *bot.Message) {
 
 	p.log.Info("grant minted", "nick", m.Nick, "account", who.Account,
 		"channels", strings.Join(channels, " "), "grant", id)
-}
-
-// shared returns the channels both the asker and the bot are in, spelled the
-// way the bot has them: the name travels into the grant and then into a queued
-// line, so it should be the one the bot joined, not the one WHOIS echoed.
-func (p *Plugin) shared(theirs []string) []string {
-	mine := map[string]string{}
-	for _, name := range p.bot.Channels() {
-		mine[strings.ToLower(name)] = name
-	}
-
-	var out []string
-	seen := map[string]bool{}
-	for _, name := range theirs {
-		key := strings.ToLower(name)
-		canonical, ok := mine[key]
-		if !ok || seen[key] {
-			continue
-		}
-		seen[key] = true
-		out = append(out, canonical)
-		if len(out) == web.MaxChannels {
-			break
-		}
-	}
-	return out
 }
 
 // claim takes this nick's turn, reporting how long is left when it cannot.

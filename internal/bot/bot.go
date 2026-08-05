@@ -93,8 +93,15 @@ func New(cfg *config.Config, log *slog.Logger) *Bot {
 	return b
 }
 
-// Handle registers a command. Later registrations override earlier ones.
-func (b *Bot) Handle(c Command) { b.commands[c.Name] = c }
+// Handle registers a command. Later registrations override earlier ones, which
+// is worth saying out loud: two plugins claiming one name is a command the
+// operator asked for and will never reach, and nothing else would report it.
+func (b *Bot) Handle(c Command) {
+	if _, taken := b.commands[c.Name]; taken {
+		b.log.Error("command claimed twice, the later one wins", "command", c.Name)
+	}
+	b.commands[c.Name] = c
+}
 
 // HandleFunc is a convenience wrapper around Handle.
 func (b *Bot) HandleFunc(name string, admin bool, h Handler) {

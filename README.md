@@ -26,6 +26,8 @@
      between outbound messages
    - `admins` - map of `nick` -> `host` allowed to run admin commands
    - `database` - path to the sqlite file (default `ohayoubot.db`)
+   - `web` - `url` is the website's front door, which `!web` mints links
+     against. See [Web](#web).
    - `cloudflare` - `accountId`, `databaseId` and `apiToken` for the D1 database
      the plugins that need one share. A plugin may override any of these in its
      own block once it wants a database of its own.
@@ -210,11 +212,15 @@ drop, write through: the gallery at `/deerkins/` and the uploader at `/drop/`.
 It was its own repository until it grew past the one plugin it was named after.
 See `web/README.md` for its databases, secrets and deploys.
 
-`OHAYOU_WEB_SECRET` signs the one-shot links a plugin hands a user to prove who
-they are over there. It has no field in `conf.json` on purpose, so it cannot be
-committed by accident. The site holds the same value as `UPLOAD_HMAC_SECRET`;
-both sides key on the string's bytes, so it is used as written and not decoded
-from hex. `openssl rand -hex 32`.
+`!web` PMs an identified user a one-shot link that signs them in to everything
+on the site they can use: the link carries the scopes of the enabled plugins
+that asked for one, so there is no link per plugin. `web.url` is the site's
+front door and `OHAYOU_WEB_SECRET` signs the links.
+
+The secret has no field in `conf.json` on purpose, so it cannot be committed by
+accident. The site holds the same value as `UPLOAD_HMAC_SECRET`; both sides key
+on the string's bytes, so it is used as written and not decoded from hex.
+`openssl rand -hex 32`.
 
 The Pages project builds with its root directory set to `web`, and keeps the
 name `deerkins`: Pages does not rename a project in place, and the name is not

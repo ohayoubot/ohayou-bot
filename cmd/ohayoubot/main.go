@@ -56,9 +56,9 @@ func run(configPath string, log *slog.Logger) error {
 	b := bot.New(cfg, log)
 	runner := task.NewRunner(db, b, log)
 
+	minter := web.NewMinter(cfg.Web.Secret)
 	reg := plugin.NewRegistry(plugin.Deps{
-		Bot: b, Store: db, Log: log, Runner: runner,
-		Web: web.NewMinter(cfg.Web.Secret),
+		Bot: b, Store: db, Log: log, Runner: runner, Web: minter,
 	})
 	reg.Add(plugins()...)
 	if err := reg.Configure(cfg); err != nil {
@@ -66,6 +66,11 @@ func run(configPath string, log *slog.Logger) error {
 	}
 	if err := reg.Register(); err != nil {
 		return err
+	}
+	// After Configure, so the link carries what the enabled plugins asked for
+	// and nothing from the ones that are off.
+	if web.Install(b, minter, log, cfg.Web.URL, reg.Scopes()) {
+		log.Info("website", "url", cfg.Web.URL, "scopes", reg.Scopes())
 	}
 	if err := reg.Start(ctx); err != nil {
 		return err

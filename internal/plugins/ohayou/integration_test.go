@@ -94,7 +94,7 @@ func TestRegisterRecordsTheServicesAccount(t *testing.T) {
 }
 
 // Nobody is on the website until they say so, and saying so is reversible.
-func TestWebVisibilityIsOffUntilAsked(t *testing.T) {
+func TestTerritoryVisibilityIsOffUntilAsked(t *testing.T) {
 	h, db := testGame(t, bottest.InChannels("#test"))
 	ctx := context.Background()
 
@@ -114,9 +114,9 @@ func TestWebVisibilityIsOffUntilAsked(t *testing.T) {
 		say  string
 		want store.Visibility
 	}{
-		{"!web on", store.VisibilityPublic},
-		{"!web off", store.VisibilityHidden},
-		{"!web nonsense", store.VisibilityHidden},
+		{"!territory on", store.VisibilityPublic},
+		{"!territory off", store.VisibilityHidden},
+		{"!territory nonsense", store.VisibilityHidden},
 	} {
 		h.Say("alice", "#test", tc.say)
 		h.Drain()

@@ -72,6 +72,13 @@ type Configurable interface {
 	Configure(Config) (bool, error)
 }
 
+// Scoped is a plugin with something behind a login on the website. The scope it
+// names goes into the link !web mints, so one link logs a user into every part
+// of the site they can use rather than one link per plugin.
+type Scoped interface {
+	Scope() web.Scope
+}
+
 // Starter is a plugin with background work. Start must not block: anything
 // long-running belongs in a goroutine from Deps.Bot.Go, which shutdown drains.
 type Starter interface {
@@ -139,6 +146,19 @@ func (r *Registry) Configure(cfg *config.Config) error {
 	}
 	r.plugins = kept
 	return nil
+}
+
+// Scopes is what a site login should carry: the union of what the enabled
+// plugins asked for. Configure has already dropped the ones that are off, so a
+// plugin nobody turned on grants nothing.
+func (r *Registry) Scopes() web.Scope {
+	var scopes web.Scope
+	for _, p := range r.plugins {
+		if s, ok := p.(Scoped); ok {
+			scopes |= s.Scope()
+		}
+	}
+	return scopes
 }
 
 // Names lists the registered plugins.

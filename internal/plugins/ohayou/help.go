@@ -49,10 +49,10 @@ func helpTopics(p string) []bot.Topic {
 			Lines: []string{
 				p + "stats gives a full breakdown in PM, " + p + "inventory lists your items and ohayous, " + p + "quarry shows mined metals, and " + p + "top ranks the richest players.",
 			}},
-		{Name: "website", Summary: "showing your territory outside irc",
-			Aliases: []string{"web", "map", "territory"},
+		{Name: "territory", Summary: "showing your territory outside irc",
+			Aliases: []string{"map"},
 			Lines: []string{
-				p + "web decides whether your territory appears on the website. Nothing is shown until you say " + p + "web on, and " + p + "web off takes it back down.",
+				p + "territory decides whether your land appears on the website. Nothing is shown until you say " + p + "territory on, and " + p + "territory off takes it back down.",
 				"Public means your nick, your land and what you have built on it, and roughly how much you have earned. Your ohayous on hand, your vault and your defences are never shown to anyone but you.",
 			}},
 	}
