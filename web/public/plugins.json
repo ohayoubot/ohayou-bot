@@ -15,6 +15,14 @@
       "path": "/drop/",
       "api": "/drop/api/*",
       "login": true
+    },
+    {
+      "name": "ohayou",
+      "title": "ohayou",
+      "blurb": "see the world your ohayous built.",
+      "path": "/ohayou/",
+      "api": "/ohayou/api/*",
+      "login": true
     }
   ]
 }
