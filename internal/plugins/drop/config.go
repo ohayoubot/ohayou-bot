@@ -15,11 +15,11 @@ import (
 // site and announces what they upload.
 type Config struct {
 	Enabled *bool `json:"enabled"`
-	// AccountID, DatabaseID and APIToken default to the shared cloudflare block.
-	// APIToken needs D1:Read and nothing more: the worker makes every write.
+	// AccountID and DatabaseID default to the shared cloudflare block.
 	AccountID  string `json:"accountId"`
 	DatabaseID string `json:"databaseId"`
-	APIToken   string `json:"apiToken"`
+	// APIToken comes from the environment, never from a block.
+	APIToken string `json:"-"`
 	// URL is the upload site, e.g. "https://hemera.day/drop/".
 	URL string `json:"url"`
 	// ImageBase is where the bucket is served, e.g. "https://img.hemera.day".
@@ -96,7 +96,7 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 	case c.DatabaseID == "":
 		return false, fmt.Errorf("databaseId is required")
 	case c.APIToken == "":
-		return false, fmt.Errorf("apiToken (or OHAYOU_CF_API_TOKEN) is required")
+		return false, fmt.Errorf("OHAYOU_CF_API_TOKEN is required")
 	}
 
 	if c.GrantTTL == 0 {

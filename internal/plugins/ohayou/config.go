@@ -22,12 +22,12 @@ type Config struct {
 	Timezone string `json:"timezone"`
 	// DatabaseID is the game's own D1 database, the one the projection is
 	// published into. Set it to take requests from the website; without it the
-	// game still publishes, it just does not listen. AccountID and APIToken
-	// default to the shared cloudflare block, and the token needs D1:Read and
-	// nothing more.
+	// game still publishes, it just does not listen. AccountID defaults to the
+	// shared cloudflare block.
 	AccountID  string `json:"accountId"`
 	DatabaseID string `json:"databaseId"`
-	APIToken   string `json:"apiToken"`
+	// APIToken comes from the environment, never from a block.
+	APIToken string `json:"-"`
 	// RequestTimeoutMS bounds a single D1 request.
 	RequestTimeoutMS int `json:"requestTimeout"`
 }

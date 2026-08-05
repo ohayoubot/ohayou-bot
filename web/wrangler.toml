@@ -1,7 +1,4 @@
-# The project is the ohayou bot's; "deerkins" is the gallery and "hemera" the
-# domain. Cloudflare cannot rename a Pages project or an R2 bucket, so those two
-# are still what was created first. See README.md, Names.
-name = "deerkins"
+name = "ohayou-web"
 pages_build_output_dir = "public"
 compatibility_date = "2025-07-01"
 
@@ -10,8 +7,7 @@ binding = "DB"
 database_name = "ohayou-site"
 database_id = "9e982cb2-7c94-4b3b-838f-20b5c7ea3f6a"
 
-# The game's projection and request queue. Its own database, so a mistake
-# publishing territories cannot reach the art or the live sessions.
+# The game's projection and request queue.
 [[d1_databases]]
 binding = "GAME"
 database_name = "ohayou-game"
@@ -29,7 +25,7 @@ COMMANDS_PER_HOUR = "30"
 UPLOADS_PER_HOUR = "20"
 GLOBAL_UPLOADS_PER_HOUR = "200"
 PUBLIC_IMAGE_BASE = "https://img.hemera.day"
-IRC_CHANNEL = "#chan"
+IRC_CHANNEL = "#ohayou"
 IRC_NETWORK = "Rizon"
 IRC_WEBCHAT = "https://qchat.rizon.net/?randomnick=1&channels=ohayou&uio=d4"
 

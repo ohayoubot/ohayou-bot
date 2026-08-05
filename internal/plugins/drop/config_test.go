@@ -107,7 +107,7 @@ func TestMissingPiecesAreRefused(t *testing.T) {
 		{`{"url": "https://x/"}`, "imageBase", creds},
 		{sited, "accountId", config.Cloudflare{}},
 		{sited, "databaseId", config.Cloudflare{AccountID: "acct"}},
-		{sited, "apiToken", config.Cloudflare{AccountID: "acct", DatabaseID: "db"}},
+		{sited, "OHAYOU_CF_API_TOKEN", config.Cloudflare{AccountID: "acct", DatabaseID: "db"}},
 	} {
 		_, _, err := configure(t, tc.block, tc.cf)
 		if err == nil {

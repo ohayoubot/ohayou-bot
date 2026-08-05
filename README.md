@@ -28,9 +28,10 @@
    - `database` - path to the sqlite file (default `ohayoubot.db`)
    - `web` - `url` is the website's front door, which `!web` mints links
      against. See [Web](#web).
-   - `cloudflare` - `accountId`, `databaseId` and `apiToken` for the D1 database
-     the plugins that need one share. A plugin may override any of these in its
-     own block once it wants a database of its own.
+   - `cloudflare` - `accountId` and `databaseId` for the D1 database the
+     plugins that need one share. A plugin may override either in its own block
+     once it wants a database of its own. The token is not here: see
+     [Secrets](#secrets).
    - `plugins` - one block per plugin, keyed by its name. A block for a plugin
      that does not exist is an error at startup rather than silence later.
      - `deerkins` - the pixel art gallery. Off unless it has a database to read.
@@ -111,21 +112,13 @@ top-level `cloudflare` block that drop reads too:
 - `accountId` - Cloudflare account id, on the right of the dashboard overview.
 - `databaseId` - from `npx wrangler d1 info deerkins`, or the `database_id`
   already in the gallery's `wrangler.toml`.
-- an API token with **Account → D1 → Read** and nothing else. Create it under
-  My Profile → API Tokens → Create Token → Create Custom Token, scoped to the
-  one account. `Read` is enough because the bot only runs `SELECT`s; a token
-  that cannot write cannot deface the gallery if the bot is ever compromised.
+- `OHAYOU_CF_API_TOKEN`, an API token with **Account → D1 → Read** and nothing
+  else. Create it under My Profile → API Tokens → Create Token → Create Custom
+  Token, scoped to the one account. `Read` is enough because the bot only runs
+  `SELECT`s; a token that cannot write cannot deface the gallery if the bot is
+  ever compromised. See [Secrets](#secrets) for where it goes.
 
-Keep the token out of the config file by exporting `OHAYOU_CF_API_TOKEN`, which
-overrides `cloudflare.apiToken`. Under systemd that means an `EnvironmentFile`:
-
-```sh
-install -m 600 /dev/null /opt/ohayoubot/deerkins.env
-echo 'OHAYOU_CF_API_TOKEN=...' > /opt/ohayoubot/deerkins.env
-chown ohayoubot:ohayoubot /opt/ohayoubot/deerkins.env
-```
-
-`deploy/ohayoubot.service` reads that file if it exists. Check it works with:
+Check it works with:
 
 ```sh
 curl -sS -H "Authorization: Bearer $OHAYOU_CF_API_TOKEN" \
@@ -146,9 +139,8 @@ plugin, so it is the bot's rather than drop's: see [Web](#web).
 
 In the `drop` block, `url` is the site and `imageBase` is where the bucket is
 served. `imageBase` must match the site's `PUBLIC_IMAGE_BASE` or every link the
-bot announces is dead. `accountId`, `databaseId` and `apiToken` default to the
-shared `cloudflare` block; set them once the upload tables move to their own
-database.
+bot announces is dead. `accountId` and `databaseId` default to the shared
+`cloudflare` block.
 
 ## YouTube previews
 
@@ -180,6 +172,64 @@ and `youtube-nocookie.com` spellings are all recognized.
 Titles are flattened to one line and trimmed to fit an IRC message, and the
 plugin only ever sees lines that aren't commands, from nicks that aren't on the
 `ignoreList`.
+
+## Secrets
+
+Five values, and nothing else is a secret. Each has one name, and the one the
+bot and the site share has the same name on both sides.
+
+| Name | Who needs it | What it is |
+| --- | --- | --- |
+| `OHAYOU_WEB_SECRET` | bot **and** site | signs the links `!web` and `!upload` hand out, and the projections the bot publishes. One value, both ends. `openssl rand -hex 32` |
+| `OHAYOU_CF_API_TOKEN` | bot | reads D1. Needs `D1:Read` and nothing more: the site makes every write |
+| `OHAYOU_NICK_PW` | bot | NickServ password, if the nick has one |
+| `OHAYOU_SASL_PASSWORD` | bot | SASL password, if SASL is used |
+| `IP_SALT` | site | salts hashed client ips so no address is stored |
+
+Both sides key `OHAYOU_WEB_SECRET` on the string's bytes, so it is used as
+written and not decoded from the hex it looks like.
+
+### Setting them for the bot
+
+All of them come from the environment. `OHAYOU_WEB_SECRET` and
+`OHAYOU_CF_API_TOKEN` have no config field at all, so they cannot be written
+into `conf.json` even on purpose; the two irc passwords may be in the file, and
+the environment wins when it is set.
+
+`deploy/ohayoubot.service` reads `/opt/ohayoubot/ohayoubot.env` if it is there.
+Everything in it is optional: leave out what the deployment does not use.
+
+```sh
+install -m 600 /dev/null /opt/ohayoubot/ohayoubot.env
+cat > /opt/ohayoubot/ohayoubot.env <<'EOF'
+# The site holds this same value under this same name. Both sides key on the
+# bytes of the string, so do not decode the hex.
+OHAYOU_WEB_SECRET=
+
+# D1:Read on the account, nothing more. Needed by deerkins, drop, and by ohayou
+# if it takes requests from the site.
+OHAYOU_CF_API_TOKEN=
+
+# Only if the nick is registered and SASL is not in use.
+OHAYOU_NICK_PW=
+
+# Only if conf.json configures SASL.
+OHAYOU_SASL_PASSWORD=
+EOF
+chown ohayoubot:ohayoubot /opt/ohayoubot/ohayoubot.env
+chmod 600 /opt/ohayoubot/ohayoubot.env
+systemctl restart ohayoubot
+```
+
+`conf.json` keeps `accountId` and `databaseId`, which name a database rather
+than granting anything.
+
+### Setting them for the site
+
+Pages secrets, set once per environment. `wrangler pages secret put` writes to
+Production only; Preview needs its own, from the dashboard, and `IP_SALT`
+should differ between the two so the environments cannot produce matching
+hashes. See `web/README.md`.
 
 ## Running as a service
 
@@ -233,12 +283,7 @@ See `web/README.md` for its databases, secrets and deploys.
 `!web` PMs an identified user a one-shot link that signs them in to everything
 on the site they can use: the link carries the scopes of the enabled plugins
 that asked for one, so there is no link per plugin. `web.url` is the site's
-front door and `OHAYOU_WEB_SECRET` signs the links.
-
-The secret has no field in `conf.json` on purpose, so it cannot be committed by
-accident. The site holds the same value as `UPLOAD_HMAC_SECRET`; both sides key
-on the string's bytes, so it is used as written and not decoded from hex.
-`openssl rand -hex 32`.
+front door.
 
 The Pages project builds with its root directory set to `web`, and keeps the
 name `deerkins`: Pages does not rename a project in place, and the name is not

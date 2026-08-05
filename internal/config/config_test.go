@@ -196,13 +196,13 @@ func TestCloudflareTokenComesFromTheEnvironment(t *testing.T) {
 
 	cfg, err := Load(writeConfig(t, `{
 		"nick": "ohayoubot", "server": "irc.example.net",
-		"cloudflare": {"accountId": "acct", "databaseId": "db", "apiToken": "on-disk"}
+		"cloudflare": {"accountId": "acct", "databaseId": "db"}
 	}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg.Cloudflare.APIToken != "from-env" {
-		t.Errorf("APIToken = %q, want the environment to win", cfg.Cloudflare.APIToken)
+		t.Errorf("APIToken = %q, want the environment's", cfg.Cloudflare.APIToken)
 	}
 }
 
@@ -262,5 +262,69 @@ func TestExampleConfigHasNoSecretField(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "secret") {
 		t.Error("conf-example.json mentions a secret; it comes from the environment")
+	}
+}
+
+// Anything that authenticates the bot may come from the environment, so a
+// deployment can keep no credentials in a file at all.
+func TestCredentialsComeFromTheEnvironment(t *testing.T) {
+	t.Setenv("OHAYOU_NICK_PW", "from-env")
+	t.Setenv("OHAYOU_SASL_PASSWORD", "sasl-from-env")
+	t.Setenv("OHAYOU_CF_API_TOKEN", "token-from-env")
+
+	cfg, err := Load(writeConfig(t, `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"nickPw": "on-disk",
+		"sasl": {"login": "bot", "password": "on-disk"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, got := range map[string]string{
+		"nickPw": cfg.NickPW,
+		"sasl":   cfg.SASL.Password,
+	} {
+		if got == "on-disk" {
+			t.Errorf("%s = %q, want the environment to win", name, got)
+		}
+	}
+}
+
+// An empty variable is not an instruction to forget what the file said.
+func TestAnEmptyVariableLeavesTheFileAlone(t *testing.T) {
+	t.Setenv("OHAYOU_NICK_PW", "")
+	t.Setenv("OHAYOU_SASL_PASSWORD", "")
+
+	cfg, err := Load(writeConfig(t, `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"nickPw": "on-disk",
+		"sasl": {"login": "bot", "password": "on-disk"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.NickPW != "on-disk" || cfg.SASL.Password != "on-disk" {
+		t.Errorf("nickPw = %q, sasl = %q", cfg.NickPW, cfg.SASL.Password)
+	}
+}
+
+// The token has no config field, so a file carrying one cannot arm the plugins
+// that read D1.
+func TestCloudflareTokenComesOnlyFromTheEnvironment(t *testing.T) {
+	t.Setenv("OHAYOU_CF_API_TOKEN", "")
+
+	cfg, err := Load(writeConfig(t, `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"cloudflare": {"accountId": "acct", "databaseId": "db", "apiToken": "on-disk"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Cloudflare.APIToken != "" {
+		t.Errorf("APIToken = %q, want a token in the file to be ignored", cfg.Cloudflare.APIToken)
+	}
+	// The parts that are not secret still come from the file.
+	if cfg.Cloudflare.AccountID != "acct" || cfg.Cloudflare.DatabaseID != "db" {
+		t.Error("the account and database ids were dropped with the token")
 	}
 }

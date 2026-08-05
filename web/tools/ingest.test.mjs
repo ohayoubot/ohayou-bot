@@ -90,7 +90,7 @@ async function post(body, { secret = SECRET, env, signature } = {}) {
 		body: raw,
 	});
 
-	const context = env ?? { ...db(), UPLOAD_HMAC_SECRET: SECRET };
+	const context = env ?? { ...db(), OHAYOU_WEB_SECRET: SECRET };
 	const response = await onRequestPost({ request, env: context });
 	return { response, body: await response.json(), env: context };
 }
@@ -238,7 +238,7 @@ test("a nullable json column takes null", async () => {
 });
 
 test("a stale generation is not applied", async () => {
-	const env = { ...db(5), UPLOAD_HMAC_SECRET: SECRET };
+	const env = { ...db(5), OHAYOU_WEB_SECRET: SECRET };
 	const { response, body } = await post(publish({ generation: 5 }), { env });
 
 	assert.equal(response.status, 200);
@@ -247,7 +247,7 @@ test("a stale generation is not applied", async () => {
 });
 
 test("a newer generation is applied", async () => {
-	const env = { ...db(5), UPLOAD_HMAC_SECRET: SECRET };
+	const env = { ...db(5), OHAYOU_WEB_SECRET: SECRET };
 	const { body } = await post(publish({ generation: 6 }), { env });
 
 	assert.equal(body.status, "published");
@@ -298,7 +298,7 @@ test("without a secret it publishes nothing", async () => {
 });
 
 test("a plugin with no binding cannot publish", async () => {
-	const env = { UPLOAD_HMAC_SECRET: SECRET };
+	const env = { OHAYOU_WEB_SECRET: SECRET };
 	const { response } = await post(publish(), { env });
 
 	assert.equal(response.status, 400);

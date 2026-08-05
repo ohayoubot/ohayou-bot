@@ -69,7 +69,7 @@ const TABLES = {
 const BINDINGS = { ohayou: "GAME" };
 
 export const onRequestPost = guard(async ({ request, env }) => {
-	if (!env.UPLOAD_HMAC_SECRET) return fail(503, "ingest is not configured");
+	if (!env.OHAYOU_WEB_SECRET) return fail(503, "ingest is not configured");
 
 	const declared = Number.parseInt(
 		request.headers.get("content-length") ?? "",
@@ -85,7 +85,7 @@ export const onRequestPost = guard(async ({ request, env }) => {
 	const given = b64urlDecode(request.headers.get("x-ingest-signature") ?? "");
 	if (given === null || given.length !== TAG_BYTES)
 		return refuse("no signature");
-	if (!sameBytes(given, await tag(raw, env.UPLOAD_HMAC_SECRET))) {
+	if (!sameBytes(given, await tag(raw, env.OHAYOU_WEB_SECRET))) {
 		return refuse("bad signature");
 	}
 
