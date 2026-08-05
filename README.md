@@ -63,9 +63,9 @@ and the bot keeps its other commands, needing no `data/` directory at all.
 
 ## Deerkins
 
-`!deerme` paints art from the [deerkins](https://github.com/ohayoubot/deerkins)
-gallery into the channel. The drawings live in a Cloudflare D1 database that the
-web app writes. The bot just reads from it.
+`!deerme` paints art from the deerkins gallery into the channel. The drawings
+live in a Cloudflare D1 database that the web app in `web/` writes. The bot just
+reads from it.
 
 ```
 !deerme                     the deer named "deer"
@@ -204,10 +204,25 @@ To install by hand instead, copy the binary, `data/`, and `conf.json` into
 skips the migration runner, so apply anything in `deploy/migrations/` yourself
 (e.g. `sqlite3 /opt/ohayoubot/ohayoubot.db < deploy/migrations/001_*.sql`).
 
+## Web
+
+`web/` is the Cloudflare Pages project the bot's plugins are read from and, for
+drop, write through: the gallery at `/deerkins/` and the uploader at `/drop/`.
+It was its own repository until it grew past the one plugin it was named after.
+See `web/README.md` for its databases, secrets and deploys.
+
+The Pages project builds with its root directory set to `web`, and keeps the
+name `deerkins`: Pages does not rename a project in place, and the name is not
+visible behind the custom domain.
+
 ## Dev
 
 ```sh
 go test ./...
 go vet ./...
 gofmt -l .
+```
+
+```sh
+cd web && pnpm install && pnpm test && pnpm lint
 ```

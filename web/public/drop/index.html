@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>drop: put images in IRC</title>
+<meta name="description" content="Drag and drop images into an IRC channel.">
+<meta name="color-scheme" content="dark light">
+<link rel="stylesheet" href="../deerkins/style.css">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="../deerkins/favicon.svg" type="image/svg+xml">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>drop</h1>
+  <p class="tagline">Put images in IRC.</p>
+</header>
+
+<main>
+
+  <section id="waiting" hidden>
+    <p class="hint">Checking your link…</p>
+  </section>
+
+  <section id="locked" hidden>
+    <h2>No session</h2>
+    <p>Ask the bot for a link. In a channel it shares with you, say:</p>
+    <p><code>!upload</code></p>
+    <p class="hint">It will message you privately. The link works once and
+      expires in a few minutes.</p>
+    <p class="hint" id="locked-why"></p>
+  </section>
+
+  <section id="ready" hidden>
+    <div class="who">
+      <p>Signed in as <strong id="nick"></strong> <span class="hint" id="account"></span></p>
+      <button type="button" id="signout">Sign out</button>
+    </div>
+
+    <p>
+      <label for="channel">Post to</label>
+      <select id="channel"></select>
+    </p>
+
+    <div id="zone" class="zone" tabindex="0" role="button"
+         aria-label="Drop images here, or press to choose a file">
+      <p><strong>Drop images here</strong></p>
+      <p class="hint">or paste, or press to choose a file</p>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+    </div>
+
+    <div id="pending" hidden>
+      <h2 class="pending-head">Ready to send</h2>
+      <ul id="queue" class="uploads"></ul>
+      <p class="actions">
+        <button type="button" id="upload" class="primary">Upload</button>
+        <button type="button" id="discard">Discard</button>
+      </p>
+      <p class="hint">Nothing is sent until you press Upload.</p>
+    </div>
+
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="done" hidden>
+    <h2>This visit</h2>
+    <ul id="uploads" class="uploads"></ul>
+  </section>
+
+</main>
+
+</body>
+</html>

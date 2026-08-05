@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>deerkins: draw art for IRC</title>
+<meta name="description" content="Draw pixel art in your browser and paste it into IRC.">
+<meta name="color-scheme" content="dark light">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>deerkins</h1>
+  <p class="tagline">Draw pixel art for IRC.</p>
+</header>
+
+<main>
+
+  <section class="editor" aria-label="Canvas">
+    <div class="toolbar">
+      <div class="palette" id="palette" role="radiogroup" aria-label="Colour"></div>
+      <div class="tools">
+        <button type="button" data-tool="fill">Fill</button>
+        <button type="button" data-tool="clear">Clear</button>
+        <button type="button" data-transform="invert">Invert</button>
+        <button type="button" data-transform="reverse">Flip&nbsp;↔</button>
+        <button type="button" data-transform="upsidedown">Flip&nbsp;↕</button>
+        <button type="button" data-transform="flip">Transpose</button>
+        <button type="button" data-transform="mirror">Mirror</button>
+        <button type="button" data-transform="unitinu">Mirror&nbsp;R</button>
+        <button type="button" data-transform="divide">Divide</button>
+        <button type="button" data-transform="square">Square</button>
+      </div>
+    </div>
+
+    <div class="grid-wrap">
+      <div class="grid" id="grid" role="application" aria-label="Drawing grid" tabindex="0"></div>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="save" class="primary">Save art</button>
+      <span id="status" class="status" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section>
+      <h2>Gallery</h2>
+      <label class="visually-hidden" for="finder">Search art by name</label>
+      <input type="search" id="finder" placeholder="Search by name…" autocomplete="off" list="finder-options" spellcheck="false">
+      <datalist id="finder-options"></datalist>
+      <ul id="gallery" class="gallery"></ul>
+      <p class="pager">
+        <button type="button" id="prev" disabled>← newer</button>
+        <button type="button" id="refresh">refresh</button>
+        <button type="button" id="next">older →</button>
+      </p>
+    </section>
+
+    <section>
+      <h2>Import</h2>
+      <p class="hint">Drop an image anywhere on the page, paste one, or pick a file. It replaces the canvas.</p>
+      <p class="export">
+        <button type="button" id="import">Choose image…</button>
+      </p>
+      <label class="check"><input type="checkbox" id="dither"> Dither</label>
+      <input type="file" id="importfile" class="visually-hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp">
+    </section>
+
+    <section>
+      <h2>Export</h2>
+      <p class="hint">Downloads the current canvas.</p>
+      <p class="export">
+        <button type="button" data-export="png">PNG</button>
+        <button type="button" data-export="jpg">JPG</button>
+        <button type="button" data-export="svg">SVG</button>
+      </p>
+    </section>
+  </aside>
+
+  <section class="codes">
+    <div>
+      <h2><label for="kinskode">kinskode</label></h2>
+      <p class="hint">One character per cell.</p>
+      <textarea id="kinskode" rows="6" spellcheck="false" wrap="off"></textarea>
+      <button type="button" data-load="kinskode">↑ to canvas</button>
+    </div>
+    <div>
+      <h2><label for="irccode">IRC codes</label></h2>
+      <p class="hint">Paste this into your IRC client.</p>
+      <textarea id="irccode" rows="6" spellcheck="false" wrap="off"></textarea>
+      <button type="button" data-load="irccode">↑ to canvas</button>
+      <button type="button" id="copy-irc">Copy</button>
+    </div>
+  </section>
+
+</main>
+
+<dialog id="savebox">
+  <form method="dialog" id="saveform">
+    <h2>Save your art</h2>
+    <label for="artname">Name</label>
+    <input type="text" id="artname" name="name" maxlength="48" placeholder="name_of_art" required>
+    <p class="hint">Lowercase letters, numbers, spaces, <code>-</code> and <code>_</code>. Taken names get a random suffix.</p>
+
+    <label for="artcreator">Your nick</label>
+    <input type="text" id="artcreator" name="creator" maxlength="32" placeholder="Anonydeer">
+
+    <menu>
+      <button type="button" id="cancel-save">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </menu>
+  </form>
+</dialog>
+
+<footer>
+  <h2>About</h2>
+  <p>
+    A drawing grid that uses the 16 mIRC colours. When you save, you get two text
+    forms of the drawing: <b>kinskode</b>, the one-character-per-cell format this
+    site stores, and <b>IRC codes</b>, which you paste into a channel.
+  </p>
+  <p>
+    Saved art is public domain. It can be removed at any time.
+  </p>
+  <p class="credits">
+    deerkins and deeritor were written by pihl. cvaj forked them as
+    <a href="https://github.com/svaj/doodlebutt" rel="noopener">doodlebutt</a>,
+    which was forked again as <a href="https://github.com/happy-box/artbutt/" rel="noopener">artbutt</a>.
+    This fork is by ohayoubot; the source is at
+    <a href="https://github.com/ohayoubot/deerkins" rel="noopener">github.com/ohayoubot/deerkins</a>.
+  </p>
+</footer>
+
+</body>
+</html>

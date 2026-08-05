@@ -1,0 +1,23 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'
+
+# style-src allows 'unsafe-inline' for the one inline custom property that sets
+# the grid width. script-src stays strict, and no user text is written as HTML.
+# These rules cover static assets only; the API sets its own headers in lib/http.js.
+
+/deerkins/*.js
+  Cache-Control: public, max-age=600
+
+/deerkins/style.css
+  Cache-Control: public, max-age=600
+
+/drop/*.js
+  Cache-Control: public, max-age=600
+
+/drop/style.css
+  Cache-Control: public, max-age=600
