@@ -26,6 +26,9 @@ type Plot struct {
 	// Nick is empty unless the owner agreed to be named.
 	Nick  string `json:"nick"`
 	Named bool   `json:"named"`
+	// Flag is a deer from the gallery, drawn over the plot. Empty on an unnamed
+	// one: a chosen picture is as good as a name.
+	Flag  string `json:"flag"`
 	Acres int    `json:"acres"`
 	// Land is what occupies those acres, by item name, and is empty on an
 	// unnamed plot: a distinctive set of buildings is as good as a name.
@@ -111,6 +114,7 @@ func (g *Plugin) publicPlot(u *store.User) Plot {
 		ID:      u.Account,
 		Nick:    u.Username,
 		Named:   true,
+		Flag:    u.Flag,
 		Acres:   u.Items["acre"],
 		Land:    g.land(u),
 		Wealth:  wealth(u.CumOhayous),

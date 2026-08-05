@@ -45,6 +45,7 @@ func richUser() *store.User {
 		Quarry:        store.Quarry{Metals: map[string]int{"iron": 40}},
 		Equipped:      map[string]store.Item{"head": {Name: "helmet", Defense: 36}},
 		Vault:         store.Vault{Installed: true, Level: 1, Ohayous: 9000},
+		Flag:          "senordeer",
 		Fortune:       "a fine day",
 		TimesOhayoued: 120,
 		Probation:     time.Now().Add(time.Hour),
@@ -77,7 +78,7 @@ func TestPublicPlotCarriesOnlyWhatWasPromised(t *testing.T) {
 	plotCatalog(t, db)
 
 	got := keysOf(t, g.publicPlot(richUser()))
-	want := []string{"acres", "id", "land", "named", "nick", "rations", "wealth"}
+	want := []string{"acres", "flag", "id", "land", "named", "nick", "rations", "wealth"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("public plot fields = %v, want %v", got, want)
 	}
@@ -107,6 +108,10 @@ func TestAnonymousPlotIsTheSameShapeWithoutTheName(t *testing.T) {
 	if len(plot.Land) != 0 {
 		t.Errorf("land = %v, want nothing: a distinctive set of buildings names you", plot.Land)
 	}
+	// A chosen picture is as good as a name.
+	if plot.Flag != "" {
+		t.Errorf("flag = %q on an anonymous plot", plot.Flag)
+	}
 	// The scale is the point of being on the map at all.
 	if plot.Acres != 6 || plot.Wealth != "industrialist" || plot.Rations != 120 {
 		t.Errorf("the scale was lost: %+v", plot)
@@ -122,7 +127,7 @@ func TestAnonymousPlotNamesNobody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, secret := range []string{"alice", "AliceAcct", "cat", "quarry"} {
+	for _, secret := range []string{"alice", "AliceAcct", "cat", "quarry", "senordeer"} {
 		if strings.Contains(string(raw), secret) {
 			t.Errorf("an anonymous plot contains %q: %s", secret, raw)
 		}

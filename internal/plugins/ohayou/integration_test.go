@@ -156,3 +156,60 @@ func TestRegisterRecordsNothingForALoggedOutNick(t *testing.T) {
 		t.Error("a nick that is not logged in to services was registered")
 	}
 }
+
+// A flag is a deer from the gallery flown over your plot, and the whole point
+// of the bot and the site being one thing.
+func TestTerritoryFlag(t *testing.T) {
+	h, db := testGame(t, bottest.InChannels("#test"))
+	ctx := context.Background()
+
+	h.Start()
+	h.Say("alice", "#test", "!ohayou")
+	h.Drain()
+
+	h.Say("alice", "#test", "!territory flag senordeer")
+	h.Drain()
+
+	u, err := db.GetUser(ctx, "alice")
+	if err != nil {
+		t.Fatalf("get alice: %v", err)
+	}
+	if u.Flag != "senordeer" {
+		t.Errorf("flag = %q, want senordeer", u.Flag)
+	}
+
+	// Taking it down is not a special word the user has to guess at.
+	h.Say("alice", "#test", "!territory flag none")
+	h.Drain()
+
+	u, err = db.GetUser(ctx, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Flag != "" {
+		t.Errorf("flag = %q after taking it down", u.Flag)
+	}
+}
+
+// Setting a flag on a plot nobody has named would otherwise look broken: it is
+// stored, but nothing draws it until the plot carries a name.
+func TestTerritoryFlagSaysItNeedsANamedPlot(t *testing.T) {
+	h, _ := testGame(t, bottest.InChannels("#test"))
+
+	h.Start()
+	h.Say("alice", "#test", "!ohayou")
+	h.Drain()
+
+	h.Say("alice", "#test", "!territory flag senordeer")
+	lines := h.Drain()
+
+	var warned bool
+	for _, line := range lines {
+		if strings.Contains(line, "territory on") {
+			warned = true
+		}
+	}
+	if !warned {
+		t.Errorf("nothing said the plot must be named first: %v", lines)
+	}
+}

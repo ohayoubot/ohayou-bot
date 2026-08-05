@@ -52,6 +52,7 @@ const TABLES = {
 			id: "string",
 			nick: "string",
 			named: "boolean",
+			flag: "string",
 			acres: "integer",
 			land: "json",
 			wealth: "string",

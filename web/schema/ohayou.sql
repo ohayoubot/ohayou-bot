@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS plot (
   id       TEXT PRIMARY KEY,
   nick     TEXT NOT NULL DEFAULT '',
   named    INTEGER NOT NULL DEFAULT 0,
+  -- flag is a deer's name from the gallery, which lives in the other database.
+  -- Resolved when the map is drawn rather than copied here, so a deer redrawn
+  -- since is the one that flies. Empty on an unnamed plot: a chosen picture is
+  -- as good as a name.
+  flag     TEXT NOT NULL DEFAULT '',
   acres    INTEGER NOT NULL DEFAULT 0,
   -- land is the json object of what occupies those acres, by item name.
   land     TEXT NOT NULL DEFAULT '{}',

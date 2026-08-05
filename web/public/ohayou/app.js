@@ -10,9 +10,12 @@
  * page's choice; the counts beside it are authoritative.
  */
 
+import { hexOf, normalise, TRANSPARENT } from "../deerkins/kins.js";
+
 const $ = (sel) => document.querySelector(sel);
 
 let plots = [];
+let flags = {};
 let mine = null;
 /** Set when a countdown is on screen, so it can tick without a reload. */
 let ticking = null;
@@ -25,6 +28,7 @@ async function start() {
 	}
 
 	plots = world.plots;
+	flags = world.flags ?? {};
 	mine = session?.account ?? null;
 	$("#totals").replaceChildren(...describe(world.totals, world.updated));
 
@@ -275,7 +279,10 @@ function show(plot) {
 		plot.wealth
 	} · ${plot.rations} ${plural(plot.rations, "ration")} collected`;
 
-	const parts = [name, facts];
+	const parts = [name];
+	const banner = flag(plot.flag);
+	if (banner) parts.push(banner);
+	parts.push(facts);
 	if (plot.named) {
 		const list = legend(plot.land);
 		parts.push(list ?? hint("Nothing built on it yet."));
@@ -287,6 +294,43 @@ function show(plot) {
 		);
 	}
 	panel.replaceChildren(...parts);
+}
+
+/**
+ * A plot's deer, drawn from the gallery's own kinskode: one character per cell,
+ * in the sixteen colours IRC has. This is the one place the map borrows the
+ * gallery's palette, because it is the gallery's picture.
+ */
+function flag(name) {
+	const code = name && flags[name];
+	if (!code) return null;
+
+	const rows = normalise(code).split("\n");
+	const wide = Math.max(...rows.map((r) => r.length));
+
+	const art = document.createElement("div");
+	art.className = "banner";
+	art.style.setProperty("--cols", wide);
+	art.title = name;
+	art.setAttribute("role", "img");
+	art.setAttribute("aria-label", `the deer named ${name}`);
+
+	for (const row of rows) {
+		for (let x = 0; x < wide; x++) {
+			const cell = document.createElement("span");
+			const char = row[x] ?? TRANSPARENT;
+			const hex = char === TRANSPARENT ? null : hexOf(char);
+			if (hex) cell.style.background = hex;
+			art.append(cell);
+		}
+	}
+
+	const wrap = document.createElement("figure");
+	wrap.className = "flag";
+	const caption = document.createElement("figcaption");
+	caption.textContent = name;
+	wrap.append(art, caption);
+	return wrap;
 }
 
 function hint(text) {

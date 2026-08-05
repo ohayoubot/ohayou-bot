@@ -13,6 +13,7 @@ function row(overrides = {}) {
 		id: "Mallow",
 		nick: "mallow",
 		named: 1,
+		flag: "senordeer",
 		acres: 6,
 		land: '{"cat":25}',
 		wealth: "industrialist",
@@ -21,20 +22,22 @@ function row(overrides = {}) {
 	};
 }
 
-/** A GAME binding answering with the planted rows. */
-function game(rows, published = { updated: 1_700_000_000_000 }) {
-	return {
-		GAME: {
-			prepare: () => ({
-				bind: () => ({
-					all: async () => ({ results: rows }),
-					first: async () => published,
-				}),
-				all: async () => ({ results: rows }),
-				first: async () => published,
+/** A GAME binding answering with the planted rows, and optionally a gallery
+    holding the given deer. */
+function game(rows, published = { updated: 1_700_000_000_000 }, deer = null) {
+	const answering = (results, first) => ({
+		prepare: () => ({
+			bind: () => ({
+				all: async () => ({ results }),
+				first: async () => first,
 			}),
-		},
-	};
+			all: async () => ({ results }),
+			first: async () => first,
+		}),
+	});
+	const env = { GAME: answering(rows, published) };
+	if (deer) env.DB = answering(deer, null);
+	return env;
 }
 
 async function world(env) {
@@ -50,6 +53,7 @@ test("a named plot comes back whole", async () => {
 		id: "Mallow",
 		nick: "mallow",
 		named: true,
+		flag: "senordeer",
 		acres: 6,
 		land: { cat: 25 },
 		wealth: "industrialist",
@@ -59,14 +63,43 @@ test("a named plot comes back whole", async () => {
 
 // The bot does not publish a nick for an unnamed plot. If one ever appeared in
 // a row, this endpoint is the last place that can decline to repeat it.
-test("an unnamed plot is served without a nick", async () => {
+test("an unnamed plot is served without a nick or a flag", async () => {
 	const { body } = await world(
-		game([row({ id: "opaque", nick: "mallow", named: 0 })]),
+		game([row({ id: "opaque", nick: "mallow", named: 0, flag: "senordeer" })]),
 	);
 
 	assert.equal(body.plots[0].named, false);
 	assert.equal(body.plots[0].nick, "");
+	assert.equal(body.plots[0].flag, "");
 	assert.equal(JSON.stringify(body).includes("mallow"), false);
+	assert.equal(JSON.stringify(body).includes("senordeer"), false);
+});
+
+// The gallery is the other database, so the art comes back beside the plots
+// rather than inside them: a deer flown by twenty people is sent once.
+test("a flag's art is resolved from the gallery", async () => {
+	const { body } = await world(
+		game([row(), row({ id: "b", flag: "senordeer" })], undefined, [
+			{ deer: "senordeer", kinskode: "AB\nCD" },
+		]),
+	);
+
+	assert.deepEqual(body.flags, { senordeer: "AB\nCD" });
+});
+
+// Somebody may fly a deer that was later renamed away.
+test("a flag matching no deer is simply absent", async () => {
+	const { body } = await world(game([row({ flag: "gone" })], undefined, []));
+
+	assert.deepEqual(body.flags, {});
+	assert.equal(body.plots[0].flag, "gone");
+});
+
+test("no gallery binding is not a broken map", async () => {
+	const { response, body } = await world(game([row()]));
+
+	assert.equal(response.status, 200);
+	assert.deepEqual(body.flags, {});
 });
 
 test("totals are counted from the rows, not stored", async () => {

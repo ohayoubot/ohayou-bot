@@ -293,12 +293,12 @@ func (d *DB) GetUser(ctx context.Context, nick string) (*store.User, error) {
 	var last, probation, vaultLast int64
 	var registered, vaultInstalled int
 	err := d.db.QueryRowContext(ctx, `
-		SELECT username,account,web,last,ohayous,cum_ohayous,steal_success,steal_fail,
+		SELECT username,account,web,flag,last,ohayous,cum_ohayous,steal_success,steal_fail,
 		       stolen_from,stolen_ohayous,ohayous_stolen,probation,
 		       probation_count,times_ohayoued,registered,fortune,
 		       vault_installed,vault_level,vault_ohayous,vault_last
 		FROM users WHERE username=?`, nick).Scan(
-		&u.Username, &u.Account, &u.Web, &last, &u.Ohayous, &u.CumOhayous, &u.StealSuccess,
+		&u.Username, &u.Account, &u.Web, &u.Flag, &last, &u.Ohayous, &u.CumOhayous, &u.StealSuccess,
 		&u.StealFail, &u.StolenFrom, &u.StolenOhayous, &u.OhayousStolen,
 		&probation, &u.ProbationCount, &u.TimesOhayoued, &registered, &u.Fortune,
 		&vaultInstalled, &u.Vault.Level, &u.Vault.Ohayous, &vaultLast)
@@ -439,6 +439,14 @@ func (d *DB) SetAccount(ctx context.Context, nick, account string) error {
 
 func (d *DB) SetVisibility(ctx context.Context, nick string, v store.Visibility) error {
 	_, err := d.db.ExecContext(ctx, `UPDATE users SET web=? WHERE username=?`, string(v), nick)
+	return err
+}
+
+// SetFlag records the deer a user flies over their plot. The name is not
+// checked against the gallery here: the site resolves it when it draws, and a
+// name that matches nothing simply flies nothing.
+func (d *DB) SetFlag(ctx context.Context, nick, deer string) error {
+	_, err := d.db.ExecContext(ctx, `UPDATE users SET flag=? WHERE username=?`, deer, nick)
 	return err
 }
 

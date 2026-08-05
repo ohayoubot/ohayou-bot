@@ -21,6 +21,7 @@ type Store interface {
 	SaveOhayou(ctx context.Context, nick string, newTotal, addedCum int, last, dayStart time.Time) error
 	SetAccount(ctx context.Context, nick, account string) error
 	SetVisibility(ctx context.Context, nick string, v store.Visibility) error
+	SetFlag(ctx context.Context, nick, deer string) error
 	SetRegister(ctx context.Context, nick string, registered bool) error
 	ResetLast(ctx context.Context, nick string) error
 	SetStatus(ctx context.Context, nick, action string, active bool) error

@@ -199,6 +199,39 @@ func TestOptingOutUnnamesThePlot(t *testing.T) {
 	}
 }
 
+// A flag is a chosen picture, which is as identifying as a nick.
+func TestAnUnnamedPlotFliesNoFlag(t *testing.T) {
+	ctx := context.Background()
+	g, db, site := publishingGame(t)
+	player(t, db, "quiet", "QuietAcct", store.VisibilityUnset)
+	if err := db.SetFlag(ctx, "quiet", "senordeer"); err != nil {
+		t.Fatal(err)
+	}
+
+	g.publish(ctx)
+
+	body := string(site.table(t, tablePlot).Rows[0])
+	if strings.Contains(body, "senordeer") {
+		t.Errorf("an unnamed plot published its flag: %s", body)
+	}
+}
+
+func TestANamedPlotFliesItsFlag(t *testing.T) {
+	ctx := context.Background()
+	g, db, site := publishingGame(t)
+	player(t, db, "loud", "LoudAcct", store.VisibilityPublic)
+	if err := db.SetFlag(ctx, "loud", "senordeer"); err != nil {
+		t.Fatal(err)
+	}
+
+	g.publish(ctx)
+
+	body := string(site.table(t, tablePlot).Rows[0])
+	if !strings.Contains(body, `"flag":"senordeer"`) {
+		t.Errorf("a named plot lost its flag: %s", body)
+	}
+}
+
 // An id that moved would shuffle somebody's plot across the map on a restart.
 func TestAnonymousIDsAreStableAndUnguessable(t *testing.T) {
 	ctx := context.Background()
