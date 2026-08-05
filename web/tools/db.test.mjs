@@ -1,7 +1,7 @@
 /*
- * Ties db.mjs to wrangler.toml. A database declared in one and not the other is
- * a deploy that half works: the schema applies to a name nothing is bound to,
- * or a binding resolves to a database with no tables.
+ * Ties db.mjs to wrangler.toml. A database in one and not the other is a deploy
+ * that half works: the schema applies to a name nothing is bound to, or a
+ * binding resolves to a database with no tables.
  */
 
 import assert from "node:assert/strict";
@@ -38,11 +38,7 @@ test("wrangler.toml declares at least one database", () => {
 	assert.ok(bound.size > 0, "the binding regex matched nothing");
 });
 
-/*
- * Two names sharing an id are one database wearing two hats, which is how a
- * branch build ends up writing production data. The README warns about it; this
- * is the part that can check.
- */
+/* Two names sharing an id is how a branch build ends up writing production. */
 test("no two databases share an id", () => {
 	const byId = new Map();
 	for (const { name, id } of declared) {

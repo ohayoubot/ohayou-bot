@@ -1,17 +1,14 @@
 /*
- * A plot as a picture: the card that shows up when somebody posts their
- * permalink somewhere.
+ * A plot as an svg card, for the preview a permalink hands to whatever fetched
+ * it. Rendered per request rather than stored, because the plot changes.
  *
- * Rendered as svg at request time rather than stored, because the plot changes
- * and the card should too. No fonts, no images, no scripts: a crawler fetching
- * this gets one file and needs nothing else, which is also the only thing the
- * site's own content-security-policy would allow.
- *
- * The deer is drawn from the gallery's kinskode, one rect per cell, in the
- * sixteen colours irc has.
+ * No fonts, images or scripts: one file, which is also all the site's own
+ * policy would allow. The deer is drawn from the gallery's kinskode.
  */
 
 import { hexOf, normalise, TRANSPARENT } from "../../public/deerkins/kins.js";
+import { hueOf, layout } from "../../public/ohayou/plot.js";
+import { escapeHTML as esc } from "../http.js";
 
 /** The shape link previews expect. */
 export const CARD_WIDTH = 1200;
@@ -22,46 +19,11 @@ const INK = "#e8e6e3";
 const DIM = "#8b9199";
 const MINE = "#4ade80";
 
-/** Escapes the five characters that could end an attribute or a text node. A
-    nick reaches this from the game, so it is not to be trusted with markup. */
-function esc(text) {
-	return String(text ?? "")
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
-}
-
-/**
- * A hue per item name, the same arithmetic the map uses, so a plot looks like
- * itself whether you are on the site or looking at a preview of it.
- */
-function hueOf(item) {
-	let hash = 0;
-	for (let i = 0; i < item.length; i++) {
-		hash = (hash * 31 + item.charCodeAt(i)) >>> 0;
-	}
-	return (hash * 137.508) % 360;
-}
-
-/** What sits on each acre, dealt out in name order like the map does. */
-function fill(plot) {
-	const out = [];
-	for (const [item, count] of Object.entries(plot.land).sort()) {
-		for (let i = 0; i < count && out.length < plot.acres; i++) out.push(item);
-	}
-	while (out.length < plot.acres) out.push(null);
-	return out;
-}
-
-/** The acre grid, laid out as square as the acreage allows. */
+/** The acre grid. */
 function land(plot, x, y, size, gap) {
-	const acres = Math.max(1, plot.acres);
-	const wide = Math.ceil(Math.sqrt(acres));
-	const on = fill(plot);
+	const { wide, tiles } = layout(plot);
 
-	const tiles = on.map((item, i) => {
+	const rects = tiles.map((item, i) => {
 		const cx = x + (i % wide) * (size + gap);
 		const cy = y + Math.floor(i / wide) * (size + gap);
 		const paint = item
@@ -71,10 +33,10 @@ function land(plot, x, y, size, gap) {
 			size / 5
 		}" fill="${paint}"/>`;
 	});
-	return tiles.join("");
+	return rects.join("");
 }
 
-/** The plot's deer, if it flies one and the gallery still has it. */
+/** The plot's deer, when it flies one the gallery still has. */
 function banner(kinskode, x, y, box) {
 	if (!kinskode) return "";
 
@@ -97,10 +59,7 @@ function banner(kinskode, x, y, box) {
 	return cells.join("");
 }
 
-/**
- * The whole card. plot is a row from the projection; flag is the kinskode of
- * the deer it flies, or null.
- */
+/** plot is a row from the projection; flag is its deer's kinskode, or null. */
 export function card(plot, flag, { channel, network } = {}) {
 	const built = Object.entries(plot.land)
 		.sort()

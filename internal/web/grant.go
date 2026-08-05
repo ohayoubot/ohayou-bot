@@ -16,20 +16,19 @@ import (
 //
 //	<payload>.<tag>
 //
-// both base64url without padding. The worker verifies this in web/lib/hmac.js.
-// Neither side may change without the other; grant_test.go and hmac.test.mjs
-// pin the same bytes.
+// both base64url without padding. Verified by web/lib/hmac.js; neither side may
+// change without the other, and grant_test.go pins the same bytes hmac.test.mjs
+// does.
 //
-// The payload is packed rather than json because the link is read off a
-// terminal irc client, where a wrapped url is one nobody can click. json in
-// base64 spent 130 characters on 97 bytes of mostly punctuation.
+// Packed rather than json because the link is read off a terminal irc client,
+// where a url that wraps is one nobody can click:
 //
 //	0       version
 //	1       scopes, a bitmask
 //	2..5    expiry, unix seconds, big endian
 //	6..13   id, 8 random bytes
-//	14..    account, nick, then a count and that many channels,
-//	        each one a length byte followed by its utf-8 bytes
+//	14..    account, nick, then a count and that many channels, each a length
+//	        byte followed by its utf-8 bytes
 const grantVersion = 2
 
 // MaxChannels matches the ceiling the worker puts on a grant's channel list.
@@ -42,13 +41,12 @@ const MaxTTL = 900 * time.Second
 // worker holds every name to 64 anyway.
 const maxName = 64
 
-// idBytes is the grant's unique id, which the worker records so a link is
-// redeemable once. 64 bits is far past collision for something that lives
-// fifteen minutes at most.
+// idBytes is the id the worker records so a link is redeemable once. 64 bits is
+// past collision for something that lives fifteen minutes.
 const idBytes = 8
 
-// tagBytes truncates the HMAC. 128 bits is not a size anything forges, and the
-// full 256 cost 43 characters of a url someone has to click.
+// tagBytes truncates the HMAC. 128 bits is not forgeable, and the full 256 cost
+// 43 characters of a url somebody has to click.
 const tagBytes = 16
 
 // Scope is what a grant lets its holder do on the site. The bit positions are
@@ -72,8 +70,8 @@ type payload struct {
 	Channels []string
 }
 
-// validate refuses what the worker would refuse anyway, so a bad grant fails
-// here, where the reason is still in hand, rather than as a dead link.
+// validate refuses what the worker would, so the reason reaches a log rather
+// than the user reaching a dead link.
 func (g Grant) validate() error {
 	switch {
 	case g.Account == "":
@@ -102,15 +100,14 @@ func (m *Minter) sign(p payload) (string, error) {
 	return b64(body) + "." + b64(m.tag(body)), nil
 }
 
-// Verify checks a token against the secret and the clock, and returns what it
-// carries. The worker is what verifies in production; this is here so both
-// directions of the format are exercised by the same tests that pin it.
+// Verify checks a token against the secret and the clock. The worker is what
+// verifies in production; this exists so the same tests exercise both
+// directions of the format.
 func (m *Minter) Verify(token string) (Grant, string, error) {
 	body, tag, ok := splitToken(token)
 	if !ok {
 		return Grant{}, "", fmt.Errorf("web: malformed grant")
 	}
-	// Compared in constant time, so a wrong tag says nothing about how wrong.
 	if subtle.ConstantTimeCompare(tag, m.tag(body)) != 1 {
 		return Grant{}, "", fmt.Errorf("web: bad signature")
 	}
@@ -143,7 +140,7 @@ func (m *Minter) tag(body []byte) []byte {
 }
 
 func splitToken(token string) (body, tag []byte, ok bool) {
-	// Bounds the work before any parsing; no real token comes close.
+	// Bounds the work before any parsing.
 	if len(token) > 1024 {
 		return nil, nil, false
 	}
@@ -208,9 +205,8 @@ func appendName(body []byte, name string) ([]byte, error) {
 	return append(append(body, byte(len(name))), name...), nil
 }
 
-// decodePayload runs on bytes whose tag already checked out, so a failure here
-// is this side disagreeing with itself rather than anything hostile. It still
-// refuses to read past the end.
+// decodePayload runs on bytes whose tag checked out, so a failure is this side
+// disagreeing with itself. It still refuses to read past the end.
 func decodePayload(body []byte) (payload, error) {
 	r := reader{body: body}
 	version := r.byte()

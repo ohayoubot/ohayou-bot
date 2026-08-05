@@ -8,9 +8,8 @@
  * brute force.
  *
  * The scopes are copied from the verified grant, so a cookie only reaches the
- * parts of the site the link it came from was minted for. One session serves
- * every plugin, and each asks for its own scope rather than assuming the cookie
- * means one thing.
+ * parts of the site its link was minted for. One session serves every plugin,
+ * and each asks for its own scope.
  *
  * Timestamps are milliseconds, matching save_log. The grant's own expiry is in
  * seconds, because that is its wire format.
@@ -23,10 +22,10 @@ const COOKIE = "__Host-hemera";
 const TTL = 12 * 3600_000;
 
 /**
- * __Host- makes the browser enforce host-only: no Domain, so the cookie can
- * never be sent to the bucket's hostname, which is the one place uploaded bytes
- * are served from. The prefix also requires Path=/, so it rides along on every
- * plugin's pages. Path was never a security boundary; the scopes are.
+ * __Host- makes the browser enforce host-only: no Domain, so the cookie is
+ * never sent to the bucket's hostname, which is where uploaded bytes are
+ * served from. The prefix also requires Path=/, so it rides along on every
+ * plugin's pages; the scopes are the boundary, not the path.
  *
  * Secure rules out http, including `wrangler pages dev`. Browsers make an
  * exception for localhost; there is deliberately no env switch to relax this,
@@ -117,8 +116,8 @@ export async function readSession(request, env) {
 
 /**
  * Returns the session when it carries every scope asked of it, otherwise null.
- * A handler that calls this cannot be reached by a cookie minted for another
- * part of the site, which is the point of storing the scopes at all.
+ * A handler calling this cannot be reached by a cookie minted for another part
+ * of the site.
  */
 export async function requireScope(request, env, wanted) {
 	const session = await readSession(request, env);

@@ -1,7 +1,4 @@
-/*
- * The card and the permalink. A nick reaches both of these from the game, so
- * the thing that matters is that it cannot carry markup out with it.
- */
+/* The card and the permalink. A nick reaches both from the game. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -50,8 +47,8 @@ test("a card is an svg of the right shape", () => {
 	assert.ok(svg.includes("!ohayou"));
 });
 
-// A card is one file: a crawler fetching it needs nothing else, and the site's
-// own policy would not allow anything else anyway.
+// One file: whatever fetches it needs nothing else, and the site's own policy
+// would allow nothing else.
 test("a card asks for nothing from anywhere else", () => {
 	const svg = card(plot({ flag: "d" }), "AB\nCD", { channel: "#chan" });
 
@@ -110,8 +107,7 @@ test("the card is served as an image", async () => {
 	assert.ok(text.startsWith("<svg"));
 });
 
-// An unnamed plot is somebody who did not say their land was theirs, and a page
-// about them would be the opposite of that. The query only matches named = 1.
+// The query matches named = 1, so this is not a filter that can be forgotten.
 test("a plot nobody named has no page", async () => {
 	const { response } = await get(onRequestGetPage, "quiet", env(null));
 	assert.equal(response.status, 404);

@@ -1,16 +1,12 @@
 /*
  * POST /ohayou/api/command   ask the bot to change something
  *
- * The site decides nothing. It records what somebody asked for and the bot
- * applies it against its own rules, which is where every guard lives: the
- * browser cannot move a single ohayou, because nothing here writes game state.
+ * The site records the request; the bot applies it against its own rules. The
+ * shape is checked here so nonsense never reaches the queue, and the authority
+ * at the bot, which is the only side that knows whether an account owns
+ * anything.
  *
- * Two checks, in two places. The shape is checked here, so nonsense never
- * reaches the queue. The authority is checked at the bot, which is the only
- * side that knows whether the account owns anything.
- *
- * Only cosmetic changes are on this list, and that is deliberate. The game is
- * played in irc; the site is for looking at it.
+ * Only cosmetic changes are on the list. Nothing here writes game state.
  */
 
 import { SCOPE_OHAYOU } from "../hmac.js";
@@ -67,7 +63,7 @@ export const onRequestPost = guard(async ({ request, env }) => {
 		.bind(Date.now(), session.account, body.kind, String(body.value))
 		.run();
 
-	// Queued, not done: the bot polls, and the map redraws when it publishes.
+	// Queued, not done: the bot polls, then republishes.
 	return json(
 		{ status: "queued", kind: body.kind },
 		{ headers: { "cache-control": "no-store" } },
@@ -75,12 +71,11 @@ export const onRequestPost = guard(async ({ request, env }) => {
 });
 
 /**
- * Claims one command against the hourly limit, returning whether there was one
- * to claim. The claim is a single INSERT whose WHERE does the counting, so a
- * burst of requests cannot all read the same count and all pass.
+ * Claims one command against the hourly limit. The INSERT's WHERE does the
+ * counting, so a burst cannot all read the same count and all pass.
  *
- * It counts command_log rather than the queue, because the bot drains the
- * queue: a limit that forgets as soon as the bot catches up is no limit.
+ * It counts command_log rather than the queue, which the bot drains: a limit
+ * that forgets when the bot catches up is not one.
  */
 async function reserveSlot(env, account) {
 	const perHour = intVar(env.COMMANDS_PER_HOUR, 30);

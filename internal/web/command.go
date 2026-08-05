@@ -10,16 +10,15 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/bot/ratelimit"
 )
 
-// whoisWait bounds the lookup. The bot's resolver has its own ceiling; this is
-// so a wedged one cannot pin a command handler forever.
+// whoisWait bounds a lookup the bot's resolver has not already given up on.
 const whoisWait = 15 * time.Second
 
-// linkTTL is how long a minted link stays good. Long enough to move from a
-// terminal to a browser, short enough that one left in a scrollback is dead.
+// linkTTL is long enough to move from a terminal to a browser, short enough
+// that one left in a scrollback is dead.
 const linkTTL = 5 * time.Minute
 
-// cooldown is the gap a nick leaves between links, which is also what stops a
-// repeated command from being a WHOIS each time.
+// cooldown is the gap between links, which is also what stops a repeated
+// command being a WHOIS each time.
 const cooldown = time.Minute
 
 // Site hands out links to the website.
@@ -32,8 +31,8 @@ type Site struct {
 	minted *ratelimit.Limiter
 }
 
-// Install claims !web, when there is a site to send anyone to and something for
-// them to do there. Returns whether it did, so the caller can say why not.
+// Install claims !web when there is a site, a secret and something to do there.
+// Returns whether it did, so the caller can say why not.
 func Install(b *bot.Bot, m *Minter, log *slog.Logger, url string, scopes Scope) bool {
 	if m == nil || url == "" || scopes == 0 {
 		return false
@@ -58,8 +57,7 @@ func Install(b *bot.Bot, m *Minter, log *slog.Logger, url string, scopes Scope) 
 	return true
 }
 
-// Link is where a grant is redeemed. The token rides in the fragment, which
-// never reaches the server's logs.
+// Link puts the grant in the fragment, which never reaches the server's logs.
 func (s *Site) Link(grant string) string {
 	return strings.TrimSuffix(s.url, "#") + "#" + grant
 }
@@ -67,8 +65,8 @@ func (s *Site) Link(grant string) string {
 func (s *Site) command(m *bot.Message) {
 	to := m.ReplyTo()
 
-	// The cooldown comes before the lookup, not after: without it every
-	// repetition of the command is another WHOIS at the server.
+	// Before the lookup, not after: otherwise every repetition is another
+	// WHOIS at the server.
 	if wait, ok := s.minted.Claim(strings.ToLower(m.Nick)); !ok {
 		s.bot.Say(to, m.Nick+": you just got a link. Try again in "+wait.Round(time.Second).String()+".")
 		return
@@ -110,8 +108,8 @@ func (s *Site) command(m *bot.Message) {
 		return
 	}
 
-	// Always privately, whatever the command arrived on. A grant said out loud
-	// is a session for whoever reads the channel first.
+	// Always privately: a grant said out loud is a session for whoever reads
+	// the channel first.
 	s.bot.Say(m.Nick, "Sign in here, good once and for "+linkTTL.String()+": "+s.Link(token))
 	if m.FromChannel() {
 		s.bot.Say(m.Target, m.Nick+": check your PMs.")

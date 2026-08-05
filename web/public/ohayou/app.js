@@ -1,23 +1,19 @@
 /*
- * The world, as one landscape rather than a row of cards.
- *
- * Each plot is a block of acre tiles, and the blocks are packed together so the
- * map reads as settled ground: a big holding is visibly bigger, and small ones
- * fill in around it. Where a plot lands is the browser's business (grid packing
- * does it), but its size and what is on it come from the bot.
- *
- * Nothing here works out a game rule. Which acre a building sits on is this
- * page's choice; the counts beside it are authoritative.
+ * The world map: every plot as a block of acre tiles, packed into one grid so
+ * the page reads as ground rather than a list. Where a block lands is the
+ * browser's business; its size and contents come from the bot.
  */
 
 import { hexOf, normalise, TRANSPARENT } from "../deerkins/kins.js";
+
+import { hueOf, layout } from "./plot.js";
 
 const $ = (sel) => document.querySelector(sel);
 
 let plots = [];
 let flags = {};
 let mine = null;
-/** Set when a countdown is on screen, so it can tick without a reload. */
+/** The countdown interval, cleared before a new one replaces it. */
 let ticking = null;
 
 async function start() {
@@ -47,11 +43,7 @@ async function start() {
 
 /* ---- your own standing ---- */
 
-/**
- * What only you may see: the exact figures, and what is still counting down.
- * Served from a different endpoint with a different rule, so nothing here can
- * be reached by pointing at somebody else's plot.
- */
+/** The private tier: a different endpoint, with a different rule. */
 async function standing() {
 	const yours = await load("/ohayou/api/me");
 	if (!yours) return;
@@ -78,9 +70,8 @@ async function standing() {
 }
 
 /**
- * Asking the bot for something. Nothing here changes the game: it queues a
- * request, and the map redraws when the bot next publishes. That is why the
- * button says what it says.
+ * Queues a request. Nothing here changes the game: the bot polls, applies it,
+ * and the map redraws when it next publishes.
  */
 function controls(yours) {
 	const flag = document.createElement("input");
@@ -182,7 +173,7 @@ function counts(title, held) {
 	return panel(title, list);
 }
 
-/** The thing the site can tell you that a channel line cannot: how long left. */
+/** Counts down from the due time, so a four-hour run ticks without polling. */
 function running(runs) {
 	if (!runs || runs.length === 0) return null;
 
@@ -219,8 +210,7 @@ function probation(at) {
 	return el;
 }
 
-/** Friendly names for the activities. Falls back to the bot's own word, so an
-    activity added to the game still reads as something. */
+/** Display names for the activities, falling back to the bot's own word. */
 function labelOf(kind) {
 	return (
 		{ mining: "quarry", pumping: "oilwell", breeding: "cattery" }[kind] ?? kind
@@ -247,22 +237,16 @@ async function load(url) {
 	}
 }
 
-/** Only to know which plot is yours. A signed-out visitor sees the same map. */
+/** Only to know which plot is yours; a signed-out visitor sees the same map. */
 async function me() {
 	return load("/api/session");
 }
 
 /* ---- the map ---- */
 
-/**
- * A plot's block is as square as its acreage allows, so the map is made of
- * settlements rather than stripes. Grid packing places them; a dense flow
- * lets a small plot fill a gap a large one left.
- */
+/** A plot as a block of acre tiles, sized by the holding. */
 function block(plot) {
-	const acres = Math.max(1, plot.acres);
-	const wide = Math.ceil(Math.sqrt(acres));
-	const tall = Math.ceil(acres / wide);
+	const { acres, wide, tall, tiles } = layout(plot);
 
 	const el = document.createElement("button");
 	el.type = "button";
@@ -281,13 +265,13 @@ function block(plot) {
 		)}, ${plot.wealth}`,
 	);
 
-	// The tiles themselves: filled ones first, so a holding reads as built up
-	// from one corner rather than speckled.
-	const filled = fill(plot, wide * tall);
-	for (const item of filled) {
+	// wide by tall is square, so the last row may run past the acreage. Those
+	// cells are not land and are left out.
+	for (let i = 0; i < wide * tall; i++) {
+		if (i >= acres) break;
 		const tile = document.createElement("span");
-		tile.className = item ? "acre built" : "acre";
-		if (item) tile.style.setProperty("--hue", hueOf(item));
+		tile.className = tiles[i] ? "acre built" : "acre";
+		if (tiles[i]) tile.style.setProperty("--hue", hueOf(tiles[i]));
 		el.append(tile);
 	}
 
@@ -296,21 +280,6 @@ function block(plot) {
 	el.addEventListener("focus", point);
 	el.addEventListener("click", point);
 	return el;
-}
-
-/**
- * What sits on each tile of the block. Buildings are dealt out in name order so
- * the same holding always draws the same way; tiles past the plot's acreage are
- * the corner the square leaves over, and stay blank.
- */
-function fill(plot, tiles) {
-	const out = [];
-	for (const [item, count] of Object.entries(plot.land).sort()) {
-		for (let i = 0; i < count && out.length < plot.acres; i++) out.push(item);
-	}
-	while (out.length < plot.acres) out.push(null);
-	while (out.length < tiles) out.push(undefined);
-	return out.slice(0, tiles);
 }
 
 /* ---- who a plot belongs to ---- */
@@ -448,22 +417,6 @@ function ago(ms) {
 	if (hours < 24) return `${hours} ${plural(hours, "hour")} ago`;
 	const days = Math.floor(hours / 24);
 	return `${days} ${plural(days, "day")} ago`;
-}
-
-/**
- * A hue per item name. Derived rather than listed, so an item added to the game
- * gets a colour without this page being taught its name. The lightness and
- * chroma live in the stylesheet, which is what keeps a hundred hues looking
- * like one palette.
- */
-function hueOf(item) {
-	let hash = 0;
-	for (let i = 0; i < item.length; i++) {
-		hash = (hash * 31 + item.charCodeAt(i)) >>> 0;
-	}
-	// Spread by the golden angle so neighbouring names are not neighbouring
-	// colours, and adjacent tiles stay told apart.
-	return (hash * 137.508) % 360;
 }
 
 start();

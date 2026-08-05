@@ -1,22 +1,26 @@
 /*
- * GET /ohayou/p/<nick>            one player's plot, as a page worth posting
- * GET /ohayou/api/card/<nick>     the same plot, as a picture
+ * GET /ohayou/p/<nick>            one player's plot, as a page
+ * GET /ohayou/api/card/<nick>     the same plot, as an svg
  *
- * The page is rendered here rather than in the browser because the thing that
- * fetches it first is usually not a browser: a link preview wants meta tags in
- * the html it is handed, and will not run a script to find them.
+ * Rendered here rather than in the browser: the first thing to fetch a
+ * permalink is usually a link preview, which reads meta tags out of the html it
+ * is handed and will not run a script.
  *
- * Only named plots have a permalink. An unnamed one is somebody who has not
- * said their land is theirs, and a page about them would be the opposite of
- * that.
+ * Only named plots have a page. The query matches named = 1 rather than
+ * filtering after, so it cannot be forgotten.
  */
 
-import { decodeParam, fail, guard } from "../http.js";
+import {
+	decodeParam,
+	escapeHTML as esc,
+	fail,
+	guard,
+	parseColumn,
+} from "../http.js";
 import { card } from "./card.js";
 
 const MAX_NICK = 48;
 
-/** Where to tell a visitor the game is played. */
 function place(env) {
 	return { channel: env.IRC_CHANNEL, network: env.IRC_NETWORK };
 }
@@ -32,7 +36,7 @@ async function lookup(env, name) {
 		.first();
 
 	if (!plot) return null;
-	plot.land = parse(plot.land);
+	plot.land = parseColumn(plot.land, {});
 
 	// The gallery is the other database; a worker holding both asks each once.
 	let flag = null;
@@ -45,17 +49,6 @@ async function lookup(env, name) {
 		flag = deer?.kinskode ?? null;
 	}
 	return { plot, flag };
-}
-
-function parse(raw) {
-	try {
-		const value = JSON.parse(raw);
-		return value && typeof value === "object" && !Array.isArray(value)
-			? value
-			: {};
-	} catch {
-		return {};
-	}
 }
 
 function wanted(params) {
@@ -75,8 +68,6 @@ export const onRequestGetCard = guard(async ({ params, env }) => {
 	return new Response(card(found.plot, found.flag, place(env)), {
 		headers: {
 			"content-type": "image/svg+xml; charset=utf-8",
-			// Long enough that a preview crawler is not a load, short enough
-			// that a plot which changed looks changed.
 			"cache-control": "public, max-age=300",
 			"content-security-policy":
 				"default-src 'none'; style-src 'unsafe-inline'",
@@ -109,15 +100,6 @@ export const onRequestGetPage = guard(async ({ request, params, env }) => {
 		},
 	});
 });
-
-function esc(text) {
-	return String(text ?? "")
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
-}
 
 function page(plot, image, href, { channel, network }) {
 	const title = `${plot.nick}'s territory`;

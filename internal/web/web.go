@@ -1,7 +1,6 @@
 // Package web is the bot's side of the website: the signed links a plugin hands
-// a user so the site knows who they are. It lives here rather than in the one
-// plugin that mints them today, because the identity a grant carries is the
-// bot's, not any plugin's.
+// a user, and the projections a plugin publishes. The identity a grant carries
+// is the bot's rather than any plugin's, which is why it lives here.
 package web
 
 import "time"
@@ -23,8 +22,7 @@ type Grant struct {
 }
 
 // Channels trims a list to what a grant can carry. Truncating rather than
-// refusing: somebody who shares more than MaxChannels with the bot should still
-// get a link, and the ones that fit are the ones they will use.
+// refusing: somebody in more than MaxChannels with the bot still gets a link.
 func Channels(names []string) []string {
 	if len(names) > MaxChannels {
 		return names[:MaxChannels]
@@ -39,8 +37,7 @@ type Minter struct {
 	Now func() time.Time
 }
 
-// NewMinter returns a minter, or nil when there is no secret to sign with: a
-// bot with no site configured hands out no links.
+// NewMinter returns nil when there is no secret to sign with.
 func NewMinter(secret string) *Minter {
 	if secret == "" {
 		return nil
@@ -48,8 +45,8 @@ func NewMinter(secret string) *Minter {
 	return &Minter{secret: secret, Now: time.Now}
 }
 
-// Mint signs g and returns the link token and the grant's id. The id is what
-// the worker records to make a grant redeemable once, so it is worth logging.
+// Mint signs g and returns the token and the grant's id. The worker records the
+// id to make a grant redeemable once, so it is worth logging.
 func (m *Minter) Mint(g Grant) (token, id string, err error) {
 	if err := g.validate(); err != nil {
 		return "", "", err

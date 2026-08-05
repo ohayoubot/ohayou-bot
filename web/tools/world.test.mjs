@@ -1,8 +1,4 @@
-/*
- * The world endpoint serves the tier the bot publishes for everyone, so the
- * thing worth checking is that an unnamed plot stays unnamed even if a row
- * somehow carries a nick.
- */
+/* The public tier: an unnamed plot stays unnamed even if a row carries a nick. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -61,8 +57,8 @@ test("a named plot comes back whole", async () => {
 	});
 });
 
-// The bot does not publish a nick for an unnamed plot. If one ever appeared in
-// a row, this endpoint is the last place that can decline to repeat it.
+// The bot publishes no nick for an unnamed plot; this is the last place that
+// can decline to repeat one if a row ever carried it.
 test("an unnamed plot is served without a nick or a flag", async () => {
 	const { body } = await world(
 		game([row({ id: "opaque", nick: "mallow", named: 0, flag: "senordeer" })]),
@@ -75,8 +71,8 @@ test("an unnamed plot is served without a nick or a flag", async () => {
 	assert.equal(JSON.stringify(body).includes("senordeer"), false);
 });
 
-// The gallery is the other database, so the art comes back beside the plots
-// rather than inside them: a deer flown by twenty people is sent once.
+// Beside the plots rather than inside them: a deer twenty people fly is sent
+// once.
 test("a flag's art is resolved from the gallery", async () => {
 	const { body } = await world(
 		game([row(), row({ id: "b", flag: "senordeer" })], undefined, [
@@ -87,7 +83,7 @@ test("a flag's art is resolved from the gallery", async () => {
 	assert.deepEqual(body.flags, { senordeer: "AB\nCD" });
 });
 
-// Somebody may fly a deer that was later renamed away.
+// A deer may have been renamed since somebody picked it.
 test("a flag matching no deer is simply absent", async () => {
 	const { body } = await world(game([row({ flag: "gone" })], undefined, []));
 

@@ -1,50 +1,40 @@
 /*
  * POST /api/ingest   the bot publishes a projection
  *
- * This is the only way game data reaches the site, and the only thing that
- * decides what is allowed to. The bot holds no D1 credential: every write is
- * still made here, where the rules are.
+ * The only way game data reaches the site, and the only thing that decides what
+ * may. The bot holds no database credential: every write is made here.
  *
- * A request carries a json body signed with the same secret as the grants:
+ * The body is json, signed with the grant secret:
  *
- *   x-ingest-signature: <first 16 bytes of HMAC-SHA256, base64url>
+ *   x-ingest-signature: first 16 bytes of HMAC-SHA256, base64url
  *
- * over "ingest.v1\n" followed by the body's bytes. The prefix is domain
- * separation: a grant's payload is raw bytes beginning with a version byte, so
- * one can never be replayed as the other even though the key is shared.
+ * over "ingest.v1
+" then the body's bytes. The prefix is domain separation: a
+ * grant's payload is raw bytes starting with a version byte, so neither can be
+ * replayed as the other under the shared key.
  *
- * Body:
- *   plugin      who is publishing
- *   table       which of its tables, checked against TABLES below
- *   generation  rises with every publish; one already seen is refused
- *   ts          unix seconds, bounding how long a captured request is worth
- *   rows        the whole table, which replaces what is there
- *
- * Nothing here is merged. A publish is the complete contents of that table for
- * that plugin, so a player who stopped consenting simply stops being in it.
+ * Body: plugin, table, generation, ts, rows. A publish replaces the table
+ * outright, so a player who withdrew consent is absent rather than stale.
  */
 
 import { b64urlDecode } from "../hmac.js";
 import { fail, guard, json } from "../http.js";
 
-/** Signed bodies still get a ceiling: this is read before anything is checked. */
 const MAX_BODY = 4 * 1024 * 1024;
 
-/** How stale a signed request may be. Long enough for a slow publish, short
-    enough that a captured one is not worth keeping. */
+/** How stale a signed request may be. */
 const MAX_AGE = 300;
 
 const TAG_BYTES = 16;
 const PREFIX = "ingest.v1\n";
 
 /**
- * What each plugin may write, and the exact shape of a row. A column not named
- * here cannot be published, so a field added to the bot's projection has to be
- * added here too, on purpose, before it can reach the internet.
+ * What each plugin may write, and the shape of a row. A column not named here
+ * cannot be published: a field added to the bot's projection has to be added
+ * here too before it can reach the internet.
  *
- * "json" means the value is stored as a json string; the bot sends the value
- * itself and this stringifies it, so the two sides cannot disagree about
- * encoding. "boolean" is stored as 0 or 1, because sqlite has no other kind.
+ * "json" is stored as a json string, stringified here so the two sides cannot
+ * disagree about encoding. "boolean" is stored as 0 or 1.
  */
 const TABLES = {
 	ohayou: {
@@ -75,8 +65,7 @@ const TABLES = {
 	},
 };
 
-/** Which binding a plugin's tables live in. A plugin with no entry cannot
-    publish at all, whatever it signs. */
+/** Which binding a plugin's tables live in. */
 const BINDINGS = { ohayou: "GAME" };
 
 export const onRequestPost = guard(async ({ request, env }) => {
@@ -100,8 +89,8 @@ export const onRequestPost = guard(async ({ request, env }) => {
 		return refuse("bad signature");
 	}
 
-	// Everything past here ran on bytes the bot signed, so a failure is the bot
-	// disagreeing with us rather than anything hostile. It is still checked.
+	// Past here the bytes are signed, so a failure is the bot disagreeing with
+	// us rather than anything hostile. Still checked.
 	let body;
 	try {
 		body = JSON.parse(new TextDecoder().decode(raw));
@@ -131,7 +120,7 @@ export const onRequestPost = guard(async ({ request, env }) => {
 		.bind(body.plugin, body.table)
 		.first();
 
-	// Not an error: a retried publish is a publish that already landed.
+	// A retried publish is one that already landed, not an error.
 	if (seen && seen.generation >= body.generation) {
 		return json({ status: "stale", generation: seen.generation });
 	}
@@ -144,10 +133,7 @@ export const onRequestPost = guard(async ({ request, env }) => {
 	return json({ status: "published", rows: rows.length });
 });
 
-/**
- * Swaps the table's contents for the new rows in one batch, which D1 runs as a
- * transaction: a page never sees half of one publish beside half of the last.
- */
+/** One batch, which D1 runs as a transaction: no half-published table. */
 async function replace(db, body, columns, rows) {
 	const names = Object.keys(columns);
 	const placeholders = names.map((_, i) => `?${i + 1}`).join(", ");
@@ -191,11 +177,7 @@ function validate(body) {
 	return null;
 }
 
-/**
- * Checks one row against the column list and returns it ready to bind. Throws
- * on anything unexpected, including a key the table does not have: a field the
- * bot started sending must be added here before it can be stored.
- */
+/** Returns the row ready to bind, throwing on a column the table lacks. */
 function flatten(row, columns) {
 	if (row === null || typeof row !== "object" || Array.isArray(row)) {
 		throw new Error("not an object");
@@ -258,7 +240,7 @@ async function tag(body, secret) {
 	return new Uint8Array(full).subarray(0, TAG_BYTES);
 }
 
-/** Constant time for equal lengths, which is the only case that reaches it. */
+/** Constant time for equal lengths, the only case that reaches it. */
 function sameBytes(a, b) {
 	if (a.length !== b.length) return false;
 	let diff = 0;
@@ -266,8 +248,7 @@ function sameBytes(a, b) {
 	return diff === 0;
 }
 
-/** One answer to the caller, the reason to the log. The bot is the only
-    legitimate caller and it reads its own logs, not this response. */
+/** One answer to every caller; the reason goes to the log. */
 function refuse(reason) {
 	console.log(`ingest refused: ${reason}`);
 	return fail(400, "that publish was not accepted");
