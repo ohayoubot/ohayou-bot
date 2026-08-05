@@ -6,27 +6,26 @@ command below runs from this directory.
 
 ## Names
 
-The project is `ohayou`, after the bot and the game that is most of it.
-`deerkins` is the gallery and keeps its name. `hemera` is only the domain.
-
-The databases are `ohayou-site` (sessions, the gallery, drop's queue) and
-`ohayou-game` (the projection and the request queue), each with a `-preview`
-twin. Both were moved from names that came first: the site's was `deerkins-db`,
-after one of the three things in it.
-
-Two names are still wrong, and Cloudflare has no rename for either. A Pages
-project and an R2 bucket can only be created and deleted.
-
-| Now | Should be | Why it is still there |
+| Thing | Name | Holds |
 | --- | --- | --- |
-| R2 `hemera` | `ohayou-uploads` | every image link already said in a channel points at it |
-| Pages `deerkins` | `ohayou` | a new project, with the custom domain, secrets and build settings moved to it, for a name nobody sees behind the domain |
+| Pages project | `ohayou-web` | |
+| D1 | `ohayou-site` | sessions, grants, the gallery, drop's queue |
+| D1 | `ohayou-game` | the world projection, the request queue |
+| R2 | `hemera` | uploaded images |
 
-Moving a database, should it come up again: `wrangler d1 export` the old one,
-`wrangler d1 create` the new one, `wrangler d1 execute --file` the dump into
-it, then put the id in `wrangler.toml`. The export writes explicit primary
-keys and carries `sqlite_sequence`, so drop's queue ids survive and the bot's
-cursor still means what it meant.
+Each D1 has a `-preview` twin. R2 cannot be renamed and image links already said
+in channels point at `hemera`, so it keeps that name.
+
+The `pages.dev` subdomain does not follow a project rename, so deployment urls
+still read `deerkins.pages.dev`. The custom domain is what is used.
+
+Bindings come from `wrangler.toml` and are applied when a deployment carrying
+them is built. The dashboard shows what the last build declared.
+
+To move a database: `wrangler d1 export` the old, `wrangler d1 create` the new,
+`wrangler d1 execute --file` the dump into it, put the id in `wrangler.toml`.
+The export carries explicit primary keys and `sqlite_sequence`, so drop's queue
+ids survive and the bot's cursor stays valid.
 
 ## Requirements
 
@@ -36,48 +35,49 @@ Node 18 or newer and a Cloudflare account.
 
 ```sh
 pnpm install
-pnpm db init deerkins  # create the schema
-pnpm db seed deerkins  # load seed.sql
-pnpm run dev           # http://localhost:8788/deerkins/
+pnpm db init ohayou-site   # create the schema
+pnpm db init ohayou-game
+pnpm db seed ohayou-site   # load seed.sql
+pnpm run dev               # http://localhost:8788/
 pnpm test
-pnpm lint              # biome; `pnpm lint:fix` writes the fixes
+pnpm lint                  # biome; `pnpm lint:fix` writes the fixes
 ```
 
-Each database has one schema under `schema/`, applied with `pnpm db`:
+Schemas live under `schema/` and are applied with `pnpm db`:
 
 ```sh
-pnpm db <init|seed|purge> <database> [local|remote|preview] [--yes]
+pnpm db <init|seed|purge|reset> <ohayou-site|ohayou-game> [local|remote|preview] [--yes]
 ```
 
-`local` is the default. Anything else is a real database and needs `--yes`.
+`local` is the default; anything else is a real database and needs `--yes`. One
+database may hold several plugins' tables, so a schema is several files:
+`init ohayou-site` applies `site.sql`, `deerkins.sql` and `drop.sql` in turn.
+`init` is idempotent; `reset` drops the game's tables so `init` can rebuild them.
 
 `seed.sql` contains the original 1600+ deerkins/artbutt works from yore.
 
 ## Deploy
 
-Create the two databases once and put the ids they print into `wrangler.toml`.
-Production is bound at the top level; `deerkins-preview` is bound under
-`[[env.preview.d1_databases]]` so preview deployments never touch production
+Create the databases once and put the ids they print into `wrangler.toml`.
+Production is bound at the top level, preview under
+`[[env.preview.d1_databases]]`, so preview deployments never touch production
 data:
 
 ```sh
-pnpm exec wrangler d1 create deerkins
-pnpm exec wrangler d1 create deerkins-preview
+pnpm exec wrangler d1 create ohayou-site
+pnpm exec wrangler d1 create ohayou-site-preview
+pnpm exec wrangler d1 create ohayou-game
+pnpm exec wrangler d1 create ohayou-game-preview
 ```
 
-If wrangler token is expired run:
+If the wrangler token is expired, run `pnpm exec wrangler login`. Then:
 
 ```sh
-pnpm exec wrangler login
-```
-
-Then:
-
-```sh
-pnpm db init deerkins remote --yes
-pnpm db seed deerkins remote --yes  # might take a few minutes
+pnpm db init ohayou-site remote --yes
+pnpm db init ohayou-game remote --yes
+pnpm db seed ohayou-site remote --yes  # might take a few minutes
 pnpm run deploy
-openssl rand -hex 32 | pnpm exec wrangler pages secret put IP_SALT --project-name deerkins
+openssl rand -hex 32 | pnpm exec wrangler pages secret put IP_SALT --project-name ohayou-web
 pnpm run deploy
 ```
 
@@ -92,19 +92,18 @@ are *anonymized*. You can inspect the code yourself!
 Cloudflare's GitHub integration builds a preview deployment for every push to a
 non-production branch on the host repo (NOT from forks).
 
-Give the preview database its schema, otherwise preview builds serve a working
-site backed by empty tables:
+Give the preview databases their schema, otherwise preview builds serve a
+working site backed by empty tables:
 
 ```sh
-pnpm db init deerkins preview --yes
-pnpm db seed deerkins preview --yes  # optional, for real data to click around
+pnpm db init ohayou-site preview --yes
+pnpm db init ohayou-game preview --yes
+pnpm db seed ohayou-site preview --yes  # optional, for real data to click around
 ```
 
-One database may hold several plugins' tables, so a schema is several files:
-`db init deerkins` applies `site.sql`, `deerkins.sql` and `drop.sql` in turn,
-each owned by whoever the tables belong to. `init` is idempotent, so re-run it
-against production *and* preview whenever `schema/` changes. A table added for production only fails at runtime on a
-branch build, not at deploy.
+Re-run `init` against production *and* preview whenever `schema/` changes. A
+table added for production only fails at runtime on a branch build, not at
+deploy.
 
 `wrangler pages secret put` writes to Production only. Preview needs its own
 `IP_SALT`, set in the dashboard under the project, Settings, Variables and
@@ -134,74 +133,58 @@ The project serves everything. The app is the `deerkins` subdirectory of
 
 ## Ingest
 
-`POST /api/ingest` is how the bot publishes a projection, and the only way game
-data reaches the site. The bot still holds no D1 credential: it signs a json
+`POST /api/ingest` is how the bot publishes the game's projection, and the only
+way game data reaches the site. The bot holds no D1 credential: it signs a json
 body with `OHAYOU_WEB_SECRET` and this end makes the write.
 
 `lib/site/ingest.js` holds the allowlist of what each plugin may write and the
-exact shape of a row. A field the bot starts sending is refused until it is
-added there, on purpose. That list is the boundary between the game and the
-internet; treat a change to it as a change to what is public.
+shape of a row. A field the bot starts sending is refused until it is added
+there. Treat a change to that list as a change to what is public.
 
-The game has its own database so a mistake publishing territories cannot reach
-the art or the live sessions:
-
-```sh
-pnpm exec wrangler d1 create ohayou
-pnpm exec wrangler d1 create ohayou-preview
-```
-
-Put the ids they print into `wrangler.toml`, then apply the schema to both:
+The projection's shape changes with the game's. `CREATE TABLE IF NOT EXISTS`
+cannot add a column, so rebuild it:
 
 ```sh
-pnpm db init ohayou remote --yes
-pnpm db init ohayou preview --yes
+pnpm db reset ohayou-game remote --yes
+pnpm db init ohayou-game remote --yes
 ```
+
+Nothing is lost; the bot republishes within a couple of minutes.
 
 ## The webchat
 
-The landing page can open Rizon's webchat in a frame, so somebody who has never
-used IRC does not have to install anything. It loads nothing until they click:
-a third-party frame on every visit would be the heaviest thing on a page most
-people came to look at a map on.
+The landing page opens a webchat in a frame on click; nothing is loaded until
+then. `IRC_WEBCHAT` in `wrangler.toml` is the url, and must be:
 
-`IRC_WEBCHAT` in `wrangler.toml` is the url. Two things have to hold, and
-`tools/site.test.mjs` checks both:
+- `https`, or the frame is blocked as mixed content;
+- on a host named in `frame-src` in `public/_headers`.
 
-- it must be `https`, since an `http` frame in an `https` page is mixed content
-  and is blocked before any policy is consulted;
-- its host must be named in `frame-src` in `public/_headers`, because a policy
-  is a static header and cannot be configured per deployment.
-
-Point it at another webchat and that `frame-src` line changes with it.
+`tools/site.test.mjs` checks both. Changing the host means changing that
+`frame-src` line.
 
 ## Player pages
 
-`/ohayou/p/<nick>` is one player's plot, and `/ohayou/api/card/<nick>` is the
-same plot as an svg. Both are rendered by a function rather than served as
-files, because the first thing to fetch a permalink is usually a link preview,
-which wants its meta tags in the html it is handed and will not run a script to
-find them.
+`/ohayou/p/<nick>` is one player's plot; `/ohayou/api/card/<nick>` is the same
+plot as an svg, used as the link preview image. Both are rendered by a function
+so the meta tags are in the html a crawler is handed.
 
 Only a plot whose owner named it has a page. `IRC_CHANNEL` and `IRC_NETWORK` in
-`wrangler.toml` are what the card tells a stranger to do next; without them it
-still says `!ohayou`, just not where.
+`wrangler.toml` are what the card tells a visitor to do next.
 
 ## Drop
 
 `/drop/` trades a signed link from the irc bot for a cookie, uploads images to
 the `hemera` bucket, and queues a line for the bot to say in a channel.
 
-The bot signs those links, so both ends need the same secret, under the same
-name:
+The bot signs those links with `OHAYOU_WEB_SECRET`, and this end verifies them
+with the same value:
 
 ```sh
-openssl rand -hex 32 | pnpm exec wrangler pages secret put OHAYOU_WEB_SECRET --project-name deerkins
+openssl rand -hex 32 | pnpm exec wrangler pages secret put OHAYOU_WEB_SECRET --project-name ohayou-web
 ```
 
-Give the bot the same value as `OHAYOU_UPLOAD_SECRET`. It keys on the utf-8
-bytes of the string, not on the hex it decodes to. Preview needs its own,
-dashboard-only, like `IP_SALT`.
+Give the bot the same string. Both sides key on its utf-8 bytes, not the hex it
+looks like. Preview needs its own, set from the dashboard, like `IP_SALT`.
 
 `PUBLIC_IMAGE_BASE` is the hostname the bucket is served from. R2 custom domains
 send no `X-Content-Type-Options`, so add a transform rule there setting
@@ -210,12 +193,16 @@ hostname the cookie is not scoped to; that header is the third layer.
 
 ## Checks after deploying
 
-Under project settings, confirm `IP_SALT` and `OHAYOU_WEB_SECRET` are listed
-under Production and not only Preview, that the Production `DB` and `UPLOADS`
-bindings point at `ohayou-site` and `hemera`, and that the Preview ones point
-at `ohayou-site-preview` and `hemera-preview`, with `GAME` on `ohayou-game` and
-`ohayou-game-preview`. If Preview still shows the production
-names, a branch build can write to production data.
+Under project settings, confirm `IP_SALT` and `OHAYOU_WEB_SECRET` are set for
+Production as well as Preview, and that the bindings are:
+
+| Binding | Production | Preview |
+| --- | --- | --- |
+| `DB` | `ohayou-site` | `ohayou-site-preview` |
+| `GAME` | `ohayou-game` | `ohayou-game-preview` |
+| `UPLOADS` | `hemera` | `hemera-preview` |
+
+If Preview shows a production name, a branch build can write production data.
 
 Per-deployment preview URLs return 404 for `/deerkins/api/*`. The production
 domain serves it. Test against the production domain.
