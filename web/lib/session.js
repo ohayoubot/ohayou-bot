@@ -1,11 +1,16 @@
 /*
- * Upload sessions. A grant is redeemed once (see functions/drop/api/session.js)
- * and exchanged for one of these.
+ * Sessions for the whole site. A grant is redeemed once (see
+ * lib/drop/session.js) and exchanged for one of these.
  *
  * The cookie carries 32 random bytes; the table stores their sha-256, so a dump
- * of upload_session is not a set of live sessions. Unlike clientKey in http.js
- * there is no salt: that hashes low-entropy ips, this hashes a value already
- * past brute force.
+ * of session is not a set of live sessions. Unlike clientKey in http.js there
+ * is no salt: that hashes low-entropy ips, this hashes a value already past
+ * brute force.
+ *
+ * The scopes are copied from the verified grant, so a cookie only reaches the
+ * parts of the site the link it came from was minted for. One session serves
+ * every plugin, and each asks for its own scope rather than assuming the cookie
+ * means one thing.
  *
  * Timestamps are milliseconds, matching save_log. The grant's own expiry is in
  * seconds, because that is its wire format.
@@ -13,16 +18,15 @@
 
 import { b64urlEncode } from "./hmac.js";
 
-const COOKIE = "__Host-drop";
+const COOKIE = "__Host-hemera";
 
 const TTL = 12 * 3600_000;
 
 /**
  * __Host- makes the browser enforce host-only: no Domain, so the cookie can
  * never be sent to the bucket's hostname, which is the one place uploaded bytes
- * are served from. The prefix also requires Path=/, so it rides along on
- * gallery requests too. Nothing else on the origin reads it, and Path was never
- * a security boundary.
+ * are served from. The prefix also requires Path=/, so it rides along on every
+ * plugin's pages. Path was never a security boundary; the scopes are.
  *
  * Secure rules out http, including `wrangler pages dev`. Browsers make an
  * exception for localhost; there is deliberately no env switch to relax this,
@@ -56,23 +60,25 @@ export function readCookie(request, name = COOKIE) {
 }
 
 /**
- * Creates a session and returns the Set-Cookie value for it. channels comes
- * from the verified grant and bounds where the uploader may post.
+ * Creates a session and returns the Set-Cookie value for it. channels and
+ * scopes both come from the verified grant: channels bound where the holder may
+ * post, scopes bound what they may do, and the browser can widen neither.
  */
-export async function issueSession(env, { account, nick, channels }) {
+export async function issueSession(env, { account, nick, channels, scopes }) {
 	const id = b64urlEncode(crypto.getRandomValues(new Uint8Array(32)));
 	const now = Date.now();
 
 	await env.DB.batch([
-		env.DB.prepare("DELETE FROM upload_session WHERE expires < ?1").bind(now),
+		env.DB.prepare("DELETE FROM session WHERE expires < ?1").bind(now),
 		env.DB.prepare(
-			`INSERT INTO upload_session (id_hash, account, nick, channels, created, expires)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+			`INSERT INTO session (id_hash, account, nick, channels, scopes, created, expires)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
 		).bind(
 			await hash(id),
 			account,
 			nick,
 			JSON.stringify(channels),
+			scopes,
 			now,
 			now + TTL,
 		),
@@ -82,15 +88,15 @@ export async function issueSession(env, { account, nick, channels }) {
 }
 
 /**
- * Returns {account, nick, channels} or null. Expiry is decided by the query,
- * so a session cannot outlive its row by way of a clock read here.
+ * Returns {account, nick, channels, scopes} or null. Expiry is decided by the
+ * query, so a session cannot outlive its row by way of a clock read here.
  */
 export async function readSession(request, env) {
 	const id = readCookie(request);
 	if (!id) return null;
 
 	const row = await env.DB.prepare(
-		"SELECT account, nick, channels FROM upload_session WHERE id_hash = ?1 AND expires > ?2",
+		"SELECT account, nick, channels, scopes FROM session WHERE id_hash = ?1 AND expires > ?2",
 	)
 		.bind(await hash(id), Date.now())
 		.first();
@@ -102,17 +108,29 @@ export async function readSession(request, env) {
 			account: row.account,
 			nick: row.nick,
 			channels: JSON.parse(row.channels),
+			scopes: row.scopes,
 		};
 	} catch {
 		return null;
 	}
 }
 
+/**
+ * Returns the session when it carries every scope asked of it, otherwise null.
+ * A handler that calls this cannot be reached by a cookie minted for another
+ * part of the site, which is the point of storing the scopes at all.
+ */
+export async function requireScope(request, env, wanted) {
+	const session = await readSession(request, env);
+	if (!session) return null;
+	return (session.scopes & wanted) === wanted ? session : null;
+}
+
 /** Drops the row and returns a Set-Cookie that expires the browser's copy. */
 export async function clearSession(request, env) {
 	const id = readCookie(request);
 	if (id) {
-		await env.DB.prepare("DELETE FROM upload_session WHERE id_hash = ?1")
+		await env.DB.prepare("DELETE FROM session WHERE id_hash = ?1")
 			.bind(await hash(id))
 			.run();
 	}

@@ -6,9 +6,9 @@
  * to say in the channel.
  */
 
-import { b64urlEncode } from "../hmac.js";
+import { b64urlEncode, SCOPE_DROP } from "../hmac.js";
 import { fail, guard, intVar, json, rejectForeignOrigin } from "../http.js";
-import { readSession } from "../session.js";
+import { requireScope } from "../session.js";
 import { sniffImage } from "./sniff.js";
 
 /** The page re-encodes through a canvas before sending, so anything near this
@@ -40,7 +40,7 @@ export const onRequestPost = guard(async ({ request, env }) => {
 	if (!env.UPLOADS || !env.PUBLIC_IMAGE_BASE)
 		return fail(503, "uploads are not configured");
 
-	const session = await readSession(request, env);
+	const session = await requireScope(request, env, SCOPE_DROP);
 	if (!session) return fail(401, "no session, ask the bot for a new link");
 
 	const channel = pick(
