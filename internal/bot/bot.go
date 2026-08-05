@@ -43,8 +43,10 @@ type Bot struct {
 	whoisMu sync.Mutex // guards whois
 	whois   map[string]*whoisPending
 
-	identMu    sync.RWMutex // guards identified
-	identified map[string]bool
+	identMu sync.RWMutex // guards identified
+	// identified holds the account each nick proved, not just that it proved
+	// one: a proof is only good for the identity it was given for.
+	identified map[string]string
 }
 
 func New(cfg *config.Config, log *slog.Logger) *Bot {
@@ -80,7 +82,7 @@ func New(cfg *config.Config, log *slog.Logger) *Bot {
 		ignore:   cloneMap(cfg.IgnoreList),
 		whois:    map[string]*whoisPending{},
 
-		identified: map[string]bool{},
+		identified: map[string]string{},
 		topicAlias: map[string]string{},
 	}
 	b.registerBotCommands()

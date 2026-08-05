@@ -79,8 +79,10 @@ func (p *Plugin) Register(deps plugin.Deps) error {
 		Lines: []string{
 			"Type " + p.bot.Prefix() + "upload and I will PM you a link to the " +
 				"upload site, good once and for " + humanWait(p.cfg.GrantWait()) + ".",
-			"You must be identified with services, and we must share a channel: " +
-				"whatever you upload is announced in the channels we both sit in.",
+			"You must be registered and identified with me (" + p.bot.Prefix() +
+				"register, then " + p.bot.Prefix() + "identify), still identified with " +
+				"services, and we must share a channel: whatever you upload is " +
+				"announced in the channels we both sit in, under your nick.",
 		},
 	})
 	p.log.Info("enabled", "database", p.cfg.DatabaseID, "url", p.cfg.URL)
@@ -193,6 +195,19 @@ func (p *Plugin) inChannel(name string) bool {
 func (p *Plugin) cmdUpload(m *bot.Message) {
 	to := m.ReplyTo()
 
+	// A session outlives the command and its uploads carry the nick, so the nick
+	// must have proved itself to the bot: without that the link belongs to
+	// whoever is wearing it. Ahead of the cooldown, which this costs nothing to
+	// refuse.
+	proved := p.bot.IdentifiedAs(m.Nick)
+	if proved == "" {
+		p.log.Info("upload refused", "reason", "not identified with the bot", "nick", m.Nick)
+		p.bot.Say(to, m.Nick+": you need to be registered and identified with me before "+
+			"I will give you a link. Type "+p.bot.Prefix()+"register for what that means, "+
+			"then "+p.bot.Prefix()+"identify.")
+		return
+	}
+
 	// The cooldown comes before the lookup, not after: without it every
 	// repetition of the command is another WHOIS at the server.
 	if wait, ok := p.claim(m.Nick); !ok {
@@ -213,6 +228,15 @@ func (p *Plugin) cmdUpload(m *bot.Message) {
 	if !who.Identified() {
 		p.log.Info("upload refused", "reason", "not identified", "nick", m.Nick)
 		p.bot.Say(to, m.Nick+": you need to be identified with services first.")
+		return
+	}
+	// The proof is dropped on a nick change or a quit the bot saw, so a nick it
+	// lost track of and somebody else has taken is caught here instead.
+	if !strings.EqualFold(who.Account, proved) {
+		p.log.Warn("upload refused", "reason", "account changed since identifying",
+			"nick", m.Nick, "proved", proved, "account", who.Account)
+		p.bot.Say(to, m.Nick+": you are logged in to services as somebody other than "+
+			"who you identified with me as. Type "+p.bot.Prefix()+"identify again.")
 		return
 	}
 

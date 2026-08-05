@@ -50,8 +50,9 @@ func Install(b *bot.Bot, m *Minter, log *slog.Logger, url string, scopes Scope) 
 		Lines: []string{
 			"Type " + b.Prefix() + "web and I will PM you a link that signs you in, " +
 				"good once and for " + linkTTL.String() + ".",
-			"You must be identified with services, and we must share a channel. " +
-				"One link covers everything on the site you can use.",
+			"You must be registered and identified with me (" + b.Prefix() + "register, " +
+				"then " + b.Prefix() + "identify), still identified with services, and we " +
+				"must share a channel. One link covers everything on the site you can use.",
 		},
 	})
 	return true
@@ -64,6 +65,18 @@ func (s *Site) Link(grant string) string {
 
 func (s *Site) command(m *bot.Message) {
 	to := m.ReplyTo()
+
+	// A session outlives the command, so the nick must have proved itself to the
+	// bot: without that the link belongs to whoever is wearing the nick. Ahead
+	// of the cooldown, which this costs nothing to refuse.
+	proved := s.bot.IdentifiedAs(m.Nick)
+	if proved == "" {
+		s.log.Info("web refused", "reason", "not identified with the bot", "nick", m.Nick)
+		s.bot.Say(to, m.Nick+": you need to be registered and identified with me before "+
+			"I will sign you in. Type "+s.bot.Prefix()+"register for what that means, "+
+			"then "+s.bot.Prefix()+"identify.")
+		return
+	}
 
 	// Before the lookup, not after: otherwise every repetition is another
 	// WHOIS at the server.
@@ -84,6 +97,15 @@ func (s *Site) command(m *bot.Message) {
 	if !who.Identified() {
 		s.log.Info("web refused", "reason", "not identified", "nick", m.Nick)
 		s.bot.Say(to, m.Nick+": you need to be identified with services first.")
+		return
+	}
+	// The proof is dropped on a nick change or a quit the bot saw, so a nick it
+	// lost track of and somebody else has taken is caught here instead.
+	if !strings.EqualFold(who.Account, proved) {
+		s.log.Warn("web refused", "reason", "account changed since identifying",
+			"nick", m.Nick, "proved", proved, "account", who.Account)
+		s.bot.Say(to, m.Nick+": you are logged in to services as somebody other than "+
+			"who you identified with me as. Type "+s.bot.Prefix()+"identify again.")
 		return
 	}
 

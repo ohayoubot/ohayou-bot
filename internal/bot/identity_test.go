@@ -84,6 +84,20 @@ func TestIdentifyRemembersALoggedInNick(t *testing.T) {
 	}
 }
 
+// Which account was proved, not just that one was: a caller minting a session
+// has to be able to compare it against a fresh lookup.
+func TestIdentifiedAsIsTheAccountThatWasProved(t *testing.T) {
+	b := testBot()
+	identify(t, b, "someone", "SomeAccount")
+
+	if got := b.IdentifiedAs("SoMeOnE"); got != "SomeAccount" {
+		t.Errorf("IdentifiedAs = %q, want SomeAccount", got)
+	}
+	if got := b.IdentifiedAs("another"); got != "" {
+		t.Errorf("IdentifiedAs = %q for a nick that proved nothing", got)
+	}
+}
+
 func TestIdentifyRemembersNothingForALoggedOutNick(t *testing.T) {
 	b := testBot()
 
