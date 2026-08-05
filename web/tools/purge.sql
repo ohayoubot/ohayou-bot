@@ -1,9 +1,9 @@
 -- Remove bad arts.
 --
 -- Generated from the seed.sql diff; do not hand-edit.
---   pnpm run db:purge          # local
---   pnpm run db:purge:remote   # production
---   pnpm run db:purge:preview  # preview
+--   pnpm db purge deerkins                # local
+--   pnpm db purge deerkins remote --yes   # production
+--   pnpm db purge deerkins preview --yes  # preview
 
 DELETE FROM deer WHERE deer IN (
 -- 'bad art 1',

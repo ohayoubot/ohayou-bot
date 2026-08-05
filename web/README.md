@@ -11,12 +11,20 @@ Node 18 or newer and a Cloudflare account.
 
 ```sh
 pnpm install
-pnpm run db:init  # create the schema
-pnpm run db:seed  # load seed.sql
-pnpm run dev      # http://localhost:8788/deerkins/
+pnpm db init deerkins  # create the schema
+pnpm db seed deerkins  # load seed.sql
+pnpm run dev           # http://localhost:8788/deerkins/
 pnpm test
-pnpm lint         # biome; `pnpm lint:fix` writes the fixes
+pnpm lint              # biome; `pnpm lint:fix` writes the fixes
 ```
+
+Each database has one schema under `schema/`, applied with `pnpm db`:
+
+```sh
+pnpm db <init|seed|purge> <database> [local|remote|preview] [--yes]
+```
+
+`local` is the default. Anything else is a real database and needs `--yes`.
 
 `seed.sql` contains the original 1600+ deerkins/artbutt works from yore.
 
@@ -41,8 +49,8 @@ pnpm exec wrangler login
 Then:
 
 ```sh
-pnpm run db:init:remote
-pnpm run db:seed:remote  # might take a few minutes
+pnpm db init deerkins remote --yes
+pnpm db seed deerkins remote --yes  # might take a few minutes
 pnpm run deploy
 openssl rand -hex 32 | pnpm exec wrangler pages secret put IP_SALT --project-name deerkins
 pnpm run deploy
@@ -63,12 +71,12 @@ Give the preview database its schema, otherwise preview builds serve a working
 site backed by empty tables:
 
 ```sh
-pnpm run db:init:preview
-pnpm run db:seed:preview  # optional, only if you want real data to click around
+pnpm db init deerkins preview --yes
+pnpm db seed deerkins preview --yes  # optional, for real data to click around
 ```
 
-`db:init` is idempotent, so re-run it against production *and* preview whenever
-`schema.sql` changes. A table added for production only fails at runtime on a
+`init` is idempotent, so re-run it against production *and* preview whenever
+`schema/` changes. A table added for production only fails at runtime on a
 branch build, not at deploy.
 
 `wrangler pages secret put` writes to Production only. Preview needs its own
