@@ -1,11 +1,22 @@
 /*
  * The world map.
  *
- * Every colour is one hue away from every other: the page picks a hue per item
- * name and this file decides the lightness and chroma, which is what keeps a
- * hundred arbitrary hues looking like one palette. oklch rather than hsl
- * because equal lightness there actually looks equally light.
+ * Plots are blocks of acre tiles packed into one grid, so the page reads as
+ * settled ground rather than a row of cards. Every colour is one hue away from
+ * every other: the page picks a hue per item name and this file decides the
+ * lightness and chroma, which is what keeps a hundred arbitrary hues looking
+ * like one palette. oklch rather than hsl because equal lightness there
+ * actually looks equally light.
  */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 #summary {
   display: flex;
@@ -26,94 +37,108 @@
   margin-left: auto;
 }
 
+.map {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+/*
+ * One grid for the whole world. A plot spans --wide by --tall cells, and dense
+ * packing lets a small holding fill the gap a larger one left, which is what
+ * makes the map look settled rather than shelved.
+ */
 .world {
+  --tile: 13px;
+  flex: 1 1 20rem;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fill, var(--tile));
+  grid-auto-rows: var(--tile);
+  grid-auto-flow: row dense;
+  gap: 5px;
+  justify-content: center;
 }
 
 .plot {
-  --edge: color-mix(in oklab, currentColor 18%, transparent);
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.7rem 0.75rem 0.8rem;
-  border: 1px solid var(--edge);
-  border-radius: 10px;
-  background: color-mix(in oklab, currentColor 4%, transparent);
-  transition: border-color 120ms ease, transform 120ms ease;
-}
-
-.plot:hover {
-  border-color: color-mix(in oklab, currentColor 38%, transparent);
-  transform: translateY(-1px);
-}
-
-/* Unnamed is quieter, not hidden: it is still somebody's land, and the dashed
-   edge is the invitation to claim it. */
-.plot.unnamed {
-  border-style: dashed;
-  opacity: 0.72;
-}
-
-.plot.mine {
-  border-color: oklch(72% 0.17 155);
-  box-shadow: 0 0 0 1px oklch(72% 0.17 155 / 0.35);
-  opacity: 1;
-}
-
-.plot header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.4rem;
-}
-
-.plot h3 {
-  margin: 0;
-  font-size: 0.95em;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.plot.unnamed h3 {
-  font-weight: 400;
-  font-style: italic;
-  opacity: 0.7;
-}
-
-.band {
-  font-size: 0.7em;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.55;
-  white-space: nowrap;
-}
-
-/* One tile per acre, wrapped so a big holding grows downwards. */
-.acres {
+  grid-column: span var(--wide);
+  grid-row: span var(--tall);
   display: grid;
-  grid-template-columns: repeat(auto-fill, 15px);
-  gap: 3px;
+  grid-template-columns: repeat(var(--wide), 1fr);
+  gap: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  outline-offset: 3px;
 }
 
 .acre {
-  aspect-ratio: 1;
-  width: 15px;
-  border-radius: 3px;
-  background: color-mix(in oklab, currentColor 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 12%, transparent);
+  border-radius: 2px;
+  background: color-mix(in oklab, currentColor 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 10%, transparent);
+  transition: filter 120ms ease;
+}
+
+/* The corner a square block leaves over is not land at all. */
+.plot .acre:not(.built):nth-child(n) {
+  opacity: 1;
 }
 
 .acre.built {
   background: linear-gradient(
     155deg,
-    oklch(74% 0.14 var(--hue)),
+    oklch(76% 0.13 var(--hue)),
     oklch(58% 0.15 var(--hue))
   );
   box-shadow:
-    inset 0 1px 0 oklch(88% 0.08 var(--hue) / 0.55),
-    0 1px 2px rgb(0 0 0 / 0.28);
+    inset 0 1px 0 oklch(90% 0.07 var(--hue) / 0.5),
+    0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+/* Unnamed is quieter, not hidden: it is still somebody's land. */
+.plot.unnamed .acre {
+  opacity: 0.62;
+}
+
+.plot:hover .acre,
+.plot:focus-visible .acre {
+  filter: brightness(1.25);
+  opacity: 1;
+}
+
+.plot.mine {
+  box-shadow: 0 0 0 2px oklch(72% 0.17 155);
+}
+
+/* ---- who a plot belongs to ---- */
+
+.detail {
+  flex: 0 1 15rem;
+  align-self: stretch;
+  padding: 0.85rem 1rem 1rem;
+  border: 1px solid color-mix(in oklab, currentColor 16%, transparent);
+  border-radius: 10px;
+  background: color-mix(in oklab, currentColor 4%, transparent);
+}
+
+.detail h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1.05em;
+  overflow-wrap: anywhere;
+}
+
+.detail h3.anon {
+  font-weight: 400;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.detail .facts {
+  margin: 0 0 0.6rem;
+  font-size: 0.82em;
+  opacity: 0.7;
 }
 
 .legend {
@@ -122,14 +147,14 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
-  font-size: 0.76em;
+  gap: 0.15rem;
+  font-size: 0.82em;
 }
 
 .legend li {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .legend b {
@@ -138,18 +163,15 @@
 }
 
 .swatch {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   flex: none;
   border-radius: 2px;
   background: oklch(66% 0.15 var(--hue));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .plot {
+  .acre {
     transition: none;
-  }
-  .plot:hover {
-    transform: none;
   }
 }

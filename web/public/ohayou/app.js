@@ -1,13 +1,19 @@
 /*
- * The world map. Every plot is a patch of land, sized by how many acres its
- * owner holds and coloured by what is on it.
+ * The world, as one landscape rather than a row of cards.
  *
- * The layout is decorative: which acre a building sits on is this page's
- * choice, not the game's. What is authoritative is the count beside it, which
- * comes from the bot. Nothing here works out a game rule.
+ * Each plot is a block of acre tiles, and the blocks are packed together so the
+ * map reads as settled ground: a big holding is visibly bigger, and small ones
+ * fill in around it. Where a plot lands is the browser's business (grid packing
+ * does it), but its size and what is on it come from the bot.
+ *
+ * Nothing here works out a game rule. Which acre a building sits on is this
+ * page's choice; the counts beside it are authoritative.
  */
 
 const $ = (sel) => document.querySelector(sel);
+
+let plots = [];
+let mine = null;
 
 async function start() {
 	const [world, session] = await Promise.all([load("/ohayou/api/world"), me()]);
@@ -16,16 +22,19 @@ async function start() {
 		return;
 	}
 
-	const { plots, totals, updated } = world;
-	$("#totals").replaceChildren(...describe(totals, updated));
+	plots = world.plots;
+	mine = session?.account ?? null;
+	$("#totals").replaceChildren(...describe(world.totals, world.updated));
 
 	if (plots.length === 0) {
 		$("#empty").hidden = false;
+		$("#detail").hidden = true;
 		return;
 	}
-	$("#world").replaceChildren(
-		...plots.map((plot) => card(plot, session?.account)),
-	);
+
+	$("#world").replaceChildren(...plots.map(block));
+	const own = plots.find((p) => p.named && p.id === mine);
+	show(own ?? plots[0]);
 }
 
 async function load(url) {
@@ -41,6 +50,126 @@ async function load(url) {
 async function me() {
 	return load("/api/session");
 }
+
+/* ---- the map ---- */
+
+/**
+ * A plot's block is as square as its acreage allows, so the map is made of
+ * settlements rather than stripes. Grid packing places them; a dense flow
+ * lets a small plot fill a gap a large one left.
+ */
+function block(plot) {
+	const acres = Math.max(1, plot.acres);
+	const wide = Math.ceil(Math.sqrt(acres));
+	const tall = Math.ceil(acres / wide);
+
+	const el = document.createElement("button");
+	el.type = "button";
+	el.className = "plot";
+	el.setAttribute("role", "listitem");
+	if (!plot.named) el.classList.add("unnamed");
+	if (mine && plot.named && plot.id === mine) el.classList.add("mine");
+
+	el.style.setProperty("--wide", wide);
+	el.style.setProperty("--tall", tall);
+	el.setAttribute(
+		"aria-label",
+		`${plot.named ? plot.nick : "an unclaimed plot"}, ${acres} ${plural(
+			acres,
+			"acre",
+		)}, ${plot.wealth}`,
+	);
+
+	// The tiles themselves: filled ones first, so a holding reads as built up
+	// from one corner rather than speckled.
+	const filled = fill(plot, wide * tall);
+	for (const item of filled) {
+		const tile = document.createElement("span");
+		tile.className = item ? "acre built" : "acre";
+		if (item) tile.style.setProperty("--hue", hueOf(item));
+		el.append(tile);
+	}
+
+	const point = () => show(plot);
+	el.addEventListener("mouseenter", point);
+	el.addEventListener("focus", point);
+	el.addEventListener("click", point);
+	return el;
+}
+
+/**
+ * What sits on each tile of the block. Buildings are dealt out in name order so
+ * the same holding always draws the same way; tiles past the plot's acreage are
+ * the corner the square leaves over, and stay blank.
+ */
+function fill(plot, tiles) {
+	const out = [];
+	for (const [item, count] of Object.entries(plot.land).sort()) {
+		for (let i = 0; i < count && out.length < plot.acres; i++) out.push(item);
+	}
+	while (out.length < plot.acres) out.push(null);
+	while (out.length < tiles) out.push(undefined);
+	return out.slice(0, tiles);
+}
+
+/* ---- who a plot belongs to ---- */
+
+function show(plot) {
+	const panel = $("#detail");
+	const name = document.createElement("h3");
+	name.textContent = plot.named ? plot.nick : "An unclaimed plot";
+	if (!plot.named) name.className = "anon";
+
+	const facts = document.createElement("p");
+	facts.className = "facts";
+	facts.textContent = `${plot.acres} ${plural(plot.acres, "acre")} · ${
+		plot.wealth
+	} · ${plot.rations} ${plural(plot.rations, "ration")} collected`;
+
+	const parts = [name, facts];
+	if (plot.named) {
+		const list = legend(plot.land);
+		parts.push(list ?? hint("Nothing built on it yet."));
+	} else {
+		parts.push(
+			hint(
+				"Whoever holds this has not put their name to it. Say !territory on to name yours.",
+			),
+		);
+	}
+	panel.replaceChildren(...parts);
+}
+
+function hint(text) {
+	const p = document.createElement("p");
+	p.className = "hint";
+	p.textContent = text;
+	return p;
+}
+
+function legend(land) {
+	const names = Object.keys(land).sort();
+	if (names.length === 0) return null;
+
+	const list = document.createElement("ul");
+	list.className = "legend";
+	list.replaceChildren(
+		...names.map((item) => {
+			const row = document.createElement("li");
+			const swatch = document.createElement("span");
+			swatch.className = "swatch";
+			swatch.style.setProperty("--hue", hueOf(item));
+
+			const count = document.createElement("b");
+			count.textContent = land[item];
+			row.append(swatch, `${item} `, count);
+			return row;
+		}),
+	);
+	return list;
+}
+
+/* ---- odds and ends ---- */
 
 function describe(totals, updated) {
 	const stat = (value, label) => {
@@ -80,84 +209,11 @@ function ago(ms) {
 	return `${days} ${plural(days, "day")} ago`;
 }
 
-function card(plot, account) {
-	const el = document.createElement("article");
-	el.className = "plot";
-	if (!plot.named) el.classList.add("unnamed");
-	if (account && plot.named && plot.id === account) el.classList.add("mine");
-
-	const head = document.createElement("header");
-	const name = document.createElement("h3");
-	name.textContent = plot.named ? plot.nick : "unclaimed";
-	const band = document.createElement("span");
-	band.className = "band";
-	band.textContent = plot.wealth;
-	head.append(name, band);
-	el.append(head, acres(plot));
-
-	if (plot.named) {
-		const list = legend(plot.land);
-		if (list) el.append(list);
-	}
-	return el;
-}
-
 /**
- * One tile per acre, filled with whatever is on the plot. Buildings are dealt
- * out in name order so the same holding always draws the same way; a plot with
- * more buildings than acres simply fills every tile.
- */
-function acres(plot) {
-	const grid = document.createElement("div");
-	grid.className = "acres";
-
-	const fill = [];
-	for (const [item, count] of Object.entries(plot.land).sort()) {
-		for (let i = 0; i < count && fill.length < plot.acres; i++) {
-			fill.push(item);
-		}
-	}
-
-	for (let i = 0; i < plot.acres; i++) {
-		const tile = document.createElement("div");
-		tile.className = "acre";
-		if (fill[i]) {
-			tile.classList.add("built");
-			tile.style.setProperty("--hue", hueOf(fill[i]));
-			tile.title = fill[i];
-		}
-		grid.append(tile);
-	}
-	return grid;
-}
-
-function legend(land) {
-	const names = Object.keys(land).sort();
-	if (names.length === 0) return null;
-
-	const list = document.createElement("ul");
-	list.className = "legend";
-	list.replaceChildren(
-		...names.map((item) => {
-			const row = document.createElement("li");
-			const swatch = document.createElement("span");
-			swatch.className = "swatch";
-			swatch.style.setProperty("--hue", hueOf(item));
-
-			const count = document.createElement("b");
-			count.textContent = land[item];
-			row.append(swatch, `${item} `, count);
-			return row;
-		}),
-	);
-	return list;
-}
-
-/**
- * A hue per item name. Derived rather than listed, so an item added to the
- * game gets a colour without this page being taught its name. The lightness
- * and chroma live in the stylesheet, which is what keeps a hundred hues
- * looking like one palette.
+ * A hue per item name. Derived rather than listed, so an item added to the game
+ * gets a colour without this page being taught its name. The lightness and
+ * chroma live in the stylesheet, which is what keeps a hundred hues looking
+ * like one palette.
  */
 function hueOf(item) {
 	let hash = 0;
