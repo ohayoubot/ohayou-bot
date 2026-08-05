@@ -225,6 +225,7 @@ func (p *Plugin) cmdUpload(m *bot.Message) {
 		Account:  who.Account,
 		Nick:     m.Nick,
 		Channels: channels,
+		Scopes:   web.ScopeDrop,
 		TTL:      p.cfg.GrantWait(),
 	})
 	if err != nil {

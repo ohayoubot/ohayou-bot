@@ -3,6 +3,10 @@ import test from "node:test";
 import {
 	b64urlDecode,
 	b64urlEncode,
+	hasScope,
+	packGrant,
+	SCOPE_DROP,
+	SCOPE_OHAYOU,
 	signGrant,
 	verifyGrant,
 } from "../lib/hmac.js";
@@ -10,24 +14,33 @@ import {
 const SECRET = "0123456789abcdef0123456789abcdef";
 const NOW = 1_754_250_000;
 
+/** The id is 8 raw bytes on the wire; verifyGrant hands it back base64url. */
+const ID = new TextEncoder().encode("01234567");
+const ID_B64 = b64urlEncode(ID);
+
 function grant(overrides = {}) {
 	return {
-		a: "someone",
-		n: "someone_",
-		c: ["#chan", "#other"],
-		e: NOW + 300,
-		j: "MDEyMzQ1Njc4OWFiY2RlZg",
+		scopes: SCOPE_DROP,
+		expiry: NOW + 300,
+		id: ID,
+		account: "someone",
+		nick: "someone_",
+		channels: ["#chan", "#other"],
 		...overrides,
 	};
 }
 
-/** Swaps in a payload without touching the signature. */
-function repayload(token, payload) {
-	const [version, , signature] = token.split(".");
-	const encoded = b64urlEncode(
-		new TextEncoder().encode(JSON.stringify(payload)),
+/** Re-signs a payload the packer would refuse, so validate() can be reached. */
+async function signRaw(bytes, secret = SECRET) {
+	const key = await crypto.subtle.importKey(
+		"raw",
+		new TextEncoder().encode(secret),
+		{ name: "HMAC", hash: "SHA-256" },
+		false,
+		["sign"],
 	);
-	return `${version}.${encoded}.${signature}`;
+	const full = new Uint8Array(await crypto.subtle.sign("HMAC", key, bytes));
+	return `${b64urlEncode(bytes)}.${b64urlEncode(full.subarray(0, 16))}`;
 }
 
 async function reason(token, secret = SECRET, now = NOW) {
@@ -37,40 +50,35 @@ async function reason(token, secret = SECRET, now = NOW) {
 }
 
 test("a freshly signed grant verifies", async () => {
-	const payload = grant();
 	const result = await verifyGrant(
-		await signGrant(payload, SECRET),
+		await signGrant(grant(), SECRET),
 		SECRET,
 		NOW,
 	);
 	assert.equal(result.ok, true);
-	assert.deepEqual(result.payload, payload);
+	assert.deepEqual(result.payload, {
+		scopes: SCOPE_DROP,
+		expiry: NOW + 300,
+		id: ID_B64,
+		account: "someone",
+		nick: "someone_",
+		channels: ["#chan", "#other"],
+	});
 });
 
 test("the byte layout is pinned", async () => {
-	// The bot signs the same bytes in go. If this changes, both sides change.
+	// The bot signs the same bytes in go, and internal/web/grant_test.go pins
+	// this exact string. If it changes, both sides change together.
 	assert.equal(
 		await signGrant(grant(), SECRET),
-		"v1.eyJhIjoic29tZW9uZSIsIm4iOiJzb21lb25lXyIsImMiOlsiI2NoYW4iLCIjb3RoZXIiXSwiZSI6MTc1NDI1MDMwMCwiaiI6Ik1ERXlNelExTmpjNE9XRmlZMlJsWmcifQ.JCgzlwyJ-xGgERsMw9DEWv91owB4GLvuEUgoGUB8Wpc",
+		"AgFoj7w8MDEyMzQ1NjcHc29tZW9uZQhzb21lb25lXwIFI2NoYW4GI290aGVy.zx4o3X9YTT1z-DbcIay-qw",
 	);
 });
 
-test("field order is not part of the contract", async () => {
-	// Verification hashes the payload as received, so a bot that emits the
-	// fields in another order still interoperates. Only the vector above cares.
-	const reordered = {
-		j: "x".repeat(8),
-		e: NOW + 300,
-		c: ["#chan"],
-		n: "n",
-		a: "a",
-	};
-	const result = await verifyGrant(
-		await signGrant(reordered, SECRET),
-		SECRET,
-		NOW,
-	);
-	assert.equal(result.ok, true);
+test("the token is short enough to click out of a terminal", async () => {
+	// A url that wraps in an irc client is one nobody can follow.
+	const token = await signGrant(grant(), SECRET);
+	assert.ok(token.length <= 96, `${token.length} characters`);
 });
 
 test("a grant signed with another secret is refused", async () => {
@@ -78,46 +86,79 @@ test("a grant signed with another secret is refused", async () => {
 	assert.equal(await reason(token), "bad signature");
 });
 
-test("swapping the payload under a valid signature is refused", async () => {
+test("swapping the payload under a valid tag is refused", async () => {
 	const token = await signGrant(grant(), SECRET);
-	const widened = repayload(
-		token,
-		grant({ c: ["#chan", "#other", "#secret"] }),
+	const [, tag] = token.split(".");
+	const widened = packGrant(
+		grant({ channels: ["#chan", "#other", "#secret"] }),
 	);
-	assert.equal(await reason(widened), "bad signature");
+	assert.equal(
+		await reason(`${b64urlEncode(widened)}.${tag}`),
+		"bad signature",
+	);
 });
 
-test("a truncated signature is refused", async () => {
+test("a truncated tag is refused", async () => {
 	const token = await signGrant(grant(), SECRET);
-	assert.equal(await reason(token.slice(0, -1)), "bad signature");
+	assert.equal(await reason(token.slice(0, -1)), "malformed");
 });
 
 test("an expired grant is refused", async () => {
-	const token = await signGrant(grant({ e: NOW - 1 }), SECRET);
-	assert.equal(await reason(token), "expired");
+	assert.equal(
+		await reason(await signGrant(grant({ expiry: NOW - 1 }), SECRET)),
+		"expired",
+	);
 });
 
 test("a grant expiring exactly now is refused", async () => {
-	const token = await signGrant(grant({ e: NOW }), SECRET);
-	assert.equal(await reason(token), "expired");
+	assert.equal(
+		await reason(await signGrant(grant({ expiry: NOW }), SECRET)),
+		"expired",
+	);
 });
 
 test("a grant reaching too far into the future is refused", async () => {
-	const token = await signGrant(grant({ e: NOW + 901 }), SECRET);
-	assert.equal(await reason(token), "expiry too far out");
+	assert.equal(
+		await reason(await signGrant(grant({ expiry: NOW + 901 }), SECRET)),
+		"expiry too far out",
+	);
 });
 
 test("malformed tokens are refused before any parsing", async () => {
 	const token = await signGrant(grant(), SECRET);
-	const [version, encoded, signature] = token.split(".");
+	const [body] = token.split(".");
 
 	assert.equal(await reason(""), "malformed");
-	assert.equal(await reason(`${version}.${encoded}`), "malformed");
+	assert.equal(await reason(body), "malformed");
 	assert.equal(await reason(`${token}.extra`), "malformed");
 	assert.equal(await reason(null), "malformed");
-	assert.equal(await reason("v1.".padEnd(2000, "a")), "malformed");
-	assert.equal(await reason(`v2.${encoded}.${signature}`), "bad version");
-	assert.equal(await reason(`${version}.${encoded}.not base64`), "malformed");
+	assert.equal(await reason("".padEnd(2000, "a")), "malformed");
+	assert.equal(await reason(`${body}.not base64`), "malformed");
+});
+
+test("a grant from another version is refused", async () => {
+	const body = packGrant(grant());
+	body[0] = 3;
+	assert.equal(
+		await reason(await signRaw(body)),
+		"unreadable payload: grant version 3",
+	);
+});
+
+test("a truncated or padded payload is refused", async () => {
+	const body = packGrant(grant());
+
+	for (let n = 0; n < body.length; n++) {
+		const short = await signRaw(body.subarray(0, n));
+		const why = await reason(short);
+		assert.ok(why.startsWith("unreadable payload"), `${n} bytes gave ${why}`);
+	}
+
+	const padded = new Uint8Array([...body, 0]);
+	assert.equal(
+		await reason(await signRaw(padded)),
+		"unreadable payload: trailing bytes in grant",
+	);
 });
 
 test("verifying without a secret is refused", async () => {
@@ -127,32 +168,60 @@ test("verifying without a secret is refused", async () => {
 
 test("a signed but nonsensical payload is refused", async () => {
 	const cases = [
-		[{ ...grant(), a: "" }, "bad account"],
-		[{ ...grant(), a: "x".repeat(65) }, "bad account"],
-		[{ ...grant(), n: 7 }, "bad nick"],
-		[{ ...grant(), j: undefined }, "bad id"],
-		[{ ...grant(), e: 1.5 }, "bad expiry"],
-		[{ ...grant(), c: [] }, "no channels"],
-		[{ ...grant(), c: "#chan" }, "no channels"],
-		[{ ...grant(), c: Array(33).fill("#chan") }, "too many channels"],
-		[{ ...grant(), c: ["chan"] }, "bad channel"],
-		[{ ...grant(), c: ["#with space"] }, "bad channel"],
-		[{ ...grant(), c: ["#with,comma"] }, "bad channel"],
-		[{ ...grant(), c: [`#${"x".repeat(50)}`] }, "bad channel"],
-		[{ ...grant(), c: [17] }, "bad channel"],
+		[grant({ scopes: 0 }), "no scopes"],
+		[grant({ scopes: 0x80 }), "unknown scope"],
+		[grant({ channels: [] }), "no channels"],
+		[grant({ channels: ["chan"] }), "bad channel"],
+		[grant({ channels: ["#with space"] }), "bad channel"],
+		[grant({ channels: ["#with,comma"] }), "bad channel"],
+		[grant({ channels: [`#${"x".repeat(50)}`] }), "bad channel"],
 	];
 
 	for (const [payload, expected] of cases) {
-		const token = await signGrant(payload, SECRET);
-		assert.equal(await reason(token), expected, JSON.stringify(payload));
+		const token = await signRaw(packGrant(payload));
+		assert.equal(
+			await reason(token),
+			expected,
+			JSON.stringify(payload.channels),
+		);
 	}
 });
 
-test("a signed non-object payload is refused", async () => {
-	for (const payload of [null, ["#chan"], 42, "grant"]) {
-		const token = await signGrant(payload, SECRET);
-		assert.equal(await reason(token), "payload is not an object");
-	}
+test("the packer refuses names it cannot length-prefix", () => {
+	assert.throws(() => packGrant(grant({ account: "" })));
+	assert.throws(() => packGrant(grant({ account: "x".repeat(65) })));
+	assert.throws(() => packGrant(grant({ channels: Array(33).fill("#chan") })));
+	assert.throws(() => packGrant(grant({ id: new Uint8Array(4) })));
+});
+
+test("scopes are checked as a set, not a value", async () => {
+	const both = await verifyGrant(
+		await signGrant(grant({ scopes: SCOPE_DROP | SCOPE_OHAYOU }), SECRET),
+		SECRET,
+		NOW,
+	);
+	assert.equal(both.ok, true);
+	assert.equal(hasScope(both.payload, SCOPE_DROP), true);
+	assert.equal(hasScope(both.payload, SCOPE_OHAYOU), true);
+	assert.equal(hasScope(both.payload, SCOPE_DROP | SCOPE_OHAYOU), true);
+
+	const dropOnly = await verifyGrant(
+		await signGrant(grant(), SECRET),
+		SECRET,
+		NOW,
+	);
+	assert.equal(hasScope(dropOnly.payload, SCOPE_OHAYOU), false);
+	assert.equal(hasScope(dropOnly.payload, SCOPE_DROP | SCOPE_OHAYOU), false);
+});
+
+test("a multibyte name survives the round trip", async () => {
+	const result = await verifyGrant(
+		await signGrant(grant({ nick: "ｄｅｅｒ" }), SECRET),
+		SECRET,
+		NOW,
+	);
+	assert.equal(result.ok, true);
+	assert.equal(result.payload.nick, "ｄｅｅｒ");
 });
 
 test("base64url round-trips and rejects the standard alphabet", () => {

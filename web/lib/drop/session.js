@@ -4,7 +4,7 @@
  * DELETE /drop/api/session   give it back
  */
 
-import { verifyGrant } from "../hmac.js";
+import { hasScope, SCOPE_DROP, verifyGrant } from "../hmac.js";
 import {
 	fail,
 	guard,
@@ -36,20 +36,23 @@ export const onRequestPost = guard(async ({ request, env }) => {
 	const grant = await verifyGrant(body.token, env.UPLOAD_HMAC_SECRET);
 	if (!grant.ok) return refuse(grant.reason);
 
+	// A grant minted for another part of the site is not one for this.
+	if (!hasScope(grant.payload, SCOPE_DROP)) return refuse("not a drop grant");
+
 	if (!(await claim(env, grant.payload))) return refuse("already redeemed");
 
 	const cookie = await issueSession(env, {
-		account: grant.payload.a,
-		nick: grant.payload.n,
-		channels: grant.payload.c,
+		account: grant.payload.account,
+		nick: grant.payload.nick,
+		channels: grant.payload.channels,
 	});
 
 	return json(
 		{
 			status: "session",
-			account: grant.payload.a,
-			nick: grant.payload.n,
-			channels: grant.payload.c,
+			account: grant.payload.account,
+			nick: grant.payload.nick,
+			channels: grant.payload.channels,
 		},
 		{ headers: { ...NO_STORE, "set-cookie": cookie } },
 	);
@@ -72,8 +75,8 @@ export const onRequestDelete = guard(async ({ request, env }) => {
  * Records the grant's id, returning whether this is the first time. The insert
  * decides it, so two simultaneous redemptions of one link cannot both win.
  *
- * exp is in seconds, as it is on the wire and in grant_used. Everywhere else in
- * this database time is milliseconds.
+ * The expiry is in seconds, as it is on the wire and in grant_used. Everywhere
+ * else in this database time is milliseconds.
  */
 async function claim(env, payload) {
 	const [, claimed] = await env.DB.batch([
@@ -82,7 +85,7 @@ async function claim(env, payload) {
 		),
 		env.DB.prepare(
 			"INSERT OR IGNORE INTO grant_used (jti, exp) VALUES (?1, ?2)",
-		).bind(payload.j, payload.e),
+		).bind(payload.id, payload.expiry),
 	]);
 
 	return claimed.meta.changes === 1;

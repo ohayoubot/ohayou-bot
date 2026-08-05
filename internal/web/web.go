@@ -14,6 +14,9 @@ type Grant struct {
 	Nick string
 	// Channels bound where the session may post. The site cannot widen them.
 	Channels []string
+	// Scopes are what the holder may do. A grant minted for one plugin cannot be
+	// spent on another.
+	Scopes Scope
 	// TTL is how long the link stays good. Anything past MaxTTL is refused by
 	// the worker, so it is refused here first.
 	TTL time.Duration
@@ -41,19 +44,20 @@ func (m *Minter) Mint(g Grant) (token, id string, err error) {
 	if err := g.validate(); err != nil {
 		return "", "", err
 	}
-	id, err = newID()
+	raw, err := newID()
 	if err != nil {
 		return "", "", err
 	}
 	token, err = m.sign(payload{
-		A: g.Account,
-		N: g.Nick,
-		C: g.Channels,
-		E: m.Now().Add(g.TTL).Unix(),
-		J: id,
+		Scopes:   g.Scopes,
+		Expiry:   m.Now().Add(g.TTL).Unix(),
+		ID:       raw,
+		Account:  g.Account,
+		Nick:     g.Nick,
+		Channels: g.Channels,
 	})
 	if err != nil {
 		return "", "", err
 	}
-	return token, id, nil
+	return token, b64(raw), nil
 }
