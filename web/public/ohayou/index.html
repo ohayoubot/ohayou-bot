@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ohayou: the world</title>
-<meta name="description" content="Every territory in the ohayou game, drawn as land.">
+<meta name="description" content="Every territory in the ohayou game, laid out as one landscape.">
 <meta name="color-scheme" content="dark light">
 <link rel="stylesheet" href="../deerkins/style.css">
 <link rel="stylesheet" href="style.css">
@@ -25,8 +25,13 @@
   </section>
 
   <section>
-    <h2>The world</h2>
-    <div id="world" class="world"></div>
+    <h2 class="visually-hidden">The world</h2>
+    <div class="map">
+      <div id="world" class="world" role="list" aria-label="Every territory"></div>
+      <aside id="detail" class="detail" aria-live="polite">
+        <p class="hint">Point at a plot to see whose it is.</p>
+      </aside>
+    </div>
     <p class="hint" id="empty" hidden>
       Nobody has ohayou'd yet, so there is no land to draw.
     </p>
