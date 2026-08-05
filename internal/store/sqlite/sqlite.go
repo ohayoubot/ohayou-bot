@@ -62,6 +62,25 @@ func (d *DB) Migrate(ctx context.Context, name, schema string) error {
 	return nil
 }
 
+// AddColumn quotes rather than binds its identifiers: sqlite will not bind one,
+// and they come from a plugin's own source, never from a user.
+func (d *DB) AddColumn(ctx context.Context, table, column, definition string) error {
+	var found int
+	err := d.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name=?`, table, column).Scan(&found)
+	if err != nil {
+		return fmt.Errorf("sqlite inspecting %s: %w", table, err)
+	}
+	if found > 0 {
+		return nil
+	}
+	if _, err := d.db.ExecContext(ctx,
+		fmt.Sprintf(`ALTER TABLE %q ADD COLUMN %q %s`, table, column, definition)); err != nil {
+		return fmt.Errorf("sqlite adding %s.%s: %w", table, column, err)
+	}
+	return nil
+}
+
 func (d *DB) GetKV(ctx context.Context, key string) (string, error) {
 	var value string
 	err := d.db.QueryRowContext(ctx, `SELECT value FROM kv WHERE key=?`, key).Scan(&value)
@@ -274,12 +293,12 @@ func (d *DB) GetUser(ctx context.Context, nick string) (*store.User, error) {
 	var last, probation, vaultLast int64
 	var registered, vaultInstalled int
 	err := d.db.QueryRowContext(ctx, `
-		SELECT username,last,ohayous,cum_ohayous,steal_success,steal_fail,
+		SELECT username,account,web,last,ohayous,cum_ohayous,steal_success,steal_fail,
 		       stolen_from,stolen_ohayous,ohayous_stolen,probation,
 		       probation_count,times_ohayoued,registered,fortune,
 		       vault_installed,vault_level,vault_ohayous,vault_last
 		FROM users WHERE username=?`, nick).Scan(
-		&u.Username, &last, &u.Ohayous, &u.CumOhayous, &u.StealSuccess,
+		&u.Username, &u.Account, &u.Web, &last, &u.Ohayous, &u.CumOhayous, &u.StealSuccess,
 		&u.StealFail, &u.StolenFrom, &u.StolenOhayous, &u.OhayousStolen,
 		&probation, &u.ProbationCount, &u.TimesOhayoued, &registered, &u.Fortune,
 		&vaultInstalled, &u.Vault.Level, &u.Vault.Ohayous, &vaultLast)
@@ -410,6 +429,17 @@ func (d *DB) SaveOhayou(ctx context.Context, nick string, newTotal, addedCum int
 		`UPDATE users SET ohayous=?, last=?, cum_ohayous=cum_ohayous+?,
 		 times_ohayoued=times_ohayoued+1 WHERE username=? AND last<?`,
 		newTotal, unix(last), addedCum, nick, unix(dayStart)))
+}
+
+// SetAccount overwrites, because only a nick that just passed a WHOIS gets here.
+func (d *DB) SetAccount(ctx context.Context, nick, account string) error {
+	_, err := d.db.ExecContext(ctx, `UPDATE users SET account=? WHERE username=?`, account, nick)
+	return err
+}
+
+func (d *DB) SetVisibility(ctx context.Context, nick string, v store.Visibility) error {
+	_, err := d.db.ExecContext(ctx, `UPDATE users SET web=? WHERE username=?`, string(v), nick)
+	return err
 }
 
 func (d *DB) SetRegister(ctx context.Context, nick string, registered bool) error {

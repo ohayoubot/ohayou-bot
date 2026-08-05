@@ -724,6 +724,81 @@ func TestInitCreatesOnlyTheBotsTables(t *testing.T) {
 	}
 }
 
+// The deployed database predates the account column, and its users table is
+// what stops the schema from installing one. This is that upgrade.
+func TestAddColumnUpgradesATableThatAlreadyExists(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := db.Init(ctx); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	// The users table as it shipped, without account.
+	if _, err := db.db.ExecContext(ctx, `CREATE TABLE users (
+		username TEXT PRIMARY KEY, last INTEGER NOT NULL DEFAULT 0,
+		ohayous INTEGER NOT NULL DEFAULT 0, cum_ohayous INTEGER NOT NULL DEFAULT 0,
+		steal_success INTEGER NOT NULL DEFAULT 0, steal_fail INTEGER NOT NULL DEFAULT 0,
+		stolen_from INTEGER NOT NULL DEFAULT 0, stolen_ohayous INTEGER NOT NULL DEFAULT 0,
+		ohayous_stolen INTEGER NOT NULL DEFAULT 0, probation INTEGER NOT NULL DEFAULT 0,
+		probation_count INTEGER NOT NULL DEFAULT 0, times_ohayoued INTEGER NOT NULL DEFAULT 0,
+		registered INTEGER NOT NULL DEFAULT 0, fortune TEXT NOT NULL DEFAULT '',
+		vault_installed INTEGER NOT NULL DEFAULT 0, vault_level INTEGER NOT NULL DEFAULT 0,
+		vault_ohayous INTEGER NOT NULL DEFAULT 0, vault_last INTEGER NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatalf("create the old users table: %v", err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO users(username,ohayous) VALUES('alice',5)`); err != nil {
+		t.Fatalf("seed a user: %v", err)
+	}
+
+	schema, err := os.ReadFile("../../plugins/ohayou/schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrate(ctx, "ohayou", string(schema)); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	// Mirrors addedColumns in the ohayou plugin. Applied twice, because Start
+	// runs it on every boot.
+	for i := 0; i < 2; i++ {
+		for _, column := range []string{"account", "web"} {
+			if err := db.AddColumn(ctx, "users", column, "TEXT NOT NULL DEFAULT ''"); err != nil {
+				t.Fatalf("add %s (pass %d): %v", column, i, err)
+			}
+		}
+	}
+
+	u, err := db.GetUser(ctx, "alice")
+	if err != nil {
+		t.Fatalf("get the upgraded user: %v", err)
+	}
+	if u.Account != "" || u.Ohayous != 5 {
+		t.Errorf("account = %q, ohayous = %d, want \"\" and 5", u.Account, u.Ohayous)
+	}
+}
+
+func TestSetAccountRoundTrips(t *testing.T) {
+	ctx := context.Background()
+	db := newTestDB(t)
+	if err := db.CreateUser(ctx, "alice", 12); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if err := db.SetAccount(ctx, "alice", "AliceAcct"); err != nil {
+		t.Fatalf("set account: %v", err)
+	}
+	u, err := db.GetUser(ctx, "alice")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if u.Account != "AliceAcct" {
+		t.Errorf("account = %q, want AliceAcct", u.Account)
+	}
+}
+
 // Applying a plugin's schema twice is what every restart does.
 func TestMigrateIsIdempotent(t *testing.T) {
 	db := newTestDB(t)

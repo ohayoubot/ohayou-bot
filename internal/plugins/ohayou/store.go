@@ -19,6 +19,8 @@ type Store interface {
 	CreateUser(ctx context.Context, nick string, ohayous int) error
 
 	SaveOhayou(ctx context.Context, nick string, newTotal, addedCum int, last, dayStart time.Time) error
+	SetAccount(ctx context.Context, nick, account string) error
+	SetVisibility(ctx context.Context, nick string, v store.Visibility) error
 	SetRegister(ctx context.Context, nick string, registered bool) error
 	ResetLast(ctx context.Context, nick string) error
 	SetStatus(ctx context.Context, nick, action string, active bool) error

@@ -335,6 +335,59 @@ func (g *Plugin) cmdQuarry(m *bot.Message) {
 	g.say(m.Nick, strings.TrimSuffix(inv, ", "))
 }
 
+// cmdWeb reads and sets whether a user's holdings may leave irc. What the
+// public tier promises here is what web.go's Plot is allowed to carry.
+func (g *Plugin) cmdWeb(m *bot.Message) {
+	to := m.ReplyTo()
+	user, ok := g.requireUser(m, to)
+	if !ok {
+		return
+	}
+	if msg, blocked := g.mustIdentify(user); blocked {
+		g.say(to, msg)
+		return
+	}
+
+	want := user.Web
+	switch strings.ToLower(m.Arg(1)) {
+	case "":
+		g.say(to, m.Nick+": "+webState(user.Web))
+		g.say(to, "Public means your nick, your land and what you have built on it, "+
+			"and roughly how much you have earned. Never your ohayous on hand, your "+
+			"vault, or your defences. "+g.p()+"web on to appear, "+g.p()+"web off to stay out.")
+		return
+	case "on", "yes", "public":
+		want = store.VisibilityPublic
+	case "off", "no", "hidden":
+		want = store.VisibilityHidden
+	default:
+		g.say(to, "Usage: "+g.p()+"web on, "+g.p()+"web off, or "+g.p()+"web to see where you stand.")
+		return
+	}
+
+	if want == user.Web {
+		g.say(to, m.Nick+": "+webState(user.Web))
+		return
+	}
+	if err := g.store.SetVisibility(g.ctx(), user.Username, want); err != nil {
+		g.log.Error("set visibility", "nick", user.Username, "err", err)
+		g.say(to, "Something went wrong saving that. Try again.")
+		return
+	}
+	g.say(to, m.Nick+": "+webState(want))
+}
+
+func webState(v store.Visibility) string {
+	switch v {
+	case store.VisibilityPublic:
+		return "Your territory appears on the website."
+	case store.VisibilityHidden:
+		return "Your territory stays off the website."
+	default:
+		return "You have not said either way, so your territory stays off the website."
+	}
+}
+
 func (g *Plugin) cmdRegister(m *bot.Message) {
 	if !m.HasArgs() {
 		g.say(m.Nick, "Registering allows you to protect your ohayou assets. After "+

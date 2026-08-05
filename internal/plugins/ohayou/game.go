@@ -20,6 +20,14 @@ import (
 //go:embed schema.sql
 var schema string
 
+// addedColumns are columns added to a table after it shipped, which schema.sql
+// cannot install into a database that already has the table. Keep each
+// definition identical to the one there.
+var addedColumns = []struct{ table, column, definition string }{
+	{"users", "account", "TEXT NOT NULL DEFAULT ''"},
+	{"users", "web", "TEXT NOT NULL DEFAULT ''"},
+}
+
 type Plugin struct {
 	bot   *bot.Bot
 	store Store
@@ -93,6 +101,7 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 	g.bot.HandleFunc("build", false, g.cmdBuild)
 	g.bot.HandleFunc("recipe", false, g.cmdRecipe)
 	g.bot.HandleFunc("inventory", false, g.cmdInventory)
+	g.bot.HandleFunc("web", false, g.cmdWeb)
 	g.bot.HandleFunc("register", false, g.cmdRegister)
 	g.bot.HandleFunc("identify", false, g.cmdIdentify)
 	g.bot.HandleFunc("quarry", false, g.cmdQuarry)
@@ -107,6 +116,11 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 func (g *Plugin) Start(ctx context.Context) error {
 	if err := g.db.Migrate(ctx, g.Name(), schema); err != nil {
 		return err
+	}
+	for _, c := range addedColumns {
+		if err := g.db.AddColumn(ctx, c.table, c.column, c.definition); err != nil {
+			return err
+		}
 	}
 
 	// Inserts new items and updates prices and other fields on existing ones,
