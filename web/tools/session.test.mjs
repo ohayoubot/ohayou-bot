@@ -9,7 +9,7 @@ import {
 	requireScope,
 } from "../lib/session.js";
 
-const COOKIE = "__Host-hemera";
+const COOKIE = "__Host-ohayou";
 
 function request(cookie) {
 	return new Request("https://hemera.day/drop/", {
@@ -61,10 +61,11 @@ test("a missing or foreign cookie reads as null", () => {
 	assert.equal(readCookie(request("other=1")), null);
 	assert.equal(readCookie(request("nonsense")), null);
 	// A prefix of the name is not the name.
-	assert.equal(readCookie(request("__Host-hemeras=abc")), null);
-	assert.equal(readCookie(request("hemera=abc")), null);
-	// The name this cookie used to have is not the name either.
+	assert.equal(readCookie(request("__Host-ohayous=abc")), null);
+	assert.equal(readCookie(request("ohayou=abc")), null);
+	// Names this cookie used to have are not the name either.
 	assert.equal(readCookie(request("__Host-drop=abc")), null);
+	assert.equal(readCookie(request("__Host-hemera=abc")), null);
 });
 
 test("a session cookie is host-only, script-proof and short-lived", async () => {

@@ -1,18 +1,21 @@
+# The project is the ohayou bot's; "deerkins" is the gallery and "hemera" the
+# domain. Cloudflare cannot rename a Pages project or an R2 bucket, so those two
+# are still what was created first. See README.md, Names.
 name = "deerkins"
 pages_build_output_dir = "public"
 compatibility_date = "2025-07-01"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "deerkins"
-database_id = "ec3b15b6-64ef-45ce-a8a7-d11ff3b842b7"
+database_name = "ohayou-site"
+database_id = "9e982cb2-7c94-4b3b-838f-20b5c7ea3f6a"
 
-# The ohayou game's projection. Its own database, so a mistake publishing
-# territories cannot reach the art or the live sessions.
+# The game's projection and request queue. Its own database, so a mistake
+# publishing territories cannot reach the art or the live sessions.
 [[d1_databases]]
 binding = "GAME"
-database_name = "ohayou"
-database_id = "721d347e-a9dc-4475-996f-e78f1412586a"
+database_name = "ohayou-game"
+database_id = "10f2f682-f400-4206-ad72-9af665aba43d"
 
 # Uploaded images. Served from PUBLIC_IMAGE_BASE
 [[r2_buckets]]
@@ -32,13 +35,13 @@ IRC_WEBCHAT = "https://qchat.rizon.net/?randomnick=1&channels=ohayou&uio=d4"
 
 [[env.preview.d1_databases]]
 binding = "DB"
-database_name = "deerkins-preview"
-database_id = "8b865cbc-148c-4dfb-8be8-932dc9ca5562"
+database_name = "ohayou-site-preview"
+database_id = "ed613ea5-dcdc-4840-b910-ccddbc8fa29e"
 
 [[env.preview.d1_databases]]
 binding = "GAME"
-database_name = "ohayou-preview"
-database_id = "b3e4fc17-8e99-4182-b982-d19202860184"
+database_name = "ohayou-game-preview"
+database_id = "29a0e2dd-890c-48d0-b2a3-128506744744"
 
 [[env.preview.r2_buckets]]
 binding = "UPLOADS"

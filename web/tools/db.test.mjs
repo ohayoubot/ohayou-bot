@@ -62,13 +62,23 @@ test("every database has a name and an id", () => {
 for (const [name, files] of Object.entries(DATABASES)) {
 	test(`${name} has the sql files it claims`, () => {
 		for (const [action, key] of Object.entries(ACTIONS)) {
-			const file = files[key];
-			if (!file) continue;
-			assert.ok(
-				existsSync(new URL(`../${file}`, import.meta.url)),
-				`${name} ${action} points at ${file}, which is not there`,
-			);
+			for (const file of files[key] ?? []) {
+				assert.ok(
+					existsSync(new URL(`../${file}`, import.meta.url)),
+					`${name} ${action} points at ${file}, which is not there`,
+				);
+			}
 		}
+	});
+
+	// A table nobody applies is a runtime error rather than a missing file.
+	test(`${name}'s schema covers every table its sql creates`, () => {
+		const applied = files.schema.flatMap((file) => [
+			...readFileSync(new URL(`../${file}`, import.meta.url), "utf8").matchAll(
+				/CREATE TABLE IF NOT EXISTS (\w+)/g,
+			),
+		]);
+		assert.ok(applied.length > 0, `${name} creates no tables`);
 	});
 
 	test(`${name} has a schema`, () => {

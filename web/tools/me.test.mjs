@@ -56,7 +56,7 @@ function session(scopes, account = "Mallow") {
 	};
 }
 
-function request(cookie = "__Host-hemera=abc") {
+function request(cookie = "__Host-ohayou=abc") {
 	return new Request("https://hemera.day/ohayou/api/me", {
 		headers: cookie ? { cookie } : {},
 	});
@@ -103,7 +103,7 @@ test("the query can only ask for the session's own account", async () => {
 	await get(
 		env,
 		new Request("https://hemera.day/ohayou/api/me?account=Deerly", {
-			headers: { cookie: "__Host-hemera=abc" },
+			headers: { cookie: "__Host-ohayou=abc" },
 		}),
 	);
 
