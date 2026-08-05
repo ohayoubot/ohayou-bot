@@ -8,22 +8,27 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
-// freeAcre returns whether the user has at least amt acres not already consumed
-// by acre-limited items (used for items that require their own acre). The acres
-// each item type occupies must be summed: checking every type independently
-// (and returning on the first that fits) only accounted for the single
-// largest-consuming type, so a full plot could still host another quarry.
-func (g *Plugin) freeAcre(u *store.User, amt int) bool {
+// acresUsed is how much land is already occupied. The acres each item type
+// occupies must be summed: checking every type independently (and returning on
+// the first that fits) only accounted for the single largest-consuming type, so
+// a full plot could still host another quarry.
+func (g *Plugin) acresUsed(u *store.User) int {
 	ctx := g.ctx()
-	var usedAcres int
+	var used int
 	for itm, uAmt := range u.Items {
 		item, err := g.store.GetItem(ctx, itm)
 		if err != nil || item.Acrelimit <= 0 {
 			continue
 		}
-		usedAcres += int(math.Ceil(float64(uAmt) / float64(item.Acrelimit)))
+		used += int(math.Ceil(float64(uAmt) / float64(item.Acrelimit)))
 	}
-	return (u.Items["acre"] - usedAcres) >= amt
+	return used
+}
+
+// freeAcre returns whether the user has at least amt acres not already consumed
+// by acre-limited items (used for items that require their own acre).
+func (g *Plugin) freeAcre(u *store.User, amt int) bool {
+	return (u.Items["acre"] - g.acresUsed(u)) >= amt
 }
 
 // buy attempts to purchase amt of itm for u and returns the result message.
