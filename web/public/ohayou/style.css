@@ -221,6 +221,11 @@
 	stroke-width: 0.4;
 }
 
+.parcel.unnamed .nameplate {
+	fill: var(--ink-dim);
+	font-style: italic;
+}
+
 .parcel.mine .nameplate {
 	fill: var(--lime);
 }

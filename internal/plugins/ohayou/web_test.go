@@ -228,17 +228,22 @@ func TestPrivatePlotDropsSpentProbation(t *testing.T) {
 	}
 }
 
-func TestPublishableNeedsConsentAndAnAccount(t *testing.T) {
+// Naming a plot needs an account to name it under, and the absence of an opt
+// out. Unset publishes: a player who has never been asked is named, and
+// !territory off is how they stop being.
+func TestPublishableNeedsAnAccountAndNoOptOut(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		visible store.Visibility
 		account string
 		want    bool
 	}{
-		{"public with an account", store.VisibilityPublic, "AliceAcct", true},
-		{"public but never identified", store.VisibilityPublic, "", false},
-		{"never asked", store.VisibilityUnset, "AliceAcct", false},
+		{"asked for it, with an account", store.VisibilityPublic, "AliceAcct", true},
+		{"never asked, with an account", store.VisibilityUnset, "AliceAcct", true},
 		{"opted out", store.VisibilityHidden, "AliceAcct", false},
+		{"willing but never identified", store.VisibilityPublic, "", false},
+		{"never asked and never identified", store.VisibilityUnset, "", false},
+		{"opted out and never identified", store.VisibilityHidden, "", false},
 	} {
 		u := &store.User{Web: tc.visible, Account: tc.account}
 		if got := publishable(u); got != tc.want {

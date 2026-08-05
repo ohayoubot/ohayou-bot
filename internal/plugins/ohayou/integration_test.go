@@ -94,8 +94,9 @@ func TestRegisterRecordsTheServicesAccount(t *testing.T) {
 	}
 }
 
-// Nobody is on the website until they say so, and saying so is reversible.
-func TestTerritoryVisibilityIsOffUntilAsked(t *testing.T) {
+// A new player starts at unset, which publishes. Both answers are recorded, so
+// opting out is a decision the store remembers rather than the absence of one.
+func TestTerritoryRecordsWhicheverWayYouAnswer(t *testing.T) {
 	h, db := testGame(t, bottest.InChannels("#test"))
 	ctx := context.Background()
 
@@ -224,25 +225,42 @@ func TestTerritoryFlag(t *testing.T) {
 	}
 }
 
-// Setting a flag on a plot nobody has named would otherwise look broken: it is
-// stored, but nothing draws it until the plot carries a name.
-func TestTerritoryFlagSaysItNeedsANamedPlot(t *testing.T) {
-	h, _ := testGame(t, bottest.InChannels("#test"))
+// Setting a flag on a plot that carries no name would otherwise look broken:
+// it is stored, but nothing draws it. The two reasons a plot has no name are
+// the two warnings.
+func TestTerritoryFlagSaysWhenNothingWillDrawIt(t *testing.T) {
+	h, db := testGame(t, bottest.InChannels("#test"))
+	ctx := context.Background()
 
+	h.Says("alice", bottest.Whois{Account: "AliceAcct", Channels: "#test"})
 	h.Start()
 	h.Say("alice", "#test", "!ohayou")
 	h.Drain()
 
+	// Never registered, so the bot has no account to file the plot under.
 	h.Say("alice", "#test", "!territory flag senordeer")
-	lines := h.Drain()
-
-	var warned bool
-	for _, line := range lines {
-		if strings.Contains(line, "territory on") {
-			warned = true
-		}
+	if lines := h.Drain(); !bottest.Said(lines, "register") {
+		t.Errorf("nothing said the bot does not know whose plot it is: %v", lines)
 	}
-	if !warned {
-		t.Errorf("nothing said the plot must be named first: %v", lines)
+
+	h.Say("alice", "#test", "!register yes")
+	h.Drain()
+	h.Say("alice", "#test", "!identify")
+	h.Drain()
+
+	// Registered and named by default: the flag flies, no warning.
+	h.Say("alice", "#test", "!territory flag senordeer")
+	if lines := h.Drain(); bottest.Said(lines, "territory on") ||
+		bottest.Said(lines, "register") {
+		t.Errorf("a named plot was warned about its flag: %v", lines)
+	}
+
+	// Opted out, so there is no name for the flag to fly over.
+	if err := db.SetVisibility(ctx, "alice", store.VisibilityHidden); err != nil {
+		t.Fatal(err)
+	}
+	h.Say("alice", "#test", "!territory flag senordeer")
+	if lines := h.Drain(); !bottest.Said(lines, "territory on") {
+		t.Errorf("nothing said an anonymous plot draws no flag: %v", lines)
 	}
 }

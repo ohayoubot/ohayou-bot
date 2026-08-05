@@ -359,12 +359,12 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 	want := user.Web
 	switch strings.ToLower(m.Arg(1)) {
 	case "":
-		g.say(to, m.Nick+": "+webState(user.Web)+flagState(user.Flag))
+		g.say(to, m.Nick+": "+webState(user.Web, g.p())+flagState(user.Flag))
 		g.say(to, "Your plot is on the map either way, showing how much land you "+
-			"hold and roughly what you have earned. Naming it adds your nick and "+
-			"what you have built, and lets you see your own full standing on the "+
-			"site. Never your ohayous on hand, your vault, or your defences. "+
-			g.p()+"territory on to be named, "+g.p()+"territory off to stay unnamed.")
+			"hold and roughly what you have earned. Named, it also carries your "+
+			"nick and what you have built. Unnamed, it is drawn as Anonymous. "+
+			"Never your ohayous on hand, your vault, or your defences. "+
+			g.p()+"territory off to be Anonymous, "+g.p()+"territory on to be named again.")
 		return
 	case "on", "yes", "public":
 		want = store.VisibilityPublic
@@ -377,7 +377,7 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 	}
 
 	if want == user.Web {
-		g.say(to, m.Nick+": "+webState(user.Web))
+		g.say(to, m.Nick+": "+webState(user.Web, g.p()))
 		return
 	}
 	if err := g.store.SetVisibility(g.ctx(), user.Username, want); err != nil {
@@ -385,7 +385,7 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 		g.say(to, "Something went wrong saving that. Try again.")
 		return
 	}
-	g.say(to, m.Nick+": "+webState(want))
+	g.say(to, m.Nick+": "+webState(want, g.p()))
 }
 
 // setFlag does not check the name against the gallery: the site resolves it
@@ -421,15 +421,20 @@ func (g *Plugin) setFlag(m *bot.Message, u *store.User, to string) {
 		return
 	}
 	g.say(to, m.Nick+": "+deer+" now flies over your plot"+
-		unnamedWarning(u.Web, g.p()))
+		unnamedWarning(u, g.p()))
 }
 
-// unnamedWarning: a flag is only drawn on a plot that carries a name.
-func unnamedWarning(v store.Visibility, prefix string) string {
-	if v == store.VisibilityPublic {
-		return "."
+// unnamedWarning: a flag is only drawn on a plot that carries a name, and the
+// two reasons one does not are the two reasons publishable says no.
+func unnamedWarning(u *store.User, prefix string) string {
+	switch {
+	case u.Web == store.VisibilityHidden:
+		return ", once you put your name back with " + prefix + "territory on."
+	case u.Account == "":
+		return ", once you " + prefix + "register and " + prefix +
+			"identify, so the site knows whose plot it is."
 	}
-	return ", once you name it with " + prefix + "territory on."
+	return "."
 }
 
 func flagState(flag string) string {
@@ -439,14 +444,15 @@ func flagState(flag string) string {
 	return " " + flag + " flies over it."
 }
 
-func webState(v store.Visibility) string {
+func webState(v store.Visibility, prefix string) string {
 	switch v {
+	case store.VisibilityHidden:
+		return "Your plot is on the map as Anonymous."
 	case store.VisibilityPublic:
 		return "Your plot is named on the website."
-	case store.VisibilityHidden:
-		return "Your plot is on the map, but unnamed."
 	default:
-		return "You have not said either way, so your plot is on the map unnamed."
+		return "Your plot is named on the website, which is the default. " +
+			"Say " + prefix + "territory off to be Anonymous instead."
 	}
 }
 

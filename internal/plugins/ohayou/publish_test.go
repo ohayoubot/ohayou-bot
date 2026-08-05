@@ -105,14 +105,16 @@ func player(t *testing.T, db *sqlite.DB, nick, account string, v store.Visibilit
 	}
 }
 
-// Everyone is on the map; only those who said so are named on it.
-func TestEveryoneIsOnTheMapButOnlySomeAreNamed(t *testing.T) {
+// Everyone is on the map. A plot carries its owner's nick unless they opted
+// out, or the bot never learned an account to publish it under.
+func TestEveryoneIsOnTheMapAndOnlyTheOptedOutAreAnonymous(t *testing.T) {
 	g, db, site := publishingGame(t)
 
 	player(t, db, "yes", "YesAcct", store.VisibilityPublic)
 	player(t, db, "no", "NoAcct", store.VisibilityHidden)
+	// Never asked, which publishes: opting out is a thing you do.
 	player(t, db, "unasked", "UnaskedAcct", store.VisibilityUnset)
-	// Agreed, but never identified, so there is no identity to publish under.
+	// Willing, but never identified, so there is no identity to publish under.
 	player(t, db, "nameless", "", store.VisibilityPublic)
 
 	g.publish(context.Background())
@@ -127,30 +129,32 @@ func TestEveryoneIsOnTheMapButOnlySomeAreNamed(t *testing.T) {
 		body := string(raw)
 		if strings.Contains(body, `"named":true`) {
 			named++
-			if !strings.Contains(body, "YesAcct") {
-				t.Errorf("a named plot is not the consenting one: %s", body)
+			if !strings.Contains(body, "YesAcct") && !strings.Contains(body, "UnaskedAcct") {
+				t.Errorf("a named plot is neither the willing nor the unasked one: %s", body)
 			}
 			continue
 		}
 		// Everything about who this is must be absent, not merely blank.
-		for _, absent := range []string{"NoAcct", "UnaskedAcct", "nameless", "no", "unasked"} {
+		for _, absent := range []string{"NoAcct", "nameless", "no"} {
 			if strings.Contains(body, `"nick":"`+absent+`"`) {
-				t.Errorf("an unnamed plot names %q: %s", absent, body)
+				t.Errorf("an anonymous plot names %q: %s", absent, body)
 			}
 		}
 	}
-	if named != 1 {
-		t.Errorf("%d named plots, want 1", named)
+	if named != 2 {
+		t.Errorf("%d named plots, want the willing one and the unasked one", named)
 	}
 
-	// The private tier is consent-gated outright.
+	// The private tier follows the same rule, and never covers the opted out.
 	private := site.table(t, tablePlotPrivate)
-	if len(private.Rows) != 1 {
-		t.Fatalf("the private tier holds %d rows, want only the consenting one: %s",
+	if len(private.Rows) != 2 {
+		t.Fatalf("the private tier holds %d rows, want two: %s",
 			len(private.Rows), private.Rows)
 	}
-	if !strings.Contains(string(private.Rows[0]), "YesAcct") {
-		t.Errorf("the private row is not the consenting player's: %s", private.Rows[0])
+	for _, raw := range private.Rows {
+		if strings.Contains(string(raw), "NoAcct") {
+			t.Errorf("the opted out player has a private row: %s", raw)
+		}
 	}
 }
 
@@ -189,10 +193,10 @@ func TestOptingOutUnnamesThePlot(t *testing.T) {
 }
 
 // A flag is a chosen picture, which is as identifying as a nick.
-func TestAnUnnamedPlotFliesNoFlag(t *testing.T) {
+func TestAnAnonymousPlotFliesNoFlag(t *testing.T) {
 	ctx := context.Background()
 	g, db, site := publishingGame(t)
-	player(t, db, "quiet", "QuietAcct", store.VisibilityUnset)
+	player(t, db, "quiet", "QuietAcct", store.VisibilityHidden)
 	if err := db.SetFlag(ctx, "quiet", "senordeer"); err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +205,7 @@ func TestAnUnnamedPlotFliesNoFlag(t *testing.T) {
 
 	body := string(site.table(t, tablePlot).Rows[0])
 	if strings.Contains(body, "senordeer") {
-		t.Errorf("an unnamed plot published its flag: %s", body)
+		t.Errorf("an anonymous plot published its flag: %s", body)
 	}
 }
 
@@ -225,7 +229,7 @@ func TestANamedPlotFliesItsFlag(t *testing.T) {
 func TestAnonymousIDsAreStableAndUnguessable(t *testing.T) {
 	ctx := context.Background()
 	g, db, site := publishingGame(t)
-	player(t, db, "quiet", "QuietAcct", store.VisibilityUnset)
+	player(t, db, "quiet", "QuietAcct", store.VisibilityHidden)
 
 	g.publish(ctx)
 	first := string(site.table(t, tablePlot).Rows[0])
@@ -252,8 +256,8 @@ func TestAnonymousIDsAreStableAndUnguessable(t *testing.T) {
 
 func TestAnonymousIDsDifferPerPlayer(t *testing.T) {
 	g, db, site := publishingGame(t)
-	player(t, db, "one", "OneAcct", store.VisibilityUnset)
-	player(t, db, "two", "TwoAcct", store.VisibilityUnset)
+	player(t, db, "one", "OneAcct", store.VisibilityHidden)
+	player(t, db, "two", "TwoAcct", store.VisibilityHidden)
 
 	g.publish(context.Background())
 
