@@ -14,6 +14,8 @@ const $ = (sel) => document.querySelector(sel);
 
 let plots = [];
 let mine = null;
+/** Set when a countdown is on screen, so it can tick without a reload. */
+let ticking = null;
 
 async function start() {
 	const [world, session] = await Promise.all([load("/ohayou/api/world"), me()]);
@@ -35,6 +37,153 @@ async function start() {
 	$("#world").replaceChildren(...plots.map(block));
 	const own = plots.find((p) => p.named && p.id === mine);
 	show(own ?? plots[0]);
+
+	if (session) await standing();
+}
+
+/* ---- your own standing ---- */
+
+/**
+ * What only you may see: the exact figures, and what is still counting down.
+ * Served from a different endpoint with a different rule, so nothing here can
+ * be reached by pointing at somebody else's plot.
+ */
+async function standing() {
+	const yours = await load("/ohayou/api/me");
+	if (!yours) return;
+
+	if (yours.status === "unclaimed") {
+		// On the map but unnamed: the claim section already explains how.
+		return;
+	}
+
+	const panels = [
+		figure("Ohayous", yours.ohayous, `${yours.cumulative} earned in all`),
+		yours.vault && vault(yours.vault),
+		figure("Defence", yours.defense, describeArmour(yours.equipped)),
+		counts("Metals", yours.metals),
+		counts("Items", yours.items),
+		running(yours.running),
+		probation(yours.probation),
+	].filter(Boolean);
+
+	$("#yours").replaceChildren(...panels);
+	$("#standing").hidden = false;
+	$("#claim").hidden = true;
+}
+
+function panel(title, ...body) {
+	const el = document.createElement("article");
+	el.className = "panel";
+	const head = document.createElement("h3");
+	head.textContent = title;
+	el.append(head, ...body);
+	return el;
+}
+
+function figure(title, value, sub) {
+	const n = document.createElement("div");
+	n.className = "figure";
+	n.textContent = value;
+
+	const parts = [n];
+	if (sub) {
+		const s = document.createElement("div");
+		s.className = "sub";
+		s.textContent = sub;
+		parts.push(s);
+	}
+	return panel(title, ...parts);
+}
+
+function vault(v) {
+	const el = figure(`Vault, level ${v.level}`, v.ohayous, `of ${v.cap}`);
+	const meter = document.createElement("div");
+	meter.className = "meter";
+	const bar = document.createElement("span");
+	bar.style.width = `${Math.min(100, (v.ohayous / v.cap) * 100)}%`;
+	meter.append(bar);
+	el.append(meter);
+	return el;
+}
+
+function describeArmour(equipped) {
+	const worn = Object.values(equipped);
+	return worn.length ? worn.sort().join(", ") : "nothing equipped";
+}
+
+function counts(title, held) {
+	const names = Object.keys(held).sort();
+	if (names.length === 0) return null;
+
+	const list = document.createElement("ul");
+	list.className = "rows";
+	list.replaceChildren(
+		...names.map((name) => {
+			const row = document.createElement("li");
+			const n = document.createElement("b");
+			n.textContent = held[name];
+			row.append(name, n);
+			return row;
+		}),
+	);
+	return panel(title, list);
+}
+
+/** The thing the site can tell you that a channel line cannot: how long left. */
+function running(runs) {
+	if (!runs || runs.length === 0) return null;
+
+	const list = document.createElement("ul");
+	list.className = "rows";
+	const tick = () => {
+		list.replaceChildren(
+			...runs.map((run) => {
+				const row = document.createElement("li");
+				const left = document.createElement("b");
+				left.className = "countdown";
+				left.textContent = until(run.due * 1000 - Date.now());
+				row.append(labelOf(run.kind), left);
+				return row;
+			}),
+		);
+	};
+	tick();
+
+	clearInterval(ticking);
+	ticking = setInterval(tick, 1000);
+	return panel("Running", list);
+}
+
+function probation(at) {
+	if (!at || at * 1000 <= Date.now()) return null;
+
+	const el = figure(
+		"On probation",
+		until(at * 1000 - Date.now()),
+		"left to serve",
+	);
+	el.classList.add("warn");
+	return el;
+}
+
+/** Friendly names for the activities. Falls back to the bot's own word, so an
+    activity added to the game still reads as something. */
+function labelOf(kind) {
+	return (
+		{ mining: "quarry", pumping: "oilwell", breeding: "cattery" }[kind] ?? kind
+	);
+}
+
+function until(ms) {
+	if (ms <= 0) return "done";
+	const seconds = Math.floor(ms / 1000);
+	const hours = Math.floor(seconds / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+	if (minutes > 0)
+		return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+	return `${seconds}s`;
 }
 
 async function load(url) {
