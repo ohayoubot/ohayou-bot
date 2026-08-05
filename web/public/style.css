@@ -82,3 +82,55 @@
 #glimpsecap a {
   margin-left: 0.35rem;
 }
+
+/* ---- the webchat, behind a click ---- */
+
+.chat {
+  margin: 0.9rem 0;
+  border: 1px solid color-mix(in oklab, currentColor 18%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in oklab, currentColor 4%, transparent);
+}
+
+.chatoffer {
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.chatoffer p {
+  margin: 0 0 0.7rem;
+  max-width: 34rem;
+}
+
+.chatoffer p:last-child {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+button.primary {
+  padding: 0.45rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  color: #0d0f12;
+  background: oklch(78% 0.15 155);
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+button.primary:hover {
+  background: oklch(84% 0.15 155);
+}
+
+/* Once loaded it fills the panel. A fixed 400px is too short on a laptop and
+   too tall on a phone, so it scales and then stops. */
+.chat iframe {
+  display: block;
+  width: 100%;
+  height: min(70vh, 34rem);
+  min-height: 22rem;
+  border: 0;
+}
