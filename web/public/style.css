@@ -1,134 +1,170 @@
-/* The dashboard. Everything else comes from deerkins/style.css. */
+/*
+ * The landing page and the signed-in dashboard. The shell is site.css and the
+ * map preview borrows ohayou/style.css, which this page loads for it.
+ */
 
-.dim {
-  opacity: 0.7;
-  font-weight: normal;
+#pitch h1 {
+	font-size: clamp(1.6rem, 4vw, 2.4rem);
+	text-transform: none;
+	letter-spacing: -0.02em;
+	max-width: 20ch;
 }
 
-.places,
-.drops {
-  list-style: none;
-  padding: 0;
+#pitch .lede {
+	font-size: 1.05rem;
+	max-width: 58ch;
+	color: var(--ink-dim);
+	margin-bottom: 1.2rem;
+}
+
+/* ---- the register, in miniature ---- */
+
+.minimap {
+	display: block;
+	border: 1px solid var(--line-lit);
+	border-radius: var(--radius);
+	background: var(--sea);
+	overflow: hidden;
+	max-height: 22rem;
+	line-height: 0;
+}
+
+.minimap .worldmap {
+	min-width: 0;
+	pointer-events: none;
+}
+
+/* The preview is a picture, not a control: no parcel is pickable here. */
+.minimap .parcel {
+	cursor: inherit;
+}
+
+#glimpsecap {
+	margin-top: 0.5rem;
+}
+
+#glimpsecap a {
+	margin-left: 0.35rem;
+}
+
+/* ---- signed in ---- */
+
+.file h1 {
+	margin: 0.2rem 0 0.3rem;
+	text-transform: none;
+	overflow-wrap: anywhere;
+}
+
+#account {
+	font-family: var(--mono);
+	color: var(--ink);
+}
+
+/* ---- where to go ---- */
+
+.places {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: grid;
+	gap: 0.6rem;
+	grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
 }
 
 .places li {
-  margin: 0.4em 0;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--panel);
+	padding: 0.8rem 0.9rem;
+	font-size: 0.9rem;
+	color: var(--ink-dim);
 }
 
+.places a {
+	display: block;
+	font-family: var(--mono);
+	font-size: 1rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	text-decoration: none;
+	color: var(--accent);
+	margin-bottom: 0.15rem;
+}
+
+.places li:hover {
+	border-color: var(--line-lit);
+}
+
+.places .dim {
+	color: var(--grey);
+}
+
+/* ---- drops ---- */
+
 .drops {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
 }
 
 .drops li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.85em;
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	font-family: var(--mono);
+	font-size: 0.7rem;
+	color: var(--ink-dim);
 }
 
 /* Uploads are any shape; a fixed box keeps the row from jumping about. */
 .drops img {
-  display: block;
-  width: 96px;
-  height: 96px;
-  object-fit: cover;
-  border-radius: 3px;
-}
-
-/* ---- the landing page ---- */
-
-.lede {
-  font-size: 1.15em;
-  max-width: 34rem;
-}
-
-/* A strip of real holdings, sized the way the map sizes them. Decorative, so
-   it is hidden from assistive technology: the numbers beneath say it better. */
-.glimpse {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.6rem;
-  margin: 1rem 0 0.6rem;
-}
-
-.patch {
-  --tile: 11px;
-  display: grid;
-  grid-template-columns: repeat(var(--wide), var(--tile));
-  gap: 2px;
-}
-
-.patch.unnamed {
-  opacity: 0.5;
-}
-
-.patch span {
-  aspect-ratio: 1;
-  border-radius: 2px;
-  background: color-mix(in oklab, currentColor 9%, transparent);
-}
-
-.patch span.built {
-  background-size: contain;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
-}
-
-#glimpsecap a {
-  margin-left: 0.35rem;
+	display: block;
+	width: 96px;
+	height: 96px;
+	object-fit: cover;
+	border: 1px solid var(--line);
+	border-radius: 3px;
 }
 
 /* ---- the webchat, behind a click ---- */
 
 .chat {
-  margin: 0.9rem 0;
-  border: 1px solid color-mix(in oklab, currentColor 18%, transparent);
-  border-radius: 10px;
-  overflow: hidden;
-  background: color-mix(in oklab, currentColor 4%, transparent);
+	margin: 0.9rem 0;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	overflow: hidden;
+	background: var(--panel-2);
 }
 
 .chatoffer {
-  padding: 1rem 1.1rem 1.1rem;
+	padding: 0.9rem 1rem;
 }
 
 .chatoffer p {
-  margin: 0 0 0.7rem;
-  max-width: 34rem;
+	max-width: 46ch;
 }
 
 .chatoffer p:last-child {
-  margin-bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  flex-wrap: wrap;
+	margin-bottom: 0;
+	display: flex;
+	align-items: center;
+	gap: 0.8rem;
+	flex-wrap: wrap;
 }
 
-button.primary {
-  padding: 0.45rem 0.9rem;
-  font: inherit;
-  font-weight: 600;
-  color: #0d0f12;
-  background: oklch(78% 0.15 155);
-  border: 0;
-  border-radius: 7px;
-  cursor: pointer;
-}
-
-button.primary:hover {
-  background: oklch(84% 0.15 155);
-}
-
-/* Once loaded it fills the panel. A fixed 400px is too short on a laptop and
-   too tall on a phone, so it scales and then stops. */
+/* A fixed 400px is too short on a laptop and too tall on a phone. */
 .chat iframe {
-  display: block;
-  width: 100%;
-  height: min(70vh, 34rem);
-  min-height: 22rem;
-  border: 0;
+	display: block;
+	width: 100%;
+	height: min(70vh, 34rem);
+	min-height: 22rem;
+	border: 0;
+}
+
+main.page > section {
+	margin-bottom: 1.6rem;
 }

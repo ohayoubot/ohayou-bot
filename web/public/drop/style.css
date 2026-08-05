@@ -1,8 +1,21 @@
-/* Layered over ../deerkins/style.css, which supplies the palette. */
+/* Layered over ../site.css, which supplies the shell and the palette. */
 
-main {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 720px;
+main.page {
+  max-width: 760px;
+}
+
+main.page > section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+main.page > .pagetitle {
+  background: none;
+  border: 0;
+  padding: 0;
 }
 
 .who {

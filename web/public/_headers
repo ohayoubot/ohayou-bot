@@ -6,8 +6,10 @@
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; frame-src https://qchat.rizon.net
 
-# style-src allows 'unsafe-inline' for the one inline custom property that sets
-# the grid width. script-src stays strict, and no user text is written as HTML.
+# style-src allows 'unsafe-inline' for the inline custom properties that size
+# the grid and the map. img-src allows data: for the item sprites, which are
+# built in the page rather than fetched. script-src stays strict, and no user
+# text is written as HTML.
 # These rules cover static assets only; the API sets its own headers in lib/http.js.
 #
 # frame-src names the webchat the landing page can embed, and must agree with
@@ -18,13 +20,13 @@
 /app.js
   Cache-Control: public, max-age=600
 
-/style.css
+/nav.js
   Cache-Control: public, max-age=600
 
 /site.css
   Cache-Control: public, max-age=600
 
-/nav.js
+/style.css
   Cache-Control: public, max-age=600
 
 /plugins.json
@@ -36,41 +38,14 @@
 /deerkins/style.css
   Cache-Control: public, max-age=600
 
-/site.css
-  Cache-Control: public, max-age=600
-
-/nav.js
-  Cache-Control: public, max-age=600
-
-/plugins.json
-  Cache-Control: public, max-age=600
-
 /drop/*.js
+  Cache-Control: public, max-age=600
+
+/drop/style.css
   Cache-Control: public, max-age=600
 
 /ohayou/*.js
   Cache-Control: public, max-age=600
 
 /ohayou/style.css
-  Cache-Control: public, max-age=600
-
-/site.css
-  Cache-Control: public, max-age=600
-
-/nav.js
-  Cache-Control: public, max-age=600
-
-/plugins.json
-  Cache-Control: public, max-age=600
-
-/drop/style.css
-  Cache-Control: public, max-age=600
-
-/site.css
-  Cache-Control: public, max-age=600
-
-/nav.js
-  Cache-Control: public, max-age=600
-
-/plugins.json
   Cache-Control: public, max-age=600

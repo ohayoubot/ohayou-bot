@@ -6,9 +6,10 @@
 import { normalise } from "../deerkins/kins.js";
 import { nav } from "../nav.js";
 import { nameOf } from "./catalog.js";
-import { BANDS, drawWorld } from "./map.js";
+import { drawWorld } from "./map.js";
 import { usage } from "./plot.js";
 import { spriteURL, urlFor } from "./sprites.js";
+import { BANDS } from "./terrain.js";
 
 const $ = (sel) => document.querySelector(sel);
 

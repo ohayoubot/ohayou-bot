@@ -8,6 +8,8 @@
  * gifs are the exception, since a canvas would keep only the first frame.
  */
 
+import { nav } from "../nav.js";
+
 const API = "api";
 
 /** Matches the server's cap. Anything larger is refused there anyway. */
@@ -416,3 +418,5 @@ window.addEventListener("paste", (e) => {
 });
 
 start();
+
+nav("#sitenav", "/drop/");

@@ -5,19 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>deerkins: draw art for IRC</title>
 <meta name="description" content="Draw pixel art in your browser and paste it into IRC.">
-<meta name="color-scheme" content="dark light">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../site.css">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
 </head>
 <body>
 
-<header class="topbar">
-  <h1>deerkins</h1>
-  <p class="tagline">Draw pixel art for IRC.</p>
+<header class="shell">
+  <div>
+    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+  </div>
 </header>
 
-<main>
+<main class="page">
+
+  <div class="pagetitle">
+    <h1>Deerkins</h1>
+    <p class="lede">Draw in the sixteen colours IRC has. Save it, paste it into a channel, or fly it over your parcel.</p>
+  </div>
 
   <section class="editor" aria-label="Canvas">
     <div class="toolbar">

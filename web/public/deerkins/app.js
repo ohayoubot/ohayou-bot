@@ -1,3 +1,4 @@
+import { nav } from "../nav.js";
 import { imageToKinskode } from "./image.js";
 import {
 	autoCrop,
@@ -614,3 +615,5 @@ loadGallery();
 const initial = fromHash();
 if (initial) loadArt(initial);
 else say("Pick a colour and drag on the grid.");
+
+nav("#sitenav", "/deerkins/");

@@ -1,101 +1,41 @@
-:root {
-  color-scheme: dark light;
+/*
+ * The deerkins editor. The shell, palette and controls are site.css; this is
+ * the drawing grid, the gallery and the dialog.
+ */
 
-  --bg: #14131a;
-  --panel: #1c1b25;
-  --panel-2: #24222f;
-  --line: #35323f;
-  --ink: #e6e3ee;
-  --ink-dim: #9a95ab;
-  --accent: #ffb454;
-  --accent-ink: #241a08;
-  --focus: #7fd6ff;
-  --danger: #ff6b6b;
-  --radius: 6px;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f5f2;
-    --panel: #ffffff;
-    --panel-2: #eeece7;
-    --line: #d5d2ca;
-    --ink: #23222a;
-    --ink-dim: #6a6678;
-    --accent: #b45f06;
-    --accent-ink: #fff8ec;
-    --focus: #1b6fa8;
-  }
-}
-
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  padding: 1.25rem;
-  background: var(--bg);
-  color: var(--ink);
-  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-
-h1, h2 { line-height: 1.2; margin: 0 0 .4rem; }
-h1 { font-size: 1.6rem; letter-spacing: -.02em; }
-h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-dim); }
-p { margin: 0 0 .6rem; }
-a { color: var(--focus); }
-
-.topbar { max-width: 1180px; margin: 0 auto 1.25rem; }
-.tagline { color: var(--ink-dim); margin: 0; }
-
-main {
-  max-width: 1180px;
-  margin: 0 auto;
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  align-items: start;
+main.page {
+	display: grid;
+	gap: 1.25rem;
+	grid-template-columns: minmax(0, 1fr) 260px;
+	align-items: start;
 }
 
 .editor { grid-column: 1; }
 .side { grid-column: 2; display: grid; gap: 1.25rem; }
 .codes { grid-column: 1 / -1; display: grid; gap: 1.25rem; grid-template-columns: 1fr 1fr; }
 
-section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
-.codes > div { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
+main.page > section,
+main.page > aside > section,
+.codes > div {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	padding: 1rem;
+}
+
 .editor, .side > section { min-width: 0; }
 
-.hint { color: var(--ink-dim); font-size: .82rem; }
-
-/* ---- controls ---- */
-
-button, input, textarea {
-  font: inherit;
-  color: var(--ink);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: .38rem .7rem;
+textarea {
+	width: 100%;
+	font-family: var(--mono);
+	font-size: .78rem;
+	line-height: 1.35;
+	resize: vertical;
+	overflow: auto;
+	white-space: pre;
 }
-
-button { cursor: pointer; }
-button:hover:not(:disabled) { border-color: var(--accent); }
-button:disabled { opacity: .45; cursor: default; }
-
-button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 input[type="search"], input[type="text"] { width: 100%; }
-
-textarea {
-  width: 100%;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: .78rem;
-  line-height: 1.35;
-  resize: vertical;
-  overflow: auto;
-  white-space: pre;
-}
 
 /* ---- palette + tools ---- */
 
@@ -224,8 +164,10 @@ dialog menu { display: flex; justify-content: flex-end; gap: .5rem; margin: 1.1r
 /* ---- footer ---- */
 
 footer {
-  max-width: 1180px;
+  max-width: var(--page);
   margin: 1.5rem auto 0;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--line);
   color: var(--ink-dim);
@@ -244,7 +186,7 @@ footer {
 }
 
 @media (max-width: 860px) {
-  main { grid-template-columns: minmax(0, 1fr); }
+  main.page { grid-template-columns: minmax(0, 1fr); }
   .editor, .side, .codes { grid-column: 1; }
   .codes { grid-template-columns: 1fr; }
 }
