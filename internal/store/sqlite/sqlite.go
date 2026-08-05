@@ -63,7 +63,7 @@ func (d *DB) Migrate(ctx context.Context, name, schema string) error {
 }
 
 // AddColumn quotes rather than binds its identifiers: sqlite will not bind one,
-// and they come from a plugin's own source, never from a user.
+// and they come from a plugin's source, never from a user.
 func (d *DB) AddColumn(ctx context.Context, table, column, definition string) error {
 	var found int
 	err := d.db.QueryRowContext(ctx,
@@ -431,7 +431,7 @@ func (d *DB) SaveOhayou(ctx context.Context, nick string, newTotal, addedCum int
 		newTotal, unix(last), addedCum, nick, unix(dayStart)))
 }
 
-// SetAccount overwrites, because only a nick that just passed a WHOIS gets here.
+// SetAccount overwrites: only a nick that just passed a WHOIS reaches here.
 func (d *DB) SetAccount(ctx context.Context, nick, account string) error {
 	_, err := d.db.ExecContext(ctx, `UPDATE users SET account=? WHERE username=?`, account, nick)
 	return err
@@ -442,8 +442,8 @@ func (d *DB) SetVisibility(ctx context.Context, nick string, v store.Visibility)
 	return err
 }
 
-// PlayerByAccount finds whose account this is. Empty when nobody has proved it:
-// a command from an account with no player behind it is not one to apply.
+// PlayerByAccount finds whose account this is, ErrNotFound when nobody has
+// proved it.
 func (d *DB) PlayerByAccount(ctx context.Context, account string) (string, error) {
 	if account == "" {
 		return "", store.ErrNotFound
@@ -457,9 +457,8 @@ func (d *DB) PlayerByAccount(ctx context.Context, account string) (string, error
 	return username, err
 }
 
-// SetFlag records the deer a user flies over their plot. The name is not
-// checked against the gallery here: the site resolves it when it draws, and a
-// name that matches nothing simply flies nothing.
+// SetFlag records the deer a user flies. Unchecked against the gallery: the
+// site resolves the name when it draws.
 func (d *DB) SetFlag(ctx context.Context, nick, deer string) error {
 	_, err := d.db.ExecContext(ctx, `UPDATE users SET flag=? WHERE username=?`, deer, nick)
 	return err
@@ -672,8 +671,8 @@ func (d *DB) VaultTransfer(ctx context.Context, nick string, ohayousDelta, vault
 		ohayousDelta, vaultDelta, unix(last), nick, ohayousDelta, vaultDelta, unix(dayStart)))
 }
 
-// Players lists everyone, in an order the world map can lay out and that does
-// not change as people play: the longest-standing first.
+// Players lists everyone, longest-standing first, so the world map has a stable
+// order to lay them out in.
 func (d *DB) Players(ctx context.Context) ([]string, error) {
 	rows, err := d.db.QueryContext(ctx,
 		`SELECT username FROM users ORDER BY times_ohayoued DESC, username`)

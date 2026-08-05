@@ -335,12 +335,11 @@ func (g *Plugin) cmdQuarry(m *bot.Message) {
 	g.say(m.Nick, strings.TrimSuffix(inv, ", "))
 }
 
-// maxFlag bounds a deer name, matching the gallery ceiling in kins.js.
+// maxFlag matches the gallery ceiling in kins.js.
 const maxFlag = 48
 
-// cmdTerritory reads and sets whether a user's holdings may leave irc. What the
-// public tier promises here is what web.go's Plot is allowed to carry. The name
-// is not !web because that is the bot's, and signs you in to the whole site.
+// cmdTerritory reads and sets whether a plot carries its owner's name. Not
+// !web, which is the bot's and signs you in to the whole site.
 func (g *Plugin) cmdTerritory(m *bot.Message) {
 	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
@@ -389,9 +388,8 @@ func (g *Plugin) cmdTerritory(m *bot.Message) {
 	g.say(to, m.Nick+": "+webState(want))
 }
 
-// setFlag flies a deer from the gallery over the user's plot. The name is not
-// checked against the gallery: the site resolves it when it draws, so a deer
-// drawn after this is chosen still appears, and one that never existed simply
+// setFlag does not check the name against the gallery: the site resolves it
+// when it draws, so a deer drawn later still appears and one that never existed
 // flies nothing.
 func (g *Plugin) setFlag(m *bot.Message, u *store.User, to string) {
 	deer := strings.TrimSpace(strings.Join(m.Args[2:], " "))
@@ -426,8 +424,7 @@ func (g *Plugin) setFlag(m *bot.Message, u *store.User, to string) {
 		unnamedWarning(u.Web, g.p()))
 }
 
-// unnamedWarning says the quiet part: a flag is only drawn on a plot that
-// carries a name, so setting one on an unnamed plot would otherwise look broken.
+// unnamedWarning: a flag is only drawn on a plot that carries a name.
 func unnamedWarning(v store.Visibility, prefix string) string {
 	if v == store.VisibilityPublic {
 		return "."

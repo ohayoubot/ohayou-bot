@@ -4,9 +4,8 @@
  * DELETE /api/session   give it back
  *
  * One session for the whole site. The scopes come from the grant and decide
- * which plugins the cookie reaches, so this endpoint does not care which part
- * of the site the link was minted for: it records what the link says and lets
- * each plugin ask for its own scope.
+ * which plugins the cookie reaches, so this does not care which part of the
+ * site the link was minted for.
  */
 
 import { verifyGrant } from "../hmac.js";
@@ -22,7 +21,7 @@ import { clearSession, issueSession, readSession } from "../session.js";
 
 const NO_STORE = { "cache-control": "no-store" };
 
-/** What the browser is told about itself. The id_hash never leaves the worker. */
+/** What the browser is told about itself. */
 function describe(session) {
 	return {
 		status: "session",
@@ -82,10 +81,8 @@ export const onRequestDelete = guard(async ({ request, env }) => {
 
 /**
  * Records the grant's id, returning whether this is the first time. The insert
- * decides it, so two simultaneous redemptions of one link cannot both win.
- *
- * The expiry is in seconds, as it is on the wire and in grant_used. Everywhere
- * else in this database time is milliseconds.
+ * decides it, so two simultaneous redemptions cannot both win. The expiry is in
+ * seconds, as on the wire; everywhere else here is milliseconds.
  */
 async function claim(env, payload) {
 	const [, claimed] = await env.DB.batch([
@@ -100,9 +97,7 @@ async function claim(env, payload) {
 	return claimed.meta.changes === 1;
 }
 
-/** One answer for every reason, so a probe cannot tell a spent link from a
-    forged one. The reason goes to the log, which is where "my link doesn't
-    work" gets diagnosed. */
+/** One answer for every reason; the log is where a bad link gets diagnosed. */
 function refuse(reason) {
 	console.log(`grant refused: ${reason}`);
 	return fail(401, "that link is expired, already used, or not valid");

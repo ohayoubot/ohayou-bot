@@ -1,22 +1,17 @@
 /*
  * GET /ohayou/api/world   every plot on the map
  *
- * Public: this is the tier the bot publishes for everyone, named or not. A
- * plot with named=false carries an opaque id, no nick and no buildings, so
- * there is nothing here to withhold and no session to check.
+ * Public. The bot publishes a plot for every player; an unnamed one carries an
+ * opaque id, no nick and no buildings, so there is nothing here to withhold.
  *
- * The private tier is a different endpoint with a different rule.
- *
- * A plot may fly a deer from the gallery. The gallery is the other database, so
- * this resolves the names in a second query and hands back the art with the
- * plot: D1 cannot join across databases, but a worker holding both bindings can
- * ask each of them once.
+ * A named plot may fly a deer. The gallery is the other database and D1 cannot
+ * join across two, so the art is fetched in a second query and returned beside
+ * the plots rather than inside them: a deer twenty people fly is sent once.
  */
 
-import { guard, json } from "../http.js";
+import { guard, json, parseColumn } from "../http.js";
 
-/** The whole world in one answer. It is one row per player who has ever
-    ohayou'd, which is not a number that needs paging yet. */
+/** One row per player who has ever ohayou'd, which does not need paging yet. */
 const LIMIT = 500;
 
 /** Distinct deer to look up in one go. Far more than anyone will fly. */
@@ -34,14 +29,13 @@ export const onRequestGet = guard(async ({ env }) => {
 
 	const plots = results.map((row) => ({
 		id: row.id,
-		// An unnamed plot carries neither a nick nor a flag: a chosen picture is
-		// as good as a name. The bot does not publish one, and this declines to
-		// repeat it if a row ever did.
+		// The bot publishes neither for an unnamed plot; this declines to repeat
+		// one if a row ever carried it.
 		nick: row.named ? row.nick : "",
 		named: row.named === 1,
 		flag: row.named ? row.flag : "",
 		acres: row.acres,
-		land: parse(row.land),
+		land: parseColumn(row.land, {}),
 		wealth: row.wealth,
 		rations: row.rations,
 	}));
@@ -58,22 +52,16 @@ export const onRequestGet = guard(async ({ env }) => {
 			plots,
 			flags,
 			totals: totals(plots),
-			// When the bot last said anything, so a page can admit to being stale.
 			updated: published?.updated ?? 0,
 		},
-		// Short: the bot publishes every couple of minutes, and a map that lags
-		// a minute behind is fine, while one that lags an hour looks broken.
+		// The bot publishes every couple of minutes.
 		{ headers: { "cache-control": "public, max-age=30" } },
 	);
 });
 
 /**
- * The art for every flag flown, by deer name. Returned beside the plots rather
- * than inside them so a deer flown by twenty people is sent once.
- *
- * A name that matches nothing is simply absent: somebody may have picked a deer
- * that was later renamed, and a plot with no banner is a smaller problem than a
- * map that will not draw.
+ * The art for every flag flown, by deer name. A name matching nothing is
+ * absent: a deer may have been renamed since somebody picked it.
  */
 async function banners(env, plots) {
 	if (!env.DB) return {};
@@ -96,8 +84,7 @@ async function banners(env, plots) {
 	return out;
 }
 
-/** Derived here rather than stored, so the totals cannot disagree with the
-    rows they are totals of. */
+/** Counted from the rows, so the totals cannot disagree with them. */
 function totals(plots) {
 	const out = empty();
 	for (const plot of plots) {
@@ -110,16 +97,4 @@ function totals(plots) {
 
 function empty() {
 	return { players: 0, named: 0, acres: 0 };
-}
-
-/** A row this side did not write is not worth crashing over. */
-function parse(raw) {
-	try {
-		const value = JSON.parse(raw);
-		return value && typeof value === "object" && !Array.isArray(value)
-			? value
-			: {};
-	} catch {
-		return {};
-	}
 }

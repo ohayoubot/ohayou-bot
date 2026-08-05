@@ -1,7 +1,4 @@
-/*
- * The private tier. What matters here is not what it returns but who it
- * refuses: this is the one endpoint that serves a balance and a vault.
- */
+/* The one endpoint that serves a balance and a vault. Mostly who it refuses. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -82,7 +79,7 @@ test("your own standing comes back whole", async () => {
 	assert.deepEqual(body.metals, { iron: 40 });
 });
 
-// The whole point: nobody without a session sees a balance.
+// Nobody without a session sees a balance.
 test("without a session there is nothing", async () => {
 	const env = { ...game(stored()), ...session(SCOPE_OHAYOU) };
 	const { response, body } = await get(env, request(""));
@@ -91,7 +88,7 @@ test("without a session there is nothing", async () => {
 	assert.equal(JSON.stringify(body).includes("4200"), false);
 });
 
-// A drop link must not open somebody's vault.
+// A drop link must not open a vault.
 test("a session without the ohayou scope is refused", async () => {
 	const env = { ...game(stored()), ...session(SCOPE_DROP) };
 	const { response, body } = await get(env);
@@ -100,8 +97,7 @@ test("a session without the ohayou scope is refused", async () => {
 	assert.equal(JSON.stringify(body).includes("4200"), false);
 });
 
-// There is no parameter naming an account, and the query is bound to the
-// session's. This pins that: the only way to read a row is to hold its cookie.
+// No parameter names an account: the query binds the session's.
 test("the query can only ask for the session's own account", async () => {
 	const env = { ...game(stored()), ...session(SCOPE_OHAYOU, "Mallow") };
 	await get(
@@ -116,7 +112,7 @@ test("the query can only ask for the session's own account", async () => {
 	assert.equal(query.sql.includes("Deerly"), false);
 });
 
-// A player on the map who never named their plot has no private row.
+// A player who never named their plot has no private row.
 test("an unclaimed plot says so rather than failing", async () => {
 	const env = { ...game(null), ...session(SCOPE_OHAYOU) };
 	const { response, body } = await get(env);
@@ -125,7 +121,7 @@ test("an unclaimed plot says so rather than failing", async () => {
 	assert.equal(body.status, "unclaimed");
 });
 
-// A shared cache holding this is the one way it reaches somebody else.
+// A shared cache holding this is the one way it reaches anybody else.
 test("a standing is never cached", async () => {
 	const env = { ...game(stored()), ...session(SCOPE_OHAYOU) };
 	const { response } = await get(env);

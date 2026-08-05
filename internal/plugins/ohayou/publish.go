@@ -14,13 +14,12 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
-// saltKey is where the salt for anonymous plot ids is kept. It must survive a
-// restart: a new one would reshuffle every unnamed plot on the map.
+// saltKey holds the salt for anonymous plot ids. It must survive a restart: a
+// new one would move every unnamed plot on the map.
 const saltKey = "plotsalt"
 
-// publishEvery is how often the projection is rebuilt and compared. It is not
-// how often anything is written: an unchanged projection is not published, so a
-// quiet channel costs one read of the store and nothing else.
+// publishEvery is how often the projection is rebuilt and compared, not how
+// often anything is written: an unchanged one is not published.
 const publishEvery = 2 * time.Minute
 
 // The two tables the site is taught to accept, in web/lib/site/ingest.js.
@@ -43,10 +42,9 @@ func (g *Plugin) startPublishing(ctx context.Context) {
 
 // publish sends both tiers when either has changed.
 //
-// Rather than marking state dirty at every mutation, the projection is built
-// and compared: there is no list of places to remember to update, so a new game
-// feature cannot quietly stop the site from noticing. Building it costs one
-// pass over the users who agreed to be on it.
+// The projection is built and compared rather than state being marked dirty at
+// every mutation: there is no list of call sites to keep up to date, so a new
+// game feature cannot quietly stop the site noticing.
 func (g *Plugin) publish(ctx context.Context) {
 	public, private, err := g.projection(ctx)
 	if err != nil {
@@ -55,8 +53,8 @@ func (g *Plugin) publish(ctx context.Context) {
 	}
 
 	g.send(ctx, tablePlot, public)
-	// The private tier is sent second: if the run is cut short between them, the
-	// site is left showing less than it could rather than more than it should.
+	// Second: a run cut short between the two leaves the site showing less than
+	// it could rather than more than it should.
 	g.send(ctx, tablePlotPrivate, private)
 }
 
@@ -74,7 +72,7 @@ func (g *Plugin) send(ctx context.Context, table string, rows any) {
 
 	result, err := g.feed.Publish(ctx, table, rows)
 	if err != nil {
-		// Left unrecorded, so the next tick tries again.
+		// Left unrecorded, so the next tick retries.
 		g.log.Error("publishing", "table", table, "err", err)
 		return
 	}
@@ -84,11 +82,9 @@ func (g *Plugin) send(ctx context.Context, table string, rows any) {
 
 // projection builds the world and the private tier.
 //
-// Everyone is on the map. Whether their plot carries their name is theirs to
-// say: without consent it gets a salted id, no nick and no buildings, which
-// leaves the scale of the holding and nothing that says whose it is. The
-// private tier is consent-gated outright, so a balance and a vault never leave
-// the bot for somebody who never asked to be here.
+// Everyone is on the map. Without consent a plot gets a salted id, no nick and
+// no buildings, which leaves the scale of the holding and nothing that says
+// whose it is. The private tier is consent-gated outright.
 func (g *Plugin) projection(ctx context.Context) ([]Plot, []PrivatePlot, error) {
 	names, err := g.store.Players(ctx)
 	if err != nil {
@@ -102,13 +98,13 @@ func (g *Plugin) projection(ctx context.Context) ([]Plot, []PrivatePlot, error) 
 
 	runs, err := g.pendingRuns(ctx)
 	if err != nil {
-		// Not fatal: a plot without its countdowns is worth more than none.
+		// Not fatal: a plot without countdowns beats no plot.
 		g.log.Warn("reading pending activities", "err", err)
 		runs = map[string]map[string]time.Time{}
 	}
 
-	// Never nil, so an empty projection marshals to [] and publishes as "this
-	// table is now empty" rather than as nothing at all.
+	// Never nil, so an empty projection marshals to [] and publishes the table
+	// as empty rather than as nothing.
 	public := make([]Plot, 0, len(names))
 	private := make([]PrivatePlot, 0, len(names))
 
@@ -128,9 +124,8 @@ func (g *Plugin) projection(ctx context.Context) ([]Plot, []PrivatePlot, error) 
 	return public, private, nil
 }
 
-// plotSalt is what makes an anonymous plot id unguessable. It is generated
-// once and kept, because an id that changed would move somebody's plot across
-// the map every time the bot restarted.
+// plotSalt is generated once and kept: an id that changed would move somebody's
+// plot across the map on every restart.
 func (g *Plugin) plotSalt(ctx context.Context) (string, error) {
 	switch salt, err := g.kv.Get(ctx, saltKey); {
 	case err == nil && salt != "":
@@ -151,15 +146,15 @@ func (g *Plugin) plotSalt(ctx context.Context) (string, error) {
 	return salt, nil
 }
 
-// plotID is a stable id for an unnamed plot. Salted, so a list of nicks cannot
-// be turned into a list of plots by anybody holding the published table.
+// plotID is salted so holding the published table and a list of nicks does not
+// let the two be matched up.
 func plotID(salt, username string) string {
 	sum := sha256.Sum256([]byte(salt + "\x00" + username))
 	return base64.RawURLEncoding.EncodeToString(sum[:9])
 }
 
-// pendingRuns is every outstanding activity, by user and then by kind, so one
-// query covers everybody rather than one per player.
+// pendingRuns is every outstanding activity by user then kind, so one query
+// covers everybody.
 func (g *Plugin) pendingRuns(ctx context.Context) (map[string]map[string]time.Time, error) {
 	pending, err := g.tasks.Pending(ctx)
 	if err != nil {
@@ -179,8 +174,7 @@ func (g *Plugin) pendingRuns(ctx context.Context) (map[string]map[string]time.Ti
 	return out, nil
 }
 
-// isRun keeps housekeeping tasks off a player's page: the police decay is the
-// bot's business, not something to count down to.
+// isRun keeps housekeeping tasks off a player's page.
 func isRun(kind string) bool {
 	for _, r := range runs {
 		if r == kind {

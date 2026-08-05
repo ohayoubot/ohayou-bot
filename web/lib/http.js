@@ -101,6 +101,38 @@ export async function readJson(request, maxBytes = 8 * 1024) {
 	}
 }
 
+/**
+ * Escapes the five characters that could end an attribute or a text node.
+ * Anything reaching html or svg from the game goes through this.
+ */
+export function escapeHTML(text) {
+	return String(text ?? "")
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
+/**
+ * Parses a json column, falling back when it will not read. These columns are
+ * written by the ingest endpoint, so a bad one is a bug here rather than
+ * anything hostile, and is still not worth a 500.
+ */
+export function parseColumn(raw, fallback) {
+	if (raw === null || raw === undefined) return fallback;
+	try {
+		const value = JSON.parse(raw);
+		if (Array.isArray(fallback)) return Array.isArray(value) ? value : fallback;
+		if (fallback === null) return value ?? fallback;
+		return value && typeof value === "object" && !Array.isArray(value)
+			? value
+			: fallback;
+	} catch {
+		return fallback;
+	}
+}
+
 export function escapeLike(value) {
 	return value.replace(/[\\%_]/g, "\\$&");
 }

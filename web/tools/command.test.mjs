@@ -1,8 +1,5 @@
-/*
- * The request queue. The site records what somebody asked for and decides
- * nothing, so what matters here is that nothing unasked-for reaches the queue
- * and that nobody without a session reaches it at all.
- */
+/* Nothing unasked-for reaches the queue, and nobody without a session reaches
+   it at all. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -89,7 +86,7 @@ test("visibility is queued", async () => {
 	]);
 });
 
-// The account is the session's. A body claiming another must not be believed.
+// A body claiming another account must not be believed.
 test("a request cannot be made on somebody else's behalf", async () => {
 	const { env } = await post({
 		kind: "flag",
@@ -108,7 +105,7 @@ test("without a session nothing is queued", async () => {
 	assert.equal(env.writes.length, 0);
 });
 
-// A drop link must not be able to change somebody's territory.
+// A drop link must not change somebody's territory.
 test("a session without the ohayou scope is refused", async () => {
 	const { response, env } = await post(
 		{ kind: "flag", value: "x" },
@@ -119,7 +116,7 @@ test("a session without the ohayou scope is refused", async () => {
 	assert.equal(env.writes.length, 0);
 });
 
-// Nothing that spends or earns is on the list, and this is what keeps it so.
+// Nothing that spends or earns is on the list.
 test("a kind nobody taught it is refused", async () => {
 	for (const body of [
 		{ kind: "buy", value: "cat" },

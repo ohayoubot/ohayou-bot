@@ -11,18 +11,16 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
-// Commands are what somebody asked for on the website. The site records them
-// and this reads them back: it never writes game state itself, so every guard
-// in the store still stands between a browser and a player's ohayous.
+// Commands are what somebody asked for on the website. This reads them back and
+// applies them through the store, so every guard there still stands between a
+// browser and a player's ohayous.
 //
-// Only cosmetic changes are on the list. The game is played in irc; the site is
-// for looking at it, and a site that could play for you would remove the reason
-// to be in the channel at all.
+// Only cosmetic changes are on the list: the game is played in irc.
 const (
 	commandPoll  = 20 * time.Second
 	commandBatch = 50
-	// commandCursor is how far through the queue this bot has read, kept so a
-	// restart does not replay what has already been applied.
+	// commandCursor is how far this bot has read, kept so a restart does not
+	// replay what it applied.
 	commandCursor = "commands"
 )
 
@@ -44,8 +42,7 @@ func (g *Plugin) startCommands(ctx context.Context) {
 }
 
 func (g *Plugin) pollCommands(ctx context.Context) {
-	// Guarded here as well as in startCommands: a bot with no game database
-	// configured has nothing to read, and this is the one that runs on a timer.
+	// Guarded here as well as in startCommands: this is the one on a timer.
 	if g.commands == nil {
 		return
 	}
@@ -61,7 +58,7 @@ func (g *Plugin) pollCommands(ctx context.Context) {
 	var rows []command
 	err := g.commands.Query(ctx,
 		"SELECT id, account, kind, value FROM command WHERE id > CAST(?1 AS INTEGER) ORDER BY id LIMIT CAST(?2 AS INTEGER)",
-		[]string{itoa(g.commandCursor), itoa(commandBatch)}, &rows)
+		[]string{strconv.FormatInt(g.commandCursor, 10), strconv.FormatInt(commandBatch, 10)}, &rows)
 	if err != nil {
 		g.log.Warn("reading the request queue", "err", err)
 		return
@@ -69,18 +66,17 @@ func (g *Plugin) pollCommands(ctx context.Context) {
 
 	for _, row := range rows {
 		g.apply(ctx, row)
-		// Saved per row rather than per batch: a crash mid-batch repeats at
-		// most one request instead of the whole run.
+		// Per row rather than per batch: a crash repeats at most one request.
 		g.commandCursor = row.ID
-		if err := g.kv.Set(ctx, commandCursor, itoa(row.ID)); err != nil {
+		if err := g.kv.Set(ctx, commandCursor, strconv.FormatInt(row.ID, 10)); err != nil {
 			g.log.Error("saving the request cursor", "id", row.ID, "err", err)
 		}
 	}
 }
 
-// commandStart resumes where this bot left off, or at the end of the queue. A
-// bot switched on against a database with requests already in it should not
-// act on ones made before it was listening.
+// commandStart resumes where this bot left off, or at the end of the queue: one
+// switched on against a database with requests in it should not act on ones
+// made before it was listening.
 func (g *Plugin) commandStart(ctx context.Context) (int64, error) {
 	switch saved, err := g.kv.Get(ctx, commandCursor); {
 	case err == nil:
@@ -99,15 +95,12 @@ func (g *Plugin) commandStart(ctx context.Context) (int64, error) {
 	if len(rows) > 0 {
 		newest = rows[0].ID
 	}
-	return newest, g.kv.Set(ctx, commandCursor, itoa(newest))
+	return newest, g.kv.Set(ctx, commandCursor, strconv.FormatInt(newest, 10))
 }
 
-// apply does what was asked, if whoever asked may.
-//
-// The site checked the shape; this checks the authority, which is the half the
-// site cannot know: whether an account belongs to a player at all. A request
-// that fails here is dropped rather than retried, because nothing about it will
-// be different next time.
+// apply does what was asked, if whoever asked may. The site checked the shape;
+// this checks the half it cannot know, whether the account belongs to a player.
+// A failure here is dropped rather than retried: nothing about it will differ.
 func (g *Plugin) apply(ctx context.Context, c command) {
 	nick, err := g.store.PlayerByAccount(ctx, c.Account)
 	if errors.Is(err, store.ErrNotFound) {
@@ -126,8 +119,7 @@ func (g *Plugin) apply(ctx context.Context, c command) {
 	case "territory":
 		g.applyTerritory(ctx, c, nick)
 	default:
-		// The site's list and this one are the same list, twice. A kind here
-		// that is not there means one of them moved.
+		// The site's list and this one are the same list twice.
 		g.log.Warn("request dropped", "reason", "unknown kind", "id", c.ID, "kind", c.Kind)
 	}
 }
@@ -163,10 +155,8 @@ func (g *Plugin) applyTerritory(ctx context.Context, c command, nick string) {
 	g.log.Info("request applied", "id", c.ID, "kind", c.Kind, "nick", nick, "to", want)
 }
 
-func itoa(n int64) string { return strconv.FormatInt(n, 10) }
-
-// newCommandQueue reads the game's own database, with a token that carries
-// D1:Read and nothing more: the worker makes every write, here as everywhere.
+// newCommandQueue reads the game's own database with a D1:Read token; the
+// worker makes every write.
 func newCommandQueue(account, database, token string, timeout time.Duration) *d1.Client {
 	if account == "" || database == "" || token == "" {
 		return nil

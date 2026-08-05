@@ -1,7 +1,4 @@
-/*
- * The ingest endpoint is the only way game data reaches the site, so what it
- * refuses matters more than what it accepts. Most of these are the refusals.
- */
+/* The only way game data reaches the site. Mostly what it refuses. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -110,8 +107,7 @@ test("a signed publish lands", async () => {
 	assert.match(batch[2].sql, /INSERT INTO publish/);
 });
 
-// The land object goes in as json, so the two sides cannot disagree about how
-// to encode it.
+// Stringified here, so the two sides cannot disagree about encoding.
 test("json columns are stringified here, not by the bot", async () => {
 	const { env } = await post(publish());
 	const insert = env.batches[0][1];
@@ -170,8 +166,7 @@ test("a plugin or table nobody taught it is refused", async () => {
 	}
 });
 
-// This is the control on the whole thing: a field the bot starts sending must
-// be allowed here, on purpose, before it can be stored.
+// A field the bot starts sending must be allowed here before it is stored.
 test("a column the table does not have is refused", async () => {
 	const { response, env } = await post(
 		publish({ rows: [plot({ ohayous: 4200 })] }),
@@ -199,7 +194,7 @@ test("a row of the wrong shape is refused", async () => {
 	}
 });
 
-// An unnamed plot is the same row with the identifying half left out.
+// The same row with the identifying half left out.
 test("an anonymous plot is accepted", async () => {
 	const { response } = await post(
 		publish({

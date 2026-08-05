@@ -1,10 +1,11 @@
 /*
- * The dashboard. Redeems a link from irc, then says who you are and what is
- * open to you.
+ * The dashboard when signed in, the landing page when not.
  *
- * Which places appear comes from plugins.json and the session's scopes, so
- * adding a plugin adds a card here without this file knowing its name.
+ * Which places appear comes from plugins.json and the session's scopes, so a
+ * plugin added there appears here without this file knowing its name.
  */
+
+import { hueOf, layout } from "./ohayou/plot.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -13,19 +14,17 @@ const youEl = $("#you");
 const dropsEl = $("#drops");
 const signinEl = $("#signin");
 
-/** The sections that exist to explain the place to somebody who has not been
-    here. They come down once we know who is looking. */
+/** Shown only to a visitor who is not signed in. */
 const PITCH = ["#pitch", "#join", "#signin"];
 
-/** Must match lib/hmac.js. A page cannot import from lib, so this is the one
-    place the browser repeats them. */
+/** Must match lib/hmac.js; a page cannot import from lib. */
 const SCOPES = { drop: 1 << 0, ohayou: 1 << 1 };
 
 let session = null;
 
 /**
  * The fragment never reaches the server's logs, and is cleared before anything
- * else runs so a shared screen or a back button does not hand the link on.
+ * else runs so a back button or a shared screen does not hand the link on.
  */
 async function start() {
 	show(waitingEl);
@@ -52,7 +51,7 @@ async function start() {
 		: "";
 
 	show(youEl);
-	// Somebody signed in does not need to be told what irc is.
+	// Signed in, so no need to explain what irc is.
 	for (const id of PITCH) $(id).hidden = true;
 	await places();
 	await drops();
@@ -80,11 +79,7 @@ function signedOut(why) {
 	welcome();
 }
 
-/**
- * The part for somebody who followed a friend's plot here and has never used
- * irc. It says what the place is, shows that people are actually playing, and
- * gives them a way in that is not "install a client".
- */
+/** Fills in the network, channel and webchat, and a glimpse of the map. */
 async function welcome() {
 	const [site, world] = await Promise.all([
 		load("/api/site"),
@@ -99,12 +94,8 @@ async function welcome() {
 }
 
 /**
- * The webchat, behind a click.
- *
- * Loading it on arrival would put a third-party frame on every visit, for
- * somebody who may only have come to look at the map. It is also the heaviest
- * thing on the page by a distance. So the panel offers it, and only fetches
- * anything once somebody says yes.
+ * The webchat, behind a click: loading it on arrival would put a third-party
+ * frame on every visit and is the heaviest thing on the page.
  */
 function chat(site) {
 	const panel = $("#chatpanel");
@@ -121,9 +112,9 @@ function chat(site) {
 			frame.src = site.webchat;
 			frame.title = where ? `IRC webchat, ${where}` : "IRC webchat";
 			frame.referrerPolicy = "no-referrer";
-			// No allow-top-navigation, so a framed page cannot steer this tab
-			// somewhere else. The rest is what a chat client needs to work at
-			// all, and grants nothing on this origin: the frame is another one.
+			// No allow-top-navigation: a framed page cannot steer this tab. The
+			// rest is what a chat client needs, and grants nothing here since
+			// the frame is another origin.
 			frame.setAttribute(
 				"sandbox",
 				"allow-scripts allow-forms allow-same-origin allow-popups",
@@ -134,11 +125,7 @@ function chat(site) {
 	);
 }
 
-/**
- * A strip of the biggest holdings: enough to show that the map is somebody's
- * work rather than a mock-up. Drawn from the same numbers the map itself uses,
- * so it cannot show a world that is not there.
- */
+/** The biggest holdings, drawn from the same numbers the map itself uses. */
 function glimpse(world) {
 	const biggest = [...world.plots]
 		.sort((a, b) => b.acres - a.acres)
@@ -146,22 +133,17 @@ function glimpse(world) {
 
 	$("#glimpse").replaceChildren(
 		...biggest.map((plot) => {
-			const acres = Math.max(1, plot.acres);
-			const wide = Math.ceil(Math.sqrt(acres));
+			const { wide, tiles } = layout(plot);
 
 			const el = document.createElement("div");
 			el.className = plot.named ? "patch" : "patch unnamed";
 			el.style.setProperty("--wide", wide);
 
-			const on = [];
-			for (const [item, count] of Object.entries(plot.land).sort()) {
-				for (let i = 0; i < count && on.length < acres; i++) on.push(item);
-			}
-			for (let i = 0; i < acres; i++) {
+			for (const item of tiles) {
 				const tile = document.createElement("span");
-				if (on[i]) {
+				if (item) {
 					tile.className = "built";
-					tile.style.setProperty("--hue", hueOf(on[i]));
+					tile.style.setProperty("--hue", hueOf(item));
 				}
 				el.append(tile);
 			}
@@ -178,24 +160,14 @@ function glimpse(world) {
 	$("#glimpsecap").append(link);
 }
 
-/** The same arithmetic the map uses, so a plot is the same colour here. */
-function hueOf(item) {
-	let hash = 0;
-	for (let i = 0; i < item.length; i++) {
-		hash = (hash * 31 + item.charCodeAt(i)) >>> 0;
-	}
-	return (hash * 137.508) % 360;
-}
-
-/** Shows the sections that belong to a signed-in visitor, and hides the rest.
-    The "where to go" list is always up: it is what the site is. */
+/** The "where to go" list stays up either way. */
 function show(section) {
 	for (const el of [waitingEl, youEl, signinEl]) el.hidden = el !== section;
 	if (section !== youEl) dropsEl.hidden = true;
 }
 
-/** Every plugin gets a card. One the session cannot reach still appears, saying
-    so, rather than vanishing: a visitor should be able to see what is here. */
+/** A plugin the session cannot reach still appears, marked, rather than
+    vanishing: a visitor should see what is here. */
 async function places() {
 	const list = $("#places");
 	let plugins = [];

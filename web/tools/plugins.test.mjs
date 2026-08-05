@@ -1,10 +1,8 @@
 /*
- * plugins.json is the list of what this site serves, and adding a plugin means
- * touching four places that do not fail loudly when one is missed: the pages,
- * the routes, the _routes.json include list (without which the function never
- * runs and the request falls through to a 404 asset) and the landing page.
- *
- * This is what makes the manifest load-bearing rather than decorative.
+ * plugins.json is what this site serves. Adding a plugin means touching places
+ * that do not fail loudly when one is missed: the pages, the routes, and the
+ * _routes.json include list, without which the function never runs and the
+ * request falls through to a 404 asset.
  */
 
 import assert from "node:assert/strict";
@@ -55,9 +53,8 @@ for (const plugin of plugins) {
 		);
 	});
 
-	// The dashboard builds its own nav from this manifest, so there is no
-	// landing page to keep in step. What it does repeat is the scope bitmask,
-	// because a page cannot import from lib.
+	// The dashboard builds its nav from this manifest. What it repeats is the
+	// scope bitmask, because a page cannot import from lib.
 	test(`${plugin.name}'s scope means the same in the browser as on the wire`, () => {
 		const named = `SCOPE_${plugin.name.toUpperCase()}`;
 		const onTheWire = WIRE_SCOPES[named];

@@ -14,23 +14,20 @@ import (
 )
 
 // A projection is published by POSTing a signed body to the site, which makes
-// the write. The bot holds no database credential of its own: what may be
-// stored is decided in web/lib/site/ingest.js, in one place, rather than
-// wherever a plugin happens to build a row.
+// the write: the bot holds no database credential, so what may be stored is
+// decided in web/lib/site/ingest.js rather than wherever a plugin builds a row.
 //
-// The signature covers ingestPrefix followed by the body's bytes. That prefix
-// is domain separation: a grant's payload is raw bytes beginning with a version
-// byte, so neither can ever be replayed as the other even though the key is the
-// same one.
+// The signature covers ingestPrefix then the body, which is domain separation
+// from the grants: a grant's payload is raw bytes starting with a version byte,
+// so neither can be replayed as the other under the shared key.
 const ingestPrefix = "ingest.v1\n"
 
-// ingestPath is where the site listens, under the same url a link is minted
-// against.
+// ingestPath is under the same url a link is minted against.
 const ingestPath = "api/ingest"
 
 const publishTimeout = 30 * time.Second
 
-// maxResponse bounds what is read back from a site answering something unexpected.
+// maxResponse bounds a site answering something unexpected.
 const maxResponse = 1 << 16
 
 // Publisher sends projections to the site. Plugins use the scoped Feed below.
@@ -42,8 +39,7 @@ type Publisher struct {
 	Now func() time.Time
 }
 
-// NewPublisher returns a publisher, or nil when there is nowhere to publish to:
-// a bot with no site configured keeps its game to itself.
+// NewPublisher returns nil when there is nowhere to publish to.
 func NewPublisher(url, secret string) *Publisher {
 	if url == "" || secret == "" {
 		return nil
@@ -83,8 +79,8 @@ type body struct {
 // Result is what the site did with a publish.
 type Result struct {
 	// Status is "published" or "stale". Stale means the site had already seen a
-	// generation at least this high, which a retry of a publish that landed
-	// looks like. It is not a failure.
+	// generation this high, which is what a retry of one that landed looks
+	// like. Not a failure.
 	Status string `json:"status"`
 	Rows   int    `json:"rows"`
 }
@@ -92,22 +88,21 @@ type Result struct {
 // Published reports whether the rows were taken.
 func (r Result) Published() bool { return r.Status == "published" }
 
-// Publish replaces the whole of one table with rows. It is not a merge: a
-// player who withdrew consent is absent from the next publish and so from the
-// site, without anything having to remember to delete them.
+// Publish replaces one table outright. Not a merge: a player who withdrew
+// consent is absent from the next publish, without anything having to remember
+// to delete them.
 //
-// rows must marshal to a json array whose objects carry exactly the columns
-// ingest.js allows for the table. Anything else is refused there, which is the
-// point: this end cannot widen what is public by sending more.
+// rows must marshal to a json array carrying exactly the columns ingest.js
+// allows for the table. Anything else is refused there, so this end cannot
+// widen what is public by sending more.
 func (f *Feed) Publish(ctx context.Context, table string, rows any) (Result, error) {
 	if f == nil {
 		return Result{}, fmt.Errorf("web: no site to publish to")
 	}
 
-	// Milliseconds rather than a counter, so a generation survives a restart
-	// without anything having to be written down. The site refuses one it has
-	// already seen, so a clock that goes backwards costs a skipped publish
-	// rather than a wrong one.
+	// Milliseconds rather than a counter, so this survives a restart with
+	// nothing written down. The site refuses a generation it has seen, so a
+	// clock going backwards costs a skipped publish rather than a wrong one.
 	generation := f.publisher.Now().UnixMilli()
 
 	raw, err := json.Marshal(body{
@@ -139,8 +134,6 @@ func (f *Feed) Publish(ctx context.Context, table string, rows any) (Result, err
 		return Result{}, fmt.Errorf("web: reading the site's answer: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		// The site answers every refusal the same way and logs the reason, so
-		// there is nothing here worth parsing out.
 		return Result{}, fmt.Errorf("web: publishing %s: the site said %s", table, resp.Status)
 	}
 

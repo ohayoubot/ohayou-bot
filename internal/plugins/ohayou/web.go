@@ -8,48 +8,43 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
 
-// What the website may be told about a player. The two tiers are computed here
-// rather than in a worker so the game decides what leaves it, and so the rules
-// stay next to the ones they are derived from.
+// What the website may be told about a player. Computed here rather than in a
+// worker so the game decides what leaves it.
 
-// Plot is what anyone may see. Its field list is the boundary between the game
+// Plot is what anyone may see. The field list is the boundary between the game
 // and the internet: web_test pins the marshalled keys, so a field added to
 // store.User cannot reach the site by being carried along.
 //
-// Every player has one, so the world is the whole world rather than the part of
-// it that opted in. A plot only carries a name when its owner said it could;
-// the rest are the same shape with the identifying half left out.
+// Every player has one. A plot carries a name only when its owner said it
+// could; the rest are the same shape with the identifying half left out.
 type Plot struct {
-	// ID is the services account for a named plot and an opaque, salted id for
-	// an unnamed one, so the two cannot be told apart or matched up.
+	// ID is the services account for a named plot, and a salted id otherwise.
 	ID string `json:"id"`
 	// Nick is empty unless the owner agreed to be named.
 	Nick  string `json:"nick"`
 	Named bool   `json:"named"`
-	// Flag is a deer from the gallery, drawn over the plot. Empty on an unnamed
-	// one: a chosen picture is as good as a name.
+	// Flag is a deer from the gallery. Empty on an unnamed plot: a chosen
+	// picture identifies its owner as well as a nick does.
 	Flag  string `json:"flag"`
 	Acres int    `json:"acres"`
-	// Land is what occupies those acres, by item name, and is empty on an
-	// unnamed plot: a distinctive set of buildings is as good as a name.
-	// Anything that defends is left out either way: a public map of who has no
-	// dog is a list of who to rob. What is left out looks like empty land, so
-	// nothing can be inferred from the total.
+	// Land is what occupies those acres, and is empty on an unnamed plot: a
+	// distinctive set of buildings names you as well as a nick does. Anything
+	// that defends is left out either way, since a map of who has no dog is a
+	// list of who to rob. What is left out reads as empty land.
 	Land map[string]int `json:"land"`
-	// Wealth is a band rather than a number, and comes from lifetime earnings
-	// rather than the balance, so it ranks players without telling a thief what
-	// is worth taking today.
+	// Wealth is a band, from lifetime earnings rather than the balance: it ranks
+	// players without saying what is worth taking today.
 	Wealth string `json:"wealth"`
-	// Rations is how many days they have collected, which is the closest thing
-	// the schema has to how long they have played.
+	// Rations is days collected, the closest the schema has to how long they
+	// have played.
 	Rations int `json:"rations"`
 }
 
-// PrivatePlot is what one player may see about themselves, and is served only
-// against a session holding the matching account.
-// Every column is always present: omitempty would drop a zero and the site
-// requires the column, so a player with no probation would be refused rather
-// than published.
+// PrivatePlot is what one player may see about themselves, served only against
+// a session holding the matching account.
+//
+// Every column is always present: omitempty would drop a zero, and the site
+// requires the column, so a player with no probation would be refused.
 type PrivatePlot struct {
 	Account    string            `json:"account"`
 	Nick       string            `json:"nick"`
@@ -62,8 +57,7 @@ type PrivatePlot struct {
 	Vault      *VaultView        `json:"vault"`
 	Probation  int64             `json:"probation"`
 	Fortune    string            `json:"fortune"`
-	// Running are the activities still counting down, which is the thing the
-	// site can tell a player that a channel line cannot.
+	// Running are the activities still counting down.
 	Running []Run `json:"running"`
 }
 
@@ -79,7 +73,7 @@ type Run struct {
 	Due  int64  `json:"due"`
 }
 
-// wealthBands are checked in order, so each below is the ceiling of its band.
+// wealthBands are checked in order, so each below is its band's ceiling.
 var wealthBands = []struct {
 	below int
 	name  string
@@ -101,10 +95,8 @@ func wealth(cumulative int) string {
 	return wealthBands[len(wealthBands)-1].name
 }
 
-// publishable is the consent check made before a plot is computed at all, so a
-// user who has not agreed is never rendered, not merely filtered later. An
-// account is required as well: without one there is no identity on the site
-// that a nick change cannot move.
+// publishable is checked before a plot is named. An account is required too:
+// without one there is no identity a nick change cannot move.
 func publishable(u *store.User) bool {
 	return u.Web == store.VisibilityPublic && u.Account != ""
 }
@@ -122,10 +114,8 @@ func (g *Plugin) publicPlot(u *store.User) Plot {
 	}
 }
 
-// anonymousPlot is what a player who has not agreed to be named contributes to
-// the map: how much land they hold and roughly how much they have earned, with
-// nothing that says who they are. The scale of a world is worth showing; whose
-// it is, is theirs to say.
+// anonymousPlot is how much land somebody holds and roughly what they have
+// earned, with nothing that says who they are.
 func (g *Plugin) anonymousPlot(u *store.User, id string) Plot {
 	return Plot{
 		ID:      id,
@@ -137,9 +127,8 @@ func (g *Plugin) anonymousPlot(u *store.User, id string) Plot {
 	}
 }
 
-// land is the items that take up room, which is what a map can draw. The
-// catalog decides both halves: an acre limit means it occupies land, and any
-// defense at all keeps it off the public map.
+// land is what takes up room. The catalog decides both halves: an acre limit
+// means it occupies land, and any defence keeps it off the public map.
 func (g *Plugin) land(u *store.User) map[string]int {
 	ctx := g.ctx()
 	out := map[string]int{}
@@ -157,7 +146,7 @@ func (g *Plugin) land(u *store.User) map[string]int {
 }
 
 // privatePlot takes the pending runs rather than reading them, so publishing a
-// thousand players costs one query for all of them instead of one each.
+// thousand players costs one query rather than a thousand.
 func (g *Plugin) privatePlot(u *store.User, runs map[string]time.Time) PrivatePlot {
 	p := PrivatePlot{
 		Account:    u.Account,
@@ -185,7 +174,7 @@ func (g *Plugin) privatePlot(u *store.User, runs map[string]time.Time) PrivatePl
 		p.Equipped[category] = item.Name
 	}
 	if u.Vault.Installed {
-		// Level+1 is what !stats shows, and the two must not disagree.
+		// Level+1 is what !stats shows; the two must not disagree.
 		p.Vault = &VaultView{
 			Level:   u.Vault.Level + 1,
 			Ohayous: u.Vault.Ohayous,
