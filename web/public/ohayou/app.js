@@ -108,7 +108,7 @@ function ledger(totals, updated) {
 	$("#unfiled").textContent = unfiled
 		? `${unfiled} of ${totals.players} ${
 				totals.players === 1 ? "parcel is" : "parcels are"
-			} drawn as Anonymous: either their holder asked not to be named, or they have not registered with the bot.`
+			} drawn as Anonymous, at their holder's request.`
 		: "";
 
 	$("#ledger").replaceChildren(
