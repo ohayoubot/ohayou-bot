@@ -1,118 +1,220 @@
 /*
- * The world map: every plot as a block of acre tiles, packed into one grid so
- * the page reads as ground rather than a list. Where a block lands is the
- * browser's business; its size and contents come from the bot.
+ * The registry page: draw the world, read a deed when one is pointed at, and
+ * fill in the signed-in file from the private endpoint.
  */
 
-import { hexOf, normalise, TRANSPARENT } from "../deerkins/kins.js";
-
-import { hueOf, layout } from "./plot.js";
+import { normalise } from "../deerkins/kins.js";
+import { nav } from "../nav.js";
+import { nameOf } from "./catalog.js";
+import { BANDS, drawWorld } from "./map.js";
+import { usage } from "./plot.js";
+import { spriteURL, urlFor } from "./sprites.js";
 
 const $ = (sel) => document.querySelector(sel);
 
-let plots = [];
 let flags = {};
 let mine = null;
-/** The countdown interval, cleared before a new one replaces it. */
 let ticking = null;
 
 async function start() {
+	nav("#sitenav", "/ohayou/");
+	key();
+
 	const [world, session] = await Promise.all([load("/ohayou/api/world"), me()]);
 	if (!world) {
-		$("#totals").textContent = "The map is not answering just now.";
+		$("#loading").textContent = "The registry is not answering just now.";
 		return;
 	}
 
-	plots = world.plots;
 	flags = world.flags ?? {};
 	mine = session?.account ?? null;
-	$("#totals").replaceChildren(...describe(world.totals, world.updated));
+	ledger(world.totals, world.updated);
 
-	if (plots.length === 0) {
-		$("#empty").hidden = false;
-		$("#detail").hidden = true;
+	if (world.plots.length === 0) {
+		$("#loading").textContent = "Nothing has been claimed yet.";
 		return;
 	}
 
-	$("#world").replaceChildren(...plots.map(block));
-	const own = plots.find((p) => p.named && p.id === mine);
-	show(own ?? plots[0]);
+	const { svg, focus } = drawWorld(world.plots, {
+		flags,
+		mine,
+		onPick: deed,
+	});
+	$("#mapscroll").replaceChildren(svg);
 
-	if (session) await standing();
+	const own = world.plots.find((p) => p.named && p.id === mine);
+	deed(own ?? world.plots[0]);
+	if (own) {
+		const find = $("#findme");
+		find.hidden = false;
+		find.addEventListener("click", () => focus(own.id));
+		focus(own.id);
+	}
+
+	if (session) {
+		$("#signedout").hidden = true;
+		await file(own);
+	}
 }
 
-/* ---- your own standing ---- */
+/* ---- totals ---- */
 
-/** The private tier: a different endpoint, with a different rule. */
-async function standing() {
-	const yours = await load("/ohayou/api/me");
-	if (!yours) return;
+function ledger(totals, updated) {
+	const entry = (label, value, cls = "") => {
+		const div = document.createElement("div");
+		if (cls) div.className = cls;
+		const dt = document.createElement("dt");
+		dt.textContent = label;
+		const dd = document.createElement("dd");
+		dd.textContent = value;
+		div.append(dd, dt);
+		return div;
+	};
 
-	if (yours.status === "unclaimed") {
-		// On the map but unnamed: the claim section already explains how.
-		return;
+	$("#ledger").replaceChildren(
+		entry("acres surveyed", totals.acres.toLocaleString()),
+		entry("holders", totals.players.toLocaleString()),
+		entry("parcels filed", totals.named.toLocaleString()),
+		entry(
+			"last survey",
+			updated ? ago(Date.now() - updated) : "never",
+			"filed",
+		),
+	);
+}
+
+function key() {
+	$("#bands").replaceChildren(
+		...BANDS.map((band) => {
+			const li = document.createElement("li");
+			const swatch = document.createElement("i");
+			li.dataset.band = band;
+			li.append(swatch, band);
+			return li;
+		}),
+	);
+}
+
+/* ---- one parcel's deed ---- */
+
+function deed(plot) {
+	const panel = $("#deed");
+	const parts = [];
+
+	const name = document.createElement("h3");
+	name.textContent = plot.named ? plot.nick : "Unfiled parcel";
+	if (!plot.named) name.className = "anon";
+	parts.push(name);
+
+	if (plot.named) {
+		const band = document.createElement("div");
+		band.className = "band";
+		band.textContent = plot.wealth;
+		parts.push(band);
 	}
 
+	const deer = flagOf(plot);
+	if (deer) parts.push(deer);
+
+	const { acres, built, spare } = usage(plot);
+	const facts = document.createElement("dl");
+	facts.className = "facts";
+	for (const [label, value] of [
+		["acres", acres.toLocaleString()],
+		["worked", `${built} of ${acres}`],
+		["spare", spare],
+		["rations drawn", plot.rations.toLocaleString()],
+	]) {
+		const dt = document.createElement("dt");
+		dt.textContent = label;
+		const dd = document.createElement("dd");
+		dd.textContent = value;
+		facts.append(dt, dd);
+	}
+	parts.push(facts);
+
+	if (plot.named) {
+		parts.push(holdings(plot.land) ?? hint("Nothing built on it yet."));
+	} else {
+		parts.push(
+			hint(
+				"Held by somebody who has not filed a name. The registry publishes the acreage and nothing else.",
+			),
+		);
+	}
+
+	panel.replaceChildren(...parts);
+}
+
+/** An item list with the item drawn beside each row. */
+function holdings(land) {
+	const names = Object.keys(land ?? {}).sort();
+	if (names.length === 0) return null;
+
+	const list = document.createElement("ul");
+	list.className = "holdings";
+	list.replaceChildren(
+		...names.map((item) => {
+			const li = document.createElement("li");
+
+			const img = document.createElement("img");
+			img.src = spriteURL(item);
+			img.alt = "";
+			img.width = 22;
+			img.height = 22;
+
+			const label = document.createElement("span");
+			label.textContent = nameOf(item, land[item]);
+
+			const n = document.createElement("b");
+			n.textContent = land[item].toLocaleString();
+
+			li.append(img, label, n);
+			return li;
+		}),
+	);
+	return list;
+}
+
+function flagOf(plot) {
+	const code = plot.named && plot.flag && flags[plot.flag];
+	if (!code) return null;
+
+	const fig = document.createElement("figure");
+	fig.className = "deer";
+	const img = document.createElement("img");
+	img.src = urlFor(normalise(code), `flag:${plot.flag}`);
+	img.alt = `the deer named ${plot.flag}`;
+	const cap = document.createElement("figcaption");
+	cap.textContent = `flying ${plot.flag}`;
+	fig.append(img, cap);
+	return fig;
+}
+
+/* ---- the signed-in file ---- */
+
+async function file(own) {
+	const yours = await load("/ohayou/api/me");
+	if (!yours || yours.status === "unclaimed") return;
+
 	const panels = [
-		controls(yours),
-		figure("Ohayous", yours.ohayous, `${yours.cumulative} earned in all`),
+		figure(
+			"Ohayous on hand",
+			yours.ohayous,
+			`${yours.cumulative} drawn in all`,
+		),
 		yours.vault && vault(yours.vault),
-		figure("Defence", yours.defense, describeArmour(yours.equipped)),
-		counts("Metals", yours.metals),
-		counts("Items", yours.items),
+		figure("Defence", yours.defense, armour(yours.equipped)),
 		running(yours.running),
 		probation(yours.probation),
+		counts("Metals", yours.metals),
+		stock(yours.items),
+		controls(own),
 	].filter(Boolean);
 
 	$("#yours").replaceChildren(...panels);
 	$("#standing").hidden = false;
 	$("#claim").hidden = true;
-}
-
-/**
- * Queues a request. Nothing here changes the game: the bot polls, applies it,
- * and the map redraws when it next publishes.
- */
-function controls(yours) {
-	const flag = document.createElement("input");
-	flag.type = "text";
-	flag.maxLength = 48;
-	flag.placeholder = "a deer's name";
-	flag.value = plots.find((p) => p.named && p.id === yours.account)?.flag ?? "";
-	flag.setAttribute("aria-label", "the deer to fly over your plot");
-
-	const say = document.createElement("p");
-	say.className = "hint";
-
-	const send = async (kind, value) => {
-		say.textContent = "Asking…";
-		const res = await fetch("/ohayou/api/command", {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ kind, value }),
-		}).catch(() => null);
-
-		say.textContent = res?.ok
-			? "Asked. The bot will pick it up in a moment."
-			: "The bot did not take that.";
-	};
-
-	const fly = document.createElement("button");
-	fly.type = "button";
-	fly.textContent = "Fly it";
-	fly.addEventListener("click", () => send("flag", flag.value.trim()));
-
-	const row = document.createElement("div");
-	row.className = "ask";
-	row.append(flag, fly);
-
-	const down = document.createElement("button");
-	down.type = "button";
-	down.className = "quiet";
-	down.textContent = "Take my name off the map";
-	down.addEventListener("click", () => send("territory", "off"));
-
-	return panel("Your flag", row, down, say);
 }
 
 function panel(title, ...body) {
@@ -127,7 +229,7 @@ function panel(title, ...body) {
 function figure(title, value, sub) {
 	const n = document.createElement("div");
 	n.className = "figure";
-	n.textContent = value;
+	n.textContent = Number(value).toLocaleString();
 
 	const parts = [n];
 	if (sub) {
@@ -140,7 +242,7 @@ function figure(title, value, sub) {
 }
 
 function vault(v) {
-	const el = figure(`Vault, level ${v.level}`, v.ohayous, `of ${v.cap}`);
+	const el = figure(`Vault, level ${v.level}`, v.ohayous, `of ${v.cap} held`);
 	const meter = document.createElement("div");
 	meter.className = "meter";
 	const bar = document.createElement("span");
@@ -150,7 +252,7 @@ function vault(v) {
 	return el;
 }
 
-function describeArmour(equipped) {
+function armour(equipped) {
 	const worn = Object.values(equipped);
 	return worn.length ? worn.sort().join(", ") : "nothing equipped";
 }
@@ -165,7 +267,7 @@ function counts(title, held) {
 		...names.map((name) => {
 			const row = document.createElement("li");
 			const n = document.createElement("b");
-			n.textContent = held[name];
+			n.textContent = held[name].toLocaleString();
 			row.append(name, n);
 			return row;
 		}),
@@ -173,7 +275,15 @@ function counts(title, held) {
 	return panel(title, list);
 }
 
-/** Counts down from the due time, so a four-hour run ticks without polling. */
+/** Everything owned, drawn. */
+function stock(items) {
+	const list = holdings(items);
+	if (!list) return null;
+	const el = panel("Everything you own", list);
+	el.classList.add("wide");
+	return el;
+}
+
 function running(runs) {
 	if (!runs || runs.length === 0) return null;
 
@@ -195,26 +305,84 @@ function running(runs) {
 
 	clearInterval(ticking);
 	ticking = setInterval(tick, 1000);
-	return panel("Running", list);
+	return panel("Working", list);
 }
 
 function probation(at) {
 	if (!at || at * 1000 <= Date.now()) return null;
 
-	const el = figure(
-		"On probation",
-		until(at * 1000 - Date.now()),
-		"left to serve",
-	);
-	el.classList.add("warn");
+	const el = document.createElement("article");
+	el.className = "panel warn";
+	const head = document.createElement("h3");
+	head.textContent = "Bound over";
+	const n = document.createElement("div");
+	n.className = "figure";
+	n.textContent = until(at * 1000 - Date.now());
+	const sub = document.createElement("div");
+	sub.className = "sub";
+	sub.textContent = "left to serve";
+	el.append(head, n, sub);
 	return el;
 }
 
-/** Display names for the activities, falling back to the bot's own word. */
+/** Queues a request. The bot polls, applies it, and the map redraws next survey. */
+function controls(own) {
+	const flag = document.createElement("input");
+	flag.type = "text";
+	flag.maxLength = 48;
+	flag.placeholder = "a deer's name";
+	flag.value = own?.flag ?? "";
+	flag.setAttribute("aria-label", "the deer to fly over your parcel");
+
+	const say = document.createElement("p");
+	say.className = "hint";
+
+	const send = async (kind, value) => {
+		say.textContent = "Filing…";
+		const res = await fetch("/ohayou/api/command", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ kind, value }),
+		}).catch(() => null);
+
+		say.textContent = res?.ok
+			? "Filed. The bot picks it up within a minute."
+			: "The bot did not take that.";
+	};
+
+	const fly = document.createElement("button");
+	fly.type = "button";
+	fly.textContent = "Fly it";
+	fly.addEventListener("click", () => send("flag", flag.value.trim()));
+
+	const row = document.createElement("div");
+	row.className = "ask";
+	row.append(flag, fly);
+
+	const down = document.createElement("button");
+	down.type = "button";
+	down.className = "quiet";
+	down.textContent = "Withdraw my name";
+	down.addEventListener("click", () => send("territory", "off"));
+
+	const el = panel("Your flag", row, down, say);
+	el.classList.add("wide");
+	return el;
+}
+
+/* ---- odds and ends ---- */
+
 function labelOf(kind) {
 	return (
-		{ mining: "quarry", pumping: "oilwell", breeding: "cattery" }[kind] ?? kind
+		{ mining: "quarry", pumping: "oil well", breeding: "cattery" }[kind] ?? kind
 	);
+}
+
+function hint(text) {
+	const p = document.createElement("p");
+	p.className = "hint";
+	p.textContent = text;
+	return p;
 }
 
 function until(ms) {
@@ -228,6 +396,15 @@ function until(ms) {
 	return `${seconds}s`;
 }
 
+function ago(ms) {
+	const minutes = Math.floor(ms / 60000);
+	if (minutes < 1) return "just now";
+	if (minutes < 60) return `${minutes}m ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours}h ago`;
+	return `${Math.floor(hours / 24)}d ago`;
+}
+
 async function load(url) {
 	try {
 		const res = await fetch(url);
@@ -237,186 +414,8 @@ async function load(url) {
 	}
 }
 
-/** Only to know which plot is yours; a signed-out visitor sees the same map. */
 async function me() {
 	return load("/api/session");
-}
-
-/* ---- the map ---- */
-
-/** A plot as a block of acre tiles, sized by the holding. */
-function block(plot) {
-	const { acres, wide, tall, tiles } = layout(plot);
-
-	const el = document.createElement("button");
-	el.type = "button";
-	el.className = "plot";
-	el.setAttribute("role", "listitem");
-	if (!plot.named) el.classList.add("unnamed");
-	if (mine && plot.named && plot.id === mine) el.classList.add("mine");
-
-	el.style.setProperty("--wide", wide);
-	el.style.setProperty("--tall", tall);
-	el.setAttribute(
-		"aria-label",
-		`${plot.named ? plot.nick : "an unclaimed plot"}, ${acres} ${plural(
-			acres,
-			"acre",
-		)}, ${plot.wealth}`,
-	);
-
-	// wide by tall is square, so the last row may run past the acreage. Those
-	// cells are not land and are left out.
-	for (let i = 0; i < wide * tall; i++) {
-		if (i >= acres) break;
-		const tile = document.createElement("span");
-		tile.className = tiles[i] ? "acre built" : "acre";
-		if (tiles[i]) tile.style.setProperty("--hue", hueOf(tiles[i]));
-		el.append(tile);
-	}
-
-	const point = () => show(plot);
-	el.addEventListener("mouseenter", point);
-	el.addEventListener("focus", point);
-	el.addEventListener("click", point);
-	return el;
-}
-
-/* ---- who a plot belongs to ---- */
-
-function show(plot) {
-	const panel = $("#detail");
-	const name = document.createElement("h3");
-	name.textContent = plot.named ? plot.nick : "An unclaimed plot";
-	if (!plot.named) name.className = "anon";
-
-	const facts = document.createElement("p");
-	facts.className = "facts";
-	facts.textContent = `${plot.acres} ${plural(plot.acres, "acre")} · ${
-		plot.wealth
-	} · ${plot.rations} ${plural(plot.rations, "ration")} collected`;
-
-	const parts = [name];
-	const banner = flag(plot.flag);
-	if (banner) parts.push(banner);
-	parts.push(facts);
-	if (plot.named) {
-		const list = legend(plot.land);
-		parts.push(list ?? hint("Nothing built on it yet."));
-	} else {
-		parts.push(
-			hint(
-				"Whoever holds this has not put their name to it. Say !territory on to name yours.",
-			),
-		);
-	}
-	panel.replaceChildren(...parts);
-}
-
-/**
- * A plot's deer, drawn from the gallery's own kinskode: one character per cell,
- * in the sixteen colours IRC has. This is the one place the map borrows the
- * gallery's palette, because it is the gallery's picture.
- */
-function flag(name) {
-	const code = name && flags[name];
-	if (!code) return null;
-
-	const rows = normalise(code).split("\n");
-	const wide = Math.max(...rows.map((r) => r.length));
-
-	const art = document.createElement("div");
-	art.className = "banner";
-	art.style.setProperty("--cols", wide);
-	art.title = name;
-	art.setAttribute("role", "img");
-	art.setAttribute("aria-label", `the deer named ${name}`);
-
-	for (const row of rows) {
-		for (let x = 0; x < wide; x++) {
-			const cell = document.createElement("span");
-			const char = row[x] ?? TRANSPARENT;
-			const hex = char === TRANSPARENT ? null : hexOf(char);
-			if (hex) cell.style.background = hex;
-			art.append(cell);
-		}
-	}
-
-	const wrap = document.createElement("figure");
-	wrap.className = "flag";
-	const caption = document.createElement("figcaption");
-	caption.textContent = name;
-	wrap.append(art, caption);
-	return wrap;
-}
-
-function hint(text) {
-	const p = document.createElement("p");
-	p.className = "hint";
-	p.textContent = text;
-	return p;
-}
-
-function legend(land) {
-	const names = Object.keys(land).sort();
-	if (names.length === 0) return null;
-
-	const list = document.createElement("ul");
-	list.className = "legend";
-	list.replaceChildren(
-		...names.map((item) => {
-			const row = document.createElement("li");
-			const swatch = document.createElement("span");
-			swatch.className = "swatch";
-			swatch.style.setProperty("--hue", hueOf(item));
-
-			const count = document.createElement("b");
-			count.textContent = land[item];
-			row.append(swatch, `${item} `, count);
-			return row;
-		}),
-	);
-	return list;
-}
-
-/* ---- odds and ends ---- */
-
-function describe(totals, updated) {
-	const stat = (value, label) => {
-		const el = document.createElement("span");
-		el.className = "stat";
-		const n = document.createElement("b");
-		n.textContent = value;
-		el.append(n, ` ${label}`);
-		return el;
-	};
-
-	const when = document.createElement("span");
-	when.className = "when";
-	when.textContent = updated
-		? `published ${ago(Date.now() - updated)}`
-		: "nothing published yet";
-
-	return [
-		stat(totals.players, plural(totals.players, "player")),
-		stat(totals.acres, plural(totals.acres, "acre")),
-		stat(totals.named, "named"),
-		when,
-	];
-}
-
-function plural(n, word) {
-	return n === 1 ? word : `${word}s`;
-}
-
-function ago(ms) {
-	const minutes = Math.floor(ms / 60000);
-	if (minutes < 1) return "just now";
-	if (minutes < 60) return `${minutes} ${plural(minutes, "minute")} ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours} ${plural(hours, "hour")} ago`;
-	const days = Math.floor(hours / 24);
-	return `${days} ${plural(days, "day")} ago`;
 }
 
 start();

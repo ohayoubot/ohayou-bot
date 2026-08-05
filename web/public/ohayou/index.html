@@ -3,57 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ohayou: the world</title>
-<meta name="description" content="Every territory in the ohayou game, laid out as one landscape.">
-<meta name="color-scheme" content="dark light">
-<link rel="stylesheet" href="../deerkins/style.css">
+<title>ohayou land registry</title>
+<meta name="description" content="Every acre claimed in the ohayou game, surveyed and filed. One tile is one acre.">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="The ohayou land registry">
+<meta property="og:description" content="Every acre claimed in the ohayou game, surveyed and filed. Say !ohayou once a day and take some of it.">
+<link rel="stylesheet" href="../site.css">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="../deerkins/favicon.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
 </head>
 <body>
 
-<header class="topbar">
-  <h1>ohayou</h1>
-  <p class="tagline">Say <code>!ohayou</code> once a day. Spend what you get on land.</p>
+<header class="shell">
+  <div>
+    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+  </div>
 </header>
 
-<main>
+<main class="page">
 
-  <section id="summary">
-    <p class="hint" id="totals">Reading the map…</p>
-  </section>
-
-  <section id="standing" hidden>
-    <h2>Your standing</h2>
-    <div id="yours" class="standing"></div>
-  </section>
-
-  <section>
-    <h2 class="visually-hidden">The world</h2>
-    <div class="map">
-      <div id="world" class="world" role="list" aria-label="Every territory"></div>
-      <aside id="detail" class="detail" aria-live="polite">
-        <p class="hint">Point at a plot to see whose it is.</p>
-      </aside>
+  <section class="masthead">
+    <div>
+      <h1>The ohayou land registry</h1>
+      <p class="lede">
+        Every acre anyone has claimed, surveyed to scale. One tile is one acre.
+        Land is bought with rations, and rations are handed out in a chatroom,
+        one per person per day.
+      </p>
     </div>
-    <p class="hint" id="empty" hidden>
-      Nobody has ohayou'd yet, so there is no land to draw.
+    <dl class="ledger" id="ledger" aria-label="Survey totals"></dl>
+  </section>
+
+  <section class="survey">
+    <h2 class="visually-hidden">The world</h2>
+    <div class="mapframe">
+      <div class="mapscroll" id="mapscroll">
+        <p class="loading" id="loading">Surveying…</p>
+      </div>
+      <div class="maptools">
+        <span class="scalebar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="hint">5 acres</span>
+        <button type="button" id="findme" hidden>Find my parcel</button>
+      </div>
+    </div>
+
+    <aside class="deed" id="deed" aria-live="polite">
+      <p class="hint">Point at a parcel to read its deed.</p>
+    </aside>
+  </section>
+
+  <section class="key">
+    <h2>Key</h2>
+    <ul class="bands" id="bands"></ul>
+    <p class="hint">
+      A parcel is drawn at the size of the holding it describes. Unfiled parcels
+      are shown as bare ground: the registry knows the acreage, not the owner.
+      Ohayous on hand, vaults and defences are never published.
     </p>
   </section>
 
-  <section id="claim">
-    <h2>Claiming a plot</h2>
+  <section class="file" id="standing" hidden>
+    <span class="stamp">Your file</span>
+    <div class="panels" id="yours"></div>
+  </section>
+
+  <section class="panel notice" id="claim">
+    <span class="stamp">Filing a claim</span>
     <p>
-      Every player is on this map. A plot only carries a name when its owner
-      says it can: until then it shows how much land they hold and roughly what
-      they have earned, and nothing about who they are.
+      Parcels are filed under a services account, not a nick, so nobody can take
+      yours by taking your name. Say <code>!territory on</code> to the bot and
+      the registry prints your nick on your land; <code>!territory off</code>
+      takes it back off.
     </p>
-    <p>To put your name on yours, say this to the bot:</p>
-    <p><code>!territory on</code></p>
-    <p class="hint">
-      <code>!territory off</code> takes the name back off. Your ohayous on hand,
-      your vault and your defences are never shown to anyone but you.
+    <p class="hint" id="signedout">
+      Already playing? Say <code>!web</code> to the bot and it sends you a
+      one-shot link that signs you in here. You will need to be registered and
+      identified with it first.
     </p>
   </section>
 
