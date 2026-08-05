@@ -213,6 +213,18 @@ The site's two are Pages secrets, set per environment: see `web/README.md`.
 sudo deploy/install.sh
 ```
 
+The install checks the config before it stops or restarts anything, so a
+mistake is one error rather than a systemd restart loop. Run it by hand with:
+
+```sh
+./ohayoubot -check -config conf.json
+```
+
+It loads the config and every plugin's own configuration, reports which plugins
+would come up, and exits non-zero if any of it is wrong. It opens no database
+and makes no connection. Credentials come from the environment, so source
+`ohayoubot.env` first if the config depends on them.
+
 This builds the binary, creates a locked-down `ohayoubot` system user, installs
 everything under `/opt/ohayoubot`, and enables `deploy/ohayoubot.service`. It is
 safe to re-run to deploy an update.

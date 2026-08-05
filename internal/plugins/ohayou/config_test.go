@@ -78,14 +78,15 @@ func TestTimezoneIsConfigurable(t *testing.T) {
 	}
 }
 
-func TestBadTimezoneIsRefusedAtRegister(t *testing.T) {
-	p, _, err := configure(t, `{"dataDir": "../../../data", "timezone": "Mars/Olympus"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = p.Register(plugin.Deps{Bot: testBot(t), Log: discardLog()})
+// Refused at Configure rather than Register, so `ohayoubot -check` catches it
+// before a deployment restarts into a loop.
+func TestBadTimezoneIsRefusedAtConfigure(t *testing.T) {
+	_, on, err := configure(t, `{"dataDir": "../../../data", "timezone": "Mars/Olympus"}`)
 	if err == nil {
-		t.Fatal("register accepted a timezone that does not exist")
+		t.Fatal("configure accepted a timezone that does not exist")
+	}
+	if on {
+		t.Error("the plugin was left on")
 	}
 	if !strings.Contains(err.Error(), "Mars/Olympus") {
 		t.Errorf("err = %v, want it to name the timezone", err)

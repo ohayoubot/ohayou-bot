@@ -123,6 +123,33 @@ install -m 0644 "$repo_root/deploy/ohayoubot.service" "$UNIT"
 systemctl daemon-reload
 systemctl enable ohayoubot.service
 
+# Load the config the way the service will, and refuse to go further if it will
+# not come up. Without this a bad config is only found after the restart, as a
+# systemd restart loop.
+check_config() {
+	local prefix="$1"
+	local env_file="$prefix/ohayoubot.env"
+
+	if [[ ! -f "$prefix/conf.json" ]]; then
+		echo ">> No conf.json yet; skipping the config check."
+		return 0
+	fi
+
+	echo ">> Checking the config..."
+	# In a subshell, so the credentials do not outlive the check.
+	(
+		set -a
+		# shellcheck disable=SC1090
+		[[ -f "$env_file" ]] && . "$env_file"
+		set +a
+		cd "$prefix" && ./ohayoubot -check -config "$prefix/conf.json"
+	) || {
+		echo "!! The config is not usable. Nothing was restarted." >&2
+		echo "   Fix $prefix/conf.json (or $env_file) and re-run '$0'." >&2
+		exit 1
+	}
+}
+
 # Resolve the sqlite path from conf.json (defaulting to ohayoubot.db), relative
 # to the service WorkingDirectory ($PREFIX) unless it is already absolute.
 db_path="$(sed -n 's/.*"database"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PREFIX/conf.json" 2>/dev/null | head -n1)"
@@ -132,6 +159,8 @@ db_path="${db_path:-ohayoubot.db}"
 # Apply pending DB migrations with the service stopped for exclusive write
 # access, then restore whatever run state it was in. A stopped bot re-seeds the
 # catalog (picking up new prices/items) on its next start.
+check_config "$PREFIX"
+
 was_active=no
 if systemctl is-active --quiet ohayoubot.service; then
 	was_active=yes

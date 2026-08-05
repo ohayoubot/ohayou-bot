@@ -63,6 +63,11 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 	if c.Timezone == "" {
 		c.Timezone = "America/New_York"
 	}
+	// Checked here rather than only at Register, so a name the zone database
+	// does not have is caught by -check instead of at startup.
+	if _, err := time.LoadLocation(c.Timezone); err != nil {
+		return false, fmt.Errorf("timezone %q: %w", c.Timezone, err)
+	}
 
 	items, err := seed.LoadItems(filepath.Join(c.DataDir, "items.json"))
 	if err != nil {
