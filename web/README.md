@@ -131,6 +131,23 @@ pnpm db init ohayou remote --yes
 pnpm db init ohayou preview --yes
 ```
 
+## The webchat
+
+The landing page can open Rizon's webchat in a frame, so somebody who has never
+used IRC does not have to install anything. It loads nothing until they click:
+a third-party frame on every visit would be the heaviest thing on a page most
+people came to look at a map on.
+
+`IRC_WEBCHAT` in `wrangler.toml` is the url. Two things have to hold, and
+`tools/site.test.mjs` checks both:
+
+- it must be `https`, since an `http` frame in an `https` page is mixed content
+  and is blocked before any policy is consulted;
+- its host must be named in `frame-src` in `public/_headers`, because a policy
+  is a static header and cannot be configured per deployment.
+
+Point it at another webchat and that `frame-src` line changes with it.
+
 ## Player pages
 
 `/ohayou/p/<nick>` is one player's plot, and `/ohayou/api/card/<nick>` is the

@@ -93,12 +93,45 @@ async function welcome() {
 
 	if (site?.network) $("#network").textContent = site.network;
 	if (site?.channel) $("#channel").textContent = site.channel;
-	if (site?.webchat) {
-		$("#webchat").href = site.webchat;
-		$("#webchatline").hidden = false;
-	}
+	if (site?.webchat) chat(site);
 
 	if (world?.plots?.length) glimpse(world);
+}
+
+/**
+ * The webchat, behind a click.
+ *
+ * Loading it on arrival would put a third-party frame on every visit, for
+ * somebody who may only have come to look at the map. It is also the heaviest
+ * thing on the page by a distance. So the panel offers it, and only fetches
+ * anything once somebody says yes.
+ */
+function chat(site) {
+	const panel = $("#chatpanel");
+	const offer = $("#chatoffer");
+	const where = [site.channel, site.network].filter(Boolean).join(" on ");
+
+	$("#webchat").href = site.webchat;
+	panel.hidden = false;
+
+	$("#openchat").addEventListener(
+		"click",
+		() => {
+			const frame = document.createElement("iframe");
+			frame.src = site.webchat;
+			frame.title = where ? `IRC webchat, ${where}` : "IRC webchat";
+			frame.referrerPolicy = "no-referrer";
+			// No allow-top-navigation, so a framed page cannot steer this tab
+			// somewhere else. The rest is what a chat client needs to work at
+			// all, and grants nothing on this origin: the frame is another one.
+			frame.setAttribute(
+				"sandbox",
+				"allow-scripts allow-forms allow-same-origin allow-popups",
+			);
+			offer.replaceWith(frame);
+		},
+		{ once: true },
+	);
 }
 
 /**

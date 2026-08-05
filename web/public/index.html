@@ -59,10 +59,18 @@
       has been running since 1988; you talk to it with a program called a
       client, and there is nothing to sign up for.
     </p>
-    <p id="webchatline" hidden>
-      The quickest way in is a client that runs in this tab:
-      <a id="webchat" href="#" rel="noreferrer">open the channel</a>.
-    </p>
+    <div id="chatpanel" class="chat" hidden>
+      <div id="chatoffer" class="chatoffer">
+        <p>
+          The quickest way in is a client that runs right here. Nothing is
+          loaded from the chat network until you ask for it.
+        </p>
+        <p>
+          <button id="openchat" type="button" class="primary">Open the chat</button>
+          <a id="webchat" href="#" target="_blank" rel="noreferrer noopener">or in a new tab</a>
+        </p>
+      </div>
+    </div>
     <p>Once you are there, say:</p>
     <p><code>!ohayou</code></p>
     <p class="hint">
