@@ -47,11 +47,19 @@ type Cloudflare struct {
 // Web is the website the bot mints signed links for, shared by the plugins with
 // a page there.
 type Web struct {
+	// URL is the site's front door, e.g. "https://hemera.day/". A link is minted
+	// against it, so an empty one means the bot hands out none.
+	URL string `json:"url"`
 	// Secret signs the links. It has no config field on purpose, so it cannot be
 	// committed by accident: it comes from OHAYOU_WEB_SECRET only. The worker
 	// holds the same value as UPLOAD_HMAC_SECRET, and both sides key on its utf-8
 	// bytes rather than decoding the hex.
 	Secret string `json:"-"`
+}
+
+// Link puts a grant in the fragment, which never reaches the server's logs.
+func (w Web) Link(grant string) string {
+	return strings.TrimSuffix(w.URL, "#") + "#" + grant
 }
 
 // On resolves an optional toggle against what it defaults to when unset.

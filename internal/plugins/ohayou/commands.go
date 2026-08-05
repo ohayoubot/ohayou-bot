@@ -335,9 +335,10 @@ func (g *Plugin) cmdQuarry(m *bot.Message) {
 	g.say(m.Nick, strings.TrimSuffix(inv, ", "))
 }
 
-// cmdWeb reads and sets whether a user's holdings may leave irc. What the
-// public tier promises here is what web.go's Plot is allowed to carry.
-func (g *Plugin) cmdWeb(m *bot.Message) {
+// cmdTerritory reads and sets whether a user's holdings may leave irc. What the
+// public tier promises here is what web.go's Plot is allowed to carry. The name
+// is not !web because that is the bot's, and signs you in to the whole site.
+func (g *Plugin) cmdTerritory(m *bot.Message) {
 	to := m.ReplyTo()
 	user, ok := g.requireUser(m, to)
 	if !ok {
@@ -354,14 +355,15 @@ func (g *Plugin) cmdWeb(m *bot.Message) {
 		g.say(to, m.Nick+": "+webState(user.Web))
 		g.say(to, "Public means your nick, your land and what you have built on it, "+
 			"and roughly how much you have earned. Never your ohayous on hand, your "+
-			"vault, or your defences. "+g.p()+"web on to appear, "+g.p()+"web off to stay out.")
+			"vault, or your defences. "+g.p()+"territory on to appear, "+g.p()+
+			"territory off to stay out.")
 		return
 	case "on", "yes", "public":
 		want = store.VisibilityPublic
 	case "off", "no", "hidden":
 		want = store.VisibilityHidden
 	default:
-		g.say(to, "Usage: "+g.p()+"web on, "+g.p()+"web off, or "+g.p()+"web to see where you stand.")
+		g.say(to, "Usage: "+g.p()+"territory on, "+g.p()+"territory off, or "+g.p()+"territory to see where you stand.")
 		return
 	}
 

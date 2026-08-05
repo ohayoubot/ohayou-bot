@@ -276,24 +276,18 @@ func TestUploadInPrivateSaysNothingInChannel(t *testing.T) {
 	}
 }
 
-func TestSharedCapsTheChannelList(t *testing.T) {
+// The channel list a grant carries is capped, because the worker refuses a
+// longer one. SharedWith itself is the bot's and tested there.
+func TestGrantChannelsAreCapped(t *testing.T) {
 	var all []string
 	for i := range web.MaxChannels + 5 {
 		all = append(all, fmt.Sprintf("#c%d", i))
 	}
 	h := newHarnessIn(t, all)
 
-	if got := h.plugin.shared(all); len(got) != web.MaxChannels {
+	got := web.Channels(h.Bot.SharedWith(all))
+	if len(got) != web.MaxChannels {
 		t.Errorf("kept %d channels, want the worker's ceiling of %d", len(got), web.MaxChannels)
-	}
-}
-
-func TestSharedIgnoresRepeatsAndStrangers(t *testing.T) {
-	h := newHarness(t)
-
-	got := h.plugin.shared([]string{"#chan", "#CHAN", "#nowhere", "#other"})
-	if len(got) != 2 || got[0] != "#chan" || got[1] != "#Other" {
-		t.Errorf("shared = %v, want [#chan #Other]", got)
 	}
 }
 

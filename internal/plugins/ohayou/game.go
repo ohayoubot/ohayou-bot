@@ -15,6 +15,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 	"github.com/ohayoubot/ohayou-bot/internal/task"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 //go:embed schema.sql
@@ -65,6 +66,9 @@ func New() *Plugin {
 
 func (g *Plugin) Name() string { return "ohayou" }
 
+// Scope puts a player's own territory behind the site login, so !web covers it.
+func (g *Plugin) Scope() web.Scope { return web.ScopeOhayou }
+
 func (g *Plugin) Register(deps plugin.Deps) error {
 	est, err := time.LoadLocation(g.cfg.Timezone)
 	if err != nil {
@@ -101,7 +105,7 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 	g.bot.HandleFunc("build", false, g.cmdBuild)
 	g.bot.HandleFunc("recipe", false, g.cmdRecipe)
 	g.bot.HandleFunc("inventory", false, g.cmdInventory)
-	g.bot.HandleFunc("web", false, g.cmdWeb)
+	g.bot.HandleFunc("territory", false, g.cmdTerritory)
 	g.bot.HandleFunc("register", false, g.cmdRegister)
 	g.bot.HandleFunc("identify", false, g.cmdIdentify)
 	g.bot.HandleFunc("quarry", false, g.cmdQuarry)

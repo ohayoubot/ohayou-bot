@@ -31,6 +31,9 @@
 		"spammerNick": "spams the bot often"
 	},
 	"database": "ohayoubot.db",
+	"web": {
+		"url": "https://hemera.day/"
+	},
 	"cloudflare": {
 		"accountId": "",
 		"databaseId": "",

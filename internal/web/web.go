@@ -22,6 +22,16 @@ type Grant struct {
 	TTL time.Duration
 }
 
+// Channels trims a list to what a grant can carry. Truncating rather than
+// refusing: somebody who shares more than MaxChannels with the bot should still
+// get a link, and the ones that fit are the ones they will use.
+func Channels(names []string) []string {
+	if len(names) > MaxChannels {
+		return names[:MaxChannels]
+	}
+	return names
+}
+
 // Minter signs grants with the secret the worker verifies them with.
 type Minter struct {
 	secret string
