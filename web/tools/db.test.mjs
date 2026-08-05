@@ -27,8 +27,40 @@ const bound = new Set(
 	),
 );
 
+/** Every (database_name, database_id) pair, in the order they appear. */
+const declared = [
+	...wrangler.matchAll(
+		/database_name\s*=\s*"([^"]+)"\s*\ndatabase_id\s*=\s*"([^"]+)"/g,
+	),
+].map(([, name, id]) => ({ name, id }));
+
 test("wrangler.toml declares at least one database", () => {
 	assert.ok(bound.size > 0, "the binding regex matched nothing");
+});
+
+/*
+ * Two names sharing an id are one database wearing two hats, which is how a
+ * branch build ends up writing production data. The README warns about it; this
+ * is the part that can check.
+ */
+test("no two databases share an id", () => {
+	const byId = new Map();
+	for (const { name, id } of declared) {
+		const seen = byId.get(id);
+		assert.ok(
+			seen === undefined || seen === name,
+			`${name} and ${seen} are both "${id}"`,
+		);
+		byId.set(id, name);
+	}
+});
+
+test("every database has a name and an id", () => {
+	assert.equal(
+		declared.length,
+		bound.size,
+		"a database_name has no database_id beneath it",
+	);
 });
 
 for (const [name, files] of Object.entries(DATABASES)) {
