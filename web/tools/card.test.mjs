@@ -124,10 +124,24 @@ test("a name that is not one is refused", async () => {
 });
 
 test("a flag is drawn from the gallery when there is one", () => {
-	const withFlag = card(plot({ flag: "senordeer" }), "DD\nDD", {});
-	const without = card(plot(), null, {});
+	const svg = card(plot({ flag: "senordeer" }), "DD\nDD", {});
+	assert.ok(svg.includes("flying senordeer"), "the deer drew nothing");
+});
 
-	assert.ok(withFlag.length > without.length, "the deer drew nothing");
+// The column the deer would fill is most parcels' empty space: nobody has to
+// fly one.
+test("a parcel with no deer shows what is on the land instead", () => {
+	const svg = card(plot(), null, {});
+
+	assert.ok(svg.includes("ON THE LAND"));
+	assert.equal(svg.includes("flying"), false);
+});
+
+test("bare land shows neither", () => {
+	const svg = card(plot({ land: {} }), null, {});
+
+	assert.equal(svg.includes("ON THE LAND"), false);
+	assert.equal(svg.includes("flying"), false);
 });
 
 test("the card says where the game is played", () => {
