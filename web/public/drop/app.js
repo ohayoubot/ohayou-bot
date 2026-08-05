@@ -72,7 +72,7 @@ async function start() {
 }
 
 async function redeem(token) {
-	const res = await fetch(`${API}/session`, {
+	const res = await fetch("/api/session", {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({ token }),
@@ -81,7 +81,7 @@ async function redeem(token) {
 }
 
 async function current() {
-	const res = await fetch(`${API}/session`);
+	const res = await fetch("/api/session");
 	return res.ok ? await res.json() : null;
 }
 
@@ -95,7 +95,7 @@ function show(section) {
 }
 
 $("#signout").addEventListener("click", async () => {
-	await fetch(`${API}/session`, { method: "DELETE" });
+	await fetch("/api/session", { method: "DELETE" });
 	session = null;
 	locked("Signed out.");
 });

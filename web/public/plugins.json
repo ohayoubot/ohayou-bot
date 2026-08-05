@@ -5,14 +5,16 @@
       "title": "deerkins",
       "blurb": "draw pixel art for IRC.",
       "path": "/deerkins/",
-      "api": "/deerkins/api/*"
+      "api": "/deerkins/api/*",
+      "login": false
     },
     {
       "name": "drop",
       "title": "drop",
       "blurb": "put images in IRC.",
       "path": "/drop/",
-      "api": "/drop/api/*"
+      "api": "/drop/api/*",
+      "login": true
     }
   ]
 }
