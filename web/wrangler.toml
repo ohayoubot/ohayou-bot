@@ -28,6 +28,7 @@ GLOBAL_UPLOADS_PER_HOUR = "200"
 PUBLIC_IMAGE_BASE = "https://img.hemera.day"
 IRC_CHANNEL = "#chan"
 IRC_NETWORK = "Rizon"
+IRC_WEBCHAT = "https://kiwiirc.com/nextclient/irc.rizon.net/#chan"
 
 [[env.preview.d1_databases]]
 binding = "DB"

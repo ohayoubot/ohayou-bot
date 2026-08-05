@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>hemera.day</title>
-<meta name="description" content="The website side of an IRC bot: draw pixel art, drop images into a channel, and keep a territory.">
+<meta name="description" content="An IRC bot that hands out one ration a day. Draw pixel art, drop images into a channel, and build a territory out of what you collect.">
 <meta name="color-scheme" content="dark light">
+<meta property="og:title" content="hemera.day">
+<meta property="og:description" content="An IRC bot that hands out one ration a day, and the website that shows what everyone did with theirs.">
 <link rel="stylesheet" href="deerkins/style.css">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="deerkins/favicon.svg" type="image/svg+xml">
@@ -37,23 +39,51 @@
     <ul id="droplist" class="drops"></ul>
   </section>
 
+  <!-- Everything below is for somebody who arrived from a link and has never
+       used IRC. It is hidden once they are signed in. -->
+  <section id="pitch" hidden>
+    <h2>There is a bot in a chatroom</h2>
+    <p class="lede">
+      Say hello to it once a day and it gives you a ration. Spend rations on
+      land, animals and industry, and the land shows up here.
+    </p>
+    <div id="glimpse" class="glimpse" aria-hidden="true"></div>
+    <p class="hint" id="glimpsecap"></p>
+  </section>
+
+  <section id="join" hidden>
+    <h2>Joining in</h2>
+    <p>
+      The chatroom is on <b><span id="network">IRC</span></b>, in
+      <b><code id="channel">the channel</code></b>. IRC is a chat network that
+      has been running since 1988; you talk to it with a program called a
+      client, and there is nothing to sign up for.
+    </p>
+    <p id="webchatline" hidden>
+      The quickest way in is a client that runs in this tab:
+      <a id="webchat" href="#" rel="noreferrer">open the channel</a>.
+    </p>
+    <p>Once you are there, say:</p>
+    <p><code>!ohayou</code></p>
+    <p class="hint">
+      That is it. You get twelve rations and a first acre, and a plot on the
+      map. Nothing on this site asks for a password.
+    </p>
+  </section>
+
   <section>
     <h2>Where to go</h2>
     <ul id="places" class="places"></ul>
   </section>
 
   <section id="signin" hidden>
-    <h2>Signing in</h2>
+    <h2>Already in the channel?</h2>
     <p id="why" class="hint"></p>
-    <p>
-      Everything here belongs to an IRC bot. To sign in, say this in a channel
-      the bot is in and it will send you a one-shot link:
-    </p>
+    <p>Say this to the bot and it will send you a one-shot link that signs you in:</p>
     <p><code>!web</code></p>
     <p class="hint">
       You need to be identified with services, and to share a channel with the
-      bot. Nothing here asks for a password: the bot already knows who you are,
-      and the link says so.
+      bot. The bot already knows who you are, and the link says so.
     </p>
   </section>
 

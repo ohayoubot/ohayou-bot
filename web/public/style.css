@@ -36,3 +36,49 @@
   object-fit: cover;
   border-radius: 3px;
 }
+
+/* ---- the landing page ---- */
+
+.lede {
+  font-size: 1.15em;
+  max-width: 34rem;
+}
+
+/* A strip of real holdings, sized the way the map sizes them. Decorative, so
+   it is hidden from assistive technology: the numbers beneath say it better. */
+.glimpse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin: 1rem 0 0.6rem;
+}
+
+.patch {
+  --tile: 11px;
+  display: grid;
+  grid-template-columns: repeat(var(--wide), var(--tile));
+  gap: 2px;
+}
+
+.patch.unnamed {
+  opacity: 0.5;
+}
+
+.patch span {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: color-mix(in oklab, currentColor 9%, transparent);
+}
+
+.patch span.built {
+  background: linear-gradient(
+    155deg,
+    oklch(76% 0.13 var(--hue)),
+    oklch(58% 0.15 var(--hue))
+  );
+}
+
+#glimpsecap a {
+  margin-left: 0.35rem;
+}
