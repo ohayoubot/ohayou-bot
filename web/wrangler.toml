@@ -26,6 +26,8 @@ COMMANDS_PER_HOUR = "30"
 UPLOADS_PER_HOUR = "20"
 GLOBAL_UPLOADS_PER_HOUR = "200"
 PUBLIC_IMAGE_BASE = "https://img.hemera.day"
+IRC_CHANNEL = "#chan"
+IRC_NETWORK = "Rizon"
 
 [[env.preview.d1_databases]]
 binding = "DB"

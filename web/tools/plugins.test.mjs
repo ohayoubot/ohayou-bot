@@ -82,10 +82,19 @@ for (const plugin of plugins) {
 	});
 }
 
-test("_routes.json includes nothing that is not a plugin or the site", () => {
-	const declared = new Set([...plugins.map((p) => p.api), ...SITE_ROUTES]);
+/*
+ * A plugin may route anything under its own path: the api it must have, and
+ * whatever else it needs rendered rather than served as a file. What it may not
+ * do is claim a route belonging to somebody else, or to the site.
+ */
+test("_routes.json includes nothing that is not a plugin's or the site's", () => {
+	const owned = plugins.map((p) => p.path);
 	for (const include of routes.include) {
-		assert.ok(declared.has(include), `${include} belongs to nothing`);
+		if (SITE_ROUTES.includes(include)) continue;
+		assert.ok(
+			owned.some((path) => include.startsWith(path)),
+			`${include} is under no plugin's path`,
+		);
 	}
 });
 

@@ -131,6 +131,18 @@ pnpm db init ohayou remote --yes
 pnpm db init ohayou preview --yes
 ```
 
+## Player pages
+
+`/ohayou/p/<nick>` is one player's plot, and `/ohayou/api/card/<nick>` is the
+same plot as an svg. Both are rendered by a function rather than served as
+files, because the first thing to fetch a permalink is usually a link preview,
+which wants its meta tags in the html it is handed and will not run a script to
+find them.
+
+Only a plot whose owner named it has a page. `IRC_CHANNEL` and `IRC_NETWORK` in
+`wrangler.toml` are what the card tells a stranger to do next; without them it
+still says `!ohayou`, just not where.
+
 ## Drop
 
 `/drop/` trades a signed link from the irc bot for a cookie, uploads images to
