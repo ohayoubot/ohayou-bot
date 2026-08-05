@@ -427,12 +427,8 @@ func (g *Plugin) setFlag(m *bot.Message, u *store.User, to string) {
 // unnamedWarning: a flag is only drawn on a plot that carries a name, and the
 // two reasons one does not are the two reasons publishable says no.
 func unnamedWarning(u *store.User, prefix string) string {
-	switch {
-	case u.Web == store.VisibilityHidden:
+	if u.Web == store.VisibilityHidden {
 		return ", once you put your name back with " + prefix + "territory on."
-	case u.Account == "":
-		return ", once you " + prefix + "register and " + prefix +
-			"identify, so the site knows whose plot it is."
 	}
 	return "."
 }

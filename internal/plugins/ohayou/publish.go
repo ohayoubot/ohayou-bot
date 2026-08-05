@@ -82,9 +82,10 @@ func (g *Plugin) send(ctx context.Context, table string, rows any) {
 
 // projection builds the world and the private tier.
 //
-// Everyone is on the map. Without consent a plot gets a salted id, no nick and
-// no buildings, which leaves the scale of the holding and nothing that says
-// whose it is. The private tier is consent-gated outright.
+// Everyone is on the map, under their nick unless they opted out; an opted out
+// plot gets a salted id, no nick and no buildings, which leaves the scale of
+// the holding and nothing that says whose it is. The private tier needs an
+// account as well, since it is served against a session rather than displayed.
 func (g *Plugin) projection(ctx context.Context) ([]Plot, []PrivatePlot, error) {
 	names, err := g.store.Players(ctx)
 	if err != nil {
@@ -114,12 +115,15 @@ func (g *Plugin) projection(ctx context.Context) ([]Plot, []PrivatePlot, error) 
 			g.log.Warn("reading a user to publish", "nick", name, "err", err)
 			continue
 		}
-		if !publishable(u) {
-			public = append(public, g.anonymousPlot(u, plotID(salt, name)))
+		id := plotID(salt, name)
+		if !named(u) {
+			public = append(public, g.anonymousPlot(u, id))
 			continue
 		}
-		public = append(public, g.publicPlot(u))
-		private = append(private, g.privatePlot(u, runs[name]))
+		public = append(public, g.publicPlot(u, id))
+		if claimable(u) {
+			private = append(private, g.privatePlot(u, runs[name]))
+		}
 	}
 	return public, private, nil
 }

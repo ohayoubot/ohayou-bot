@@ -77,7 +77,7 @@ func TestPublicPlotCarriesOnlyWhatWasPromised(t *testing.T) {
 	g, db := testGame(t)
 	plotCatalog(t, db)
 
-	got := keysOf(t, g.publicPlot(richUser()))
+	got := keysOf(t, g.publicPlot(richUser(), "salted"))
 	want := []string{"acres", "flag", "id", "land", "named", "nick", "rations", "wealth"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("public plot fields = %v, want %v", got, want)
@@ -92,10 +92,10 @@ func TestAnonymousPlotIsTheSameShapeWithoutTheName(t *testing.T) {
 	g, db := testGame(t)
 	plotCatalog(t, db)
 
-	named := keysOf(t, g.publicPlot(richUser()))
+	withName := keysOf(t, g.publicPlot(richUser(), "salted"))
 	anonymous := keysOf(t, g.anonymousPlot(richUser(), "opaque"))
-	if strings.Join(named, ",") != strings.Join(anonymous, ",") {
-		t.Errorf("fields differ: named %v, anonymous %v", named, anonymous)
+	if strings.Join(withName, ",") != strings.Join(anonymous, ",") {
+		t.Errorf("fields differ: named %v, anonymous %v", withName, anonymous)
 	}
 
 	plot := g.anonymousPlot(richUser(), "opaque")
@@ -138,7 +138,7 @@ func TestPublicPlotLeaksNoBalanceVaultOrDefence(t *testing.T) {
 	g, db := testGame(t)
 	plotCatalog(t, db)
 
-	raw, err := json.Marshal(g.publicPlot(richUser()))
+	raw, err := json.Marshal(g.publicPlot(richUser(), "salted"))
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestPublicPlotHidesDefensiveAnimals(t *testing.T) {
 	g, db := testGame(t)
 	plotCatalog(t, db)
 
-	plot := g.publicPlot(richUser())
+	plot := g.publicPlot(richUser(), "salted")
 	if _, ok := plot.Land["dog"]; ok {
 		t.Error("the dog is on the public map")
 	}
@@ -228,26 +228,50 @@ func TestPrivatePlotDropsSpentProbation(t *testing.T) {
 	}
 }
 
-// Naming a plot needs an account to name it under, and the absence of an opt
-// out. Unset publishes: a player who has never been asked is named, and
-// !territory off is how they stop being.
-func TestPublishableNeedsAnAccountAndNoOptOut(t *testing.T) {
+// A nick over the gate is a display name and costs nothing to show. Being able
+// to sign in and see the plot as yours is what needs the account.
+func TestNamedAndClaimableAreDifferentQuestions(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		visible store.Visibility
-		account string
-		want    bool
+		name      string
+		visible   store.Visibility
+		account   string
+		named     bool
+		claimable bool
 	}{
-		{"asked for it, with an account", store.VisibilityPublic, "AliceAcct", true},
-		{"never asked, with an account", store.VisibilityUnset, "AliceAcct", true},
-		{"opted out", store.VisibilityHidden, "AliceAcct", false},
-		{"willing but never identified", store.VisibilityPublic, "", false},
-		{"never asked and never identified", store.VisibilityUnset, "", false},
-		{"opted out and never identified", store.VisibilityHidden, "", false},
+		{"asked for it, with an account", store.VisibilityPublic, "AliceAcct", true, true},
+		{"never asked, with an account", store.VisibilityUnset, "AliceAcct", true, true},
+		{"never registered", store.VisibilityUnset, "", true, false},
+		{"willing but never registered", store.VisibilityPublic, "", true, false},
+		{"opted out", store.VisibilityHidden, "AliceAcct", false, false},
+		{"opted out and never registered", store.VisibilityHidden, "", false, false},
 	} {
 		u := &store.User{Web: tc.visible, Account: tc.account}
-		if got := publishable(u); got != tc.want {
-			t.Errorf("%s: publishable = %v, want %v", tc.name, got, tc.want)
+		if got := named(u); got != tc.named {
+			t.Errorf("%s: named = %v, want %v", tc.name, got, tc.named)
+		}
+		if got := claimable(u); got != tc.claimable {
+			t.Errorf("%s: claimable = %v, want %v", tc.name, got, tc.claimable)
+		}
+	}
+}
+
+// The id is what a session is matched against, so a plot the bot cannot tie to
+// an account must not be keyed on anything a nick could reach.
+func TestAPlotWithNoAccountIsNamedButNotKeyedOnItsNick(t *testing.T) {
+	g, _ := testGame(t)
+	u := &store.User{Username: "alice", Items: map[string]int{"acre": 1}}
+
+	got := g.publicPlot(u, "saltedid")
+
+	if !got.Named || got.Nick != "alice" {
+		t.Errorf("the plot lost its holder's name: %+v", got)
+	}
+	if got.ID != "saltedid" {
+		t.Errorf("id = %q, want the salted one", got.ID)
+	}
+	for _, guess := range []string{"alice", "Alice"} {
+		if got.ID == guess {
+			t.Errorf("the id is the nick, which anybody can take: %q", got.ID)
 		}
 	}
 }

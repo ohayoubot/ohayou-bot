@@ -95,17 +95,28 @@ func wealth(cumulative int) string {
 	return wealthBands[len(wealthBands)-1].name
 }
 
-// publishable is checked before a plot is named. Hidden is the only visibility
-// that withholds a nick; unset publishes, so a player who has never been asked
-// still appears. An account is required either way: without one there is no
-// identity a nick change cannot move.
-func publishable(u *store.User) bool {
-	return u.Web != store.VisibilityHidden && u.Account != ""
+// named reports whether a plot carries its holder's nick. Opting out is the
+// only thing that takes it off: a player who has never been asked is named.
+func named(u *store.User) bool {
+	return u.Web != store.VisibilityHidden
 }
 
-func (g *Plugin) publicPlot(u *store.User) Plot {
+// claimable reports whether the site can tie this plot to whoever signs in.
+// That needs the services account, which is the identity a nick change cannot
+// move; the nick over the gate is a display name and needs nothing.
+func claimable(u *store.User) bool {
+	return named(u) && u.Account != ""
+}
+
+// publicPlot names the plot. id is what it is keyed on when the bot has no
+// account for the holder: their nick is theirs to display, but a session is
+// never resolved against it.
+func (g *Plugin) publicPlot(u *store.User, id string) Plot {
+	if u.Account != "" {
+		id = u.Account
+	}
 	return Plot{
-		ID:      u.Account,
+		ID:      id,
 		Nick:    u.Username,
 		Named:   true,
 		Flag:    u.Flag,

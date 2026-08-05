@@ -225,9 +225,8 @@ func TestTerritoryFlag(t *testing.T) {
 	}
 }
 
-// Setting a flag on a plot that carries no name would otherwise look broken:
-// it is stored, but nothing draws it. The two reasons a plot has no name are
-// the two warnings.
+// Setting a flag on a plot drawn as Anonymous would otherwise look broken: it
+// is stored, but nothing draws it.
 func TestTerritoryFlagSaysWhenNothingWillDrawIt(t *testing.T) {
 	h, db := testGame(t, bottest.InChannels("#test"))
 	ctx := context.Background()
@@ -237,21 +236,9 @@ func TestTerritoryFlagSaysWhenNothingWillDrawIt(t *testing.T) {
 	h.Say("alice", "#test", "!ohayou")
 	h.Drain()
 
-	// Never registered, so the bot has no account to file the plot under.
+	// Named by default, registered or not: the flag flies, no warning.
 	h.Say("alice", "#test", "!territory flag senordeer")
-	if lines := h.Drain(); !bottest.Said(lines, "register") {
-		t.Errorf("nothing said the bot does not know whose plot it is: %v", lines)
-	}
-
-	h.Say("alice", "#test", "!register yes")
-	h.Drain()
-	h.Say("alice", "#test", "!identify")
-	h.Drain()
-
-	// Registered and named by default: the flag flies, no warning.
-	h.Say("alice", "#test", "!territory flag senordeer")
-	if lines := h.Drain(); bottest.Said(lines, "territory on") ||
-		bottest.Said(lines, "register") {
+	if lines := h.Drain(); bottest.Said(lines, "territory on") {
 		t.Errorf("a named plot was warned about its flag: %v", lines)
 	}
 

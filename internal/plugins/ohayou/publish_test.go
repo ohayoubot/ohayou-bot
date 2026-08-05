@@ -129,32 +129,54 @@ func TestEveryoneIsOnTheMapAndOnlyTheOptedOutAreAnonymous(t *testing.T) {
 		body := string(raw)
 		if strings.Contains(body, `"named":true`) {
 			named++
-			if !strings.Contains(body, "YesAcct") && !strings.Contains(body, "UnaskedAcct") {
-				t.Errorf("a named plot is neither the willing nor the unasked one: %s", body)
-			}
 			continue
 		}
 		// Everything about who this is must be absent, not merely blank.
-		for _, absent := range []string{"NoAcct", "nameless", "no"} {
+		if !strings.Contains(body, `"nick":""`) {
+			t.Errorf("an anonymous plot carries a nick: %s", body)
+		}
+		for _, absent := range []string{"NoAcct", "no"} {
 			if strings.Contains(body, `"nick":"`+absent+`"`) {
 				t.Errorf("an anonymous plot names %q: %s", absent, body)
 			}
 		}
 	}
-	if named != 2 {
-		t.Errorf("%d named plots, want the willing one and the unasked one", named)
+	if named != 3 {
+		t.Errorf("%d named plots, want everybody but the one who opted out", named)
 	}
 
-	// The private tier follows the same rule, and never covers the opted out.
+	// The private tier needs an account as well: it is matched against a
+	// session rather than displayed, and a nick is not an identity.
 	private := site.table(t, tablePlotPrivate)
 	if len(private.Rows) != 2 {
-		t.Fatalf("the private tier holds %d rows, want two: %s",
+		t.Fatalf("the private tier holds %d rows, want the two with accounts: %s",
 			len(private.Rows), private.Rows)
 	}
 	for _, raw := range private.Rows {
-		if strings.Contains(string(raw), "NoAcct") {
-			t.Errorf("the opted out player has a private row: %s", raw)
+		body := string(raw)
+		if strings.Contains(body, "NoAcct") {
+			t.Errorf("the opted out player has a private row: %s", body)
 		}
+		if strings.Contains(body, `"nick":"nameless"`) {
+			t.Errorf("a player with no account has a private row: %s", body)
+		}
+	}
+}
+
+// A nick is a display name. It must never become the key a session is resolved
+// against, or holding the nick would be holding the plot.
+func TestANamedPlotWithNoAccountIsNotKeyedOnItsNick(t *testing.T) {
+	g, db, site := publishingGame(t)
+	player(t, db, "nameless", "", store.VisibilityUnset)
+
+	g.publish(context.Background())
+
+	body := string(site.table(t, tablePlot).Rows[0])
+	if !strings.Contains(body, `"nick":"nameless"`) {
+		t.Fatalf("the plot lost its holder's name: %s", body)
+	}
+	if strings.Contains(body, `"id":"nameless"`) {
+		t.Errorf("the id is the nick, which anybody can take: %s", body)
 	}
 }
 
