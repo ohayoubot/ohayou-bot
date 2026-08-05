@@ -214,7 +214,12 @@ sudo deploy/install.sh
 ```
 
 The install checks the config before it stops or restarts anything, so a
-mistake is one error rather than a systemd restart loop. Run it by hand with:
+mistake is one error rather than a systemd restart loop, then asks before taking
+a running bot down. `--yes` answers that for unattended runs; without a
+terminal it does not restart. Declining leaves the bot on the old build with the
+new one installed, and applies no migrations.
+
+Check a config by hand with:
 
 ```sh
 ./ohayoubot -check -config conf.json
