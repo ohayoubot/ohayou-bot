@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SNIFF_BYTES, sniffImage } from "../lib/sniff.js";
+import { SNIFF_BYTES, sniffImage } from "../lib/drop/sniff.js";
 
 /** A header followed by filler, the way a real file arrives. */
 function file(...header) {
