@@ -73,3 +73,33 @@ CREATE TABLE IF NOT EXISTS publish (
   updated    INTEGER NOT NULL,
   PRIMARY KEY (plugin, table_name)
 );
+
+-- The queue the bot polls, append-only. The site never decides anything: it
+-- records what somebody asked for, and the bot applies it against the rules and
+-- the guards in its own store, which is still the only place game state moves.
+--
+-- Not dropped by ohayou.reset.sql. The tables above are a projection and can be
+-- rebuilt; this is a request that has not been answered yet.
+CREATE TABLE IF NOT EXISTS command (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts      INTEGER NOT NULL,
+  -- The services account from the session. The bot resolves it to a player; a
+  -- command naming an account with no player is dropped.
+  account TEXT NOT NULL,
+  kind    TEXT NOT NULL,
+  value   TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS command_ts ON command (ts);
+
+-- Rate limiting, per account rather than per ip: a session already proves who
+-- this is. Its own table rather than a count over the queue above, which the
+-- bot drains: a limit that forgets as soon as the bot catches up is no limit.
+-- Pruned on write, like the gallery's save_log.
+CREATE TABLE IF NOT EXISTS command_log (
+  account TEXT NOT NULL,
+  ts      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS command_log_account_ts ON command_log (account, ts);
+CREATE INDEX IF NOT EXISTS command_log_ts ON command_log (ts);

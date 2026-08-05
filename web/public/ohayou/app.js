@@ -62,6 +62,7 @@ async function standing() {
 	}
 
 	const panels = [
+		controls(yours),
 		figure("Ohayous", yours.ohayous, `${yours.cumulative} earned in all`),
 		yours.vault && vault(yours.vault),
 		figure("Defence", yours.defense, describeArmour(yours.equipped)),
@@ -74,6 +75,53 @@ async function standing() {
 	$("#yours").replaceChildren(...panels);
 	$("#standing").hidden = false;
 	$("#claim").hidden = true;
+}
+
+/**
+ * Asking the bot for something. Nothing here changes the game: it queues a
+ * request, and the map redraws when the bot next publishes. That is why the
+ * button says what it says.
+ */
+function controls(yours) {
+	const flag = document.createElement("input");
+	flag.type = "text";
+	flag.maxLength = 48;
+	flag.placeholder = "a deer's name";
+	flag.value = plots.find((p) => p.named && p.id === yours.account)?.flag ?? "";
+	flag.setAttribute("aria-label", "the deer to fly over your plot");
+
+	const say = document.createElement("p");
+	say.className = "hint";
+
+	const send = async (kind, value) => {
+		say.textContent = "Asking…";
+		const res = await fetch("/ohayou/api/command", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ kind, value }),
+		}).catch(() => null);
+
+		say.textContent = res?.ok
+			? "Asked. The bot will pick it up in a moment."
+			: "The bot did not take that.";
+	};
+
+	const fly = document.createElement("button");
+	fly.type = "button";
+	fly.textContent = "Fly it";
+	fly.addEventListener("click", () => send("flag", flag.value.trim()));
+
+	const row = document.createElement("div");
+	row.className = "ask";
+	row.append(flag, fly);
+
+	const down = document.createElement("button");
+	down.type = "button";
+	down.className = "quiet";
+	down.textContent = "Take my name off the map";
+	down.addEventListener("click", () => send("territory", "off"));
+
+	return panel("Your flag", row, down, say);
 }
 
 function panel(title, ...body) {

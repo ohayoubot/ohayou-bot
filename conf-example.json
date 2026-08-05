@@ -77,7 +77,9 @@
 		"ohayou": {
 			"enabled": true,
 			"dataDir": "data",
-			"timezone": "America/New_York"
+			"timezone": "America/New_York",
+			"databaseId": "",
+			"requestTimeout": 10000
 		}
 	}
 }

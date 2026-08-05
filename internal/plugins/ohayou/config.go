@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
@@ -19,7 +20,20 @@ type Config struct {
 	// Timezone is the calendar the daily ration runs on. A ration is once per
 	// day somewhere, and this says where.
 	Timezone string `json:"timezone"`
+	// DatabaseID is the game's own D1 database, the one the projection is
+	// published into. Set it to take requests from the website; without it the
+	// game still publishes, it just does not listen. AccountID and APIToken
+	// default to the shared cloudflare block, and the token needs D1:Read and
+	// nothing more.
+	AccountID  string `json:"accountId"`
+	DatabaseID string `json:"databaseId"`
+	APIToken   string `json:"apiToken"`
+	// RequestTimeoutMS bounds a single D1 request.
+	RequestTimeoutMS int `json:"requestTimeout"`
 }
+
+// RequestTimeout bounds a single D1 request.
+func (c Config) RequestTimeout() time.Duration { return config.MS(c.RequestTimeoutMS) }
 
 // Configure reads the data files, so a game that cannot find its catalog says
 // so at startup rather than answering every command with an error.
@@ -34,6 +48,15 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 		return false, nil
 	}
 
+	if c.AccountID == "" {
+		c.AccountID = pc.Cloudflare.AccountID
+	}
+	if c.APIToken == "" {
+		c.APIToken = pc.Cloudflare.APIToken
+	}
+	if c.RequestTimeoutMS == 0 {
+		c.RequestTimeoutMS = 10000
+	}
 	if c.DataDir == "" {
 		c.DataDir = "data"
 	}

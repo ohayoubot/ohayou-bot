@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/bot"
+	"github.com/ohayoubot/ohayou-bot/internal/d1"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 	"github.com/ohayoubot/ohayou-bot/internal/task"
@@ -40,6 +41,12 @@ type Plugin struct {
 	tasks *task.Queue
 	kv    *store.KV
 	feed  *web.Feed
+
+	// commands is the website's request queue, read-only. Nil when the game has
+	// no database of its own configured.
+	commands        *d1.Client
+	commandCursor   int64
+	commandsStarted bool
 
 	// published is the last projection sent for each table, so an unchanged one
 	// is not sent again.
@@ -94,6 +101,7 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 
 	g.bot, g.log, g.db, g.store, g.est = deps.Bot, deps.Log, deps.Store, st, est
 	g.tasks, g.kv, g.feed = deps.Tasks, deps.KV, deps.Feed
+	g.commands = newCommandQueue(g.cfg.AccountID, g.cfg.DatabaseID, g.cfg.APIToken, g.cfg.RequestTimeout())
 	g.registerTasks(g.tasks)
 	g.registerDoubleOhayou(g.tasks)
 
@@ -156,6 +164,7 @@ func (g *Plugin) Start(ctx context.Context) error {
 	g.log.Info("events started")
 	g.bot.Go(func() { g.catEvent(ctx) })
 	g.startPublishing(ctx)
+	g.startCommands(ctx)
 	return nil
 }
 
