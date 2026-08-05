@@ -3,7 +3,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { KINS_CHARS, MAX_COLS, MAX_ROWS } from "../public/deerkins/kins.js";
+import {
+	KINS_CHARS,
+	MAX_COLS,
+	MAX_ROWS,
+	toRects,
+} from "../public/deerkins/kins.js";
 import { ACRELIMIT, acresFor } from "../public/ohayou/catalog.js";
 import { layout, usage, VERGE, worldLayout } from "../public/ohayou/plot.js";
 import {
@@ -11,7 +16,6 @@ import {
 	SPRITES,
 	spriteFor,
 	spriteURL,
-	toRects,
 	UNKNOWN,
 } from "../public/ohayou/sprites.js";
 import { BANDS, bandColour, TERRAIN } from "../public/ohayou/terrain.js";
@@ -206,6 +210,21 @@ test("the same plots in the same order land in the same places", () => {
 	const once = worldLayout(many(30)).parcels.map((p) => [p.plot.id, p.x, p.y]);
 	const again = worldLayout(many(30)).parcels.map((p) => [p.plot.id, p.x, p.y]);
 	assert.deepEqual(once, again);
+});
+
+// The api orders by id for this reason; the packer only preserves what it is
+// given.
+test("a parcel keeps its place when its holder gets richer", () => {
+	const before = worldLayout(many(20)).parcels.map((p) => [
+		p.plot.id,
+		p.x,
+		p.y,
+	]);
+
+	const richer = many(20).map((p) => ({ ...p, rations: p.rations + 5 }));
+	const after = worldLayout(richer).parcels.map((p) => [p.plot.id, p.x, p.y]);
+
+	assert.deepEqual(after, before);
 });
 
 test("a world with one plot is still a world", () => {

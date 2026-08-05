@@ -20,9 +20,12 @@ const MAX_FLAGS = 100;
 export const onRequestGet = guard(async ({ env }) => {
 	if (!env.GAME) return json({ status: "world", plots: [], totals: empty() });
 
+	// Ordered by id, which is the order the map packs parcels in. Anything that
+	// changes as people play - rations, acreage - would move everybody's
+	// neighbours every time somebody collected a ration.
 	const { results } = await env.GAME.prepare(
 		`SELECT id, nick, named, flag, acres, land, wealth, rations
-     FROM plot ORDER BY rations DESC, id LIMIT ?1`,
+     FROM plot ORDER BY id LIMIT ?1`,
 	)
 		.bind(LIMIT)
 		.all();

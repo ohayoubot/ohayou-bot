@@ -267,3 +267,58 @@ export function nameSuffix() {
 	const bytes = crypto.getRandomValues(new Uint8Array(5));
 	return Array.from(bytes, (b) => String.fromCharCode(97 + (b % 26))).join("");
 }
+
+/* ---- rendering ---- */
+
+/** Rows padded to equal width, so a caller can index by column. */
+export function rowsOf(kinskode) {
+	const rows = kinskode.trim().split("\n");
+	const wide = Math.max(...rows.map((r) => r.length));
+	return rows.map((r) => r.padEnd(wide, TRANSPARENT));
+}
+
+/** Svg rects, one per run of equal colour along a row. */
+export function toRects(kinskode, { x = 0, y = 0, cell = 1 } = {}) {
+	const rows = rowsOf(kinskode);
+	const out = [];
+
+	rows.forEach((row, ry) => {
+		let start = 0;
+		while (start < row.length) {
+			const char = row[start];
+			let end = start;
+			while (end + 1 < row.length && row[end + 1] === char) end++;
+
+			const hex = char === TRANSPARENT ? null : hexOf(char);
+			if (hex) {
+				const w = (end - start + 1) * cell;
+				out.push(
+					`<rect x="${x + start * cell}" y="${y + ry * cell}" width="${w}" height="${cell}" fill="${hex}"/>`,
+				);
+			}
+			start = end + 1;
+		}
+	});
+	return out.join("");
+}
+
+const urls = new Map();
+
+/**
+ * A drawing as a self-contained svg data: url, for an <img> or an svg <image>.
+ * One node per instance rather than one per cell. key caches the result; omit
+ * it for art that is drawn once.
+ */
+export function toDataURL(kinskode, key = null) {
+	const cached = key && urls.get(key);
+	if (cached) return cached;
+
+	const rows = rowsOf(kinskode);
+	const svg =
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${rows[0].length} ${rows.length}" shape-rendering="crispEdges">` +
+		`${toRects(kinskode)}</svg>`;
+
+	const url = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+	if (key) urls.set(key, url);
+	return url;
+}

@@ -4,7 +4,7 @@
  * All sprites are 12x12.
  */
 
-import { hexOf, TRANSPARENT } from "../deerkins/kins.js";
+import { toDataURL } from "../deerkins/kins.js";
 
 export const SPRITE_SIZE = 12;
 
@@ -368,59 +368,7 @@ export function spriteFor(item) {
 	return SPRITES[item] ?? UNKNOWN;
 }
 
-/** Rows padded to equal width. */
-export function rowsOf(kinskode) {
-	const rows = kinskode.trim().split("\n");
-	const wide = Math.max(...rows.map((r) => r.length));
-	return rows.map((r) => r.padEnd(wide, TRANSPARENT));
-}
-
-/** Svg rects, one per run of equal colour along a row. */
-export function toRects(kinskode, { x = 0, y = 0, cell = 1 } = {}) {
-	const rows = rowsOf(kinskode);
-	const out = [];
-
-	rows.forEach((row, ry) => {
-		let start = 0;
-		while (start < row.length) {
-			const char = row[start];
-			let end = start;
-			while (end + 1 < row.length && row[end + 1] === char) end++;
-
-			const hex = char === TRANSPARENT ? null : hexOf(char);
-			if (hex) {
-				const w = (end - start + 1) * cell;
-				out.push(
-					`<rect x="${x + start * cell}" y="${y + ry * cell}" width="${w}" height="${cell}" fill="${hex}"/>`,
-				);
-			}
-			start = end + 1;
-		}
-	});
-	return out.join("");
-}
-
-/**
- * Sprite as a data: url, so the map spends one node per instance instead of one
- * per cell. Cached: the same item is drawn many times.
- */
-const urls = new Map();
-
+/** Never null: an item with no sprite gets UNKNOWN. */
 export function spriteURL(item) {
-	return urlFor(spriteFor(item), item);
-}
-
-/** Any kinskode as a data: url. key is the cache key; omit to skip the cache. */
-export function urlFor(code, key = null) {
-	const cached = key && urls.get(key);
-	if (cached) return cached;
-
-	const rows = rowsOf(code);
-	const svg =
-		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${rows[0].length} ${rows.length}" shape-rendering="crispEdges">` +
-		`${toRects(code)}</svg>`;
-
-	const url = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-	if (key) urls.set(key, url);
-	return url;
+	return toDataURL(spriteFor(item), `item:${item}`);
 }

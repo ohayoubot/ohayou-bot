@@ -11,6 +11,7 @@ import {
 	PALETTE,
 	sanitiseName,
 	TRANSPARENT,
+	toDataURL,
 	toIrc,
 	transforms,
 } from "./kins.js";
@@ -517,15 +518,25 @@ function entry(art) {
 	const button = document.createElement("button");
 	button.type = "button";
 
+	const thumb = document.createElement("img");
+	thumb.className = "thumb";
+	thumb.alt = "";
+	thumb.loading = "lazy";
+	if (art.kinskode) thumb.src = toDataURL(normalise(art.kinskode));
+
+	const label = document.createElement("span");
+	label.className = "label";
+
 	const name = document.createElement("span");
 	name.className = "name";
 	name.textContent = art.deer;
 
 	const by = document.createElement("span");
 	by.className = "by";
-	by.textContent = ` by ${art.creator}`;
+	by.textContent = `by ${art.creator}`;
 
-	button.append(name, by);
+	label.append(name, by);
+	button.append(thumb, label);
 	button.addEventListener("click", () => {
 		location.hash = encodeURIComponent(art.deer);
 	});

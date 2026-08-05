@@ -7,9 +7,9 @@
  * thousand acres cost a thousand nodes rather than a hundred thousand.
  */
 
-import { normalise } from "../deerkins/kins.js";
+import { normalise, toDataURL } from "../deerkins/kins.js";
 import { VERGE, worldLayout } from "./plot.js";
-import { spriteURL, urlFor } from "./sprites.js";
+import { spriteURL } from "./sprites.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -318,7 +318,7 @@ function flag(plot, flags, w) {
 	);
 	g.append(
 		el("image", {
-			href: urlFor(normalise(code), `flag:${plot.flag}`),
+			href: toDataURL(normalise(code), `flag:${plot.flag}`),
 			x: -2.1,
 			y: 0.1,
 			width: 2,
