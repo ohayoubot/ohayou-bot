@@ -17,6 +17,8 @@ import { fileURLToPath } from "node:url";
 export const DATABASES = {
 	ohayou: {
 		schema: "schema/ohayou.sql",
+		// The projection is rebuildable, so it has a way to be rebuilt.
+		reset: "schema/ohayou.reset.sql",
 	},
 	deerkins: {
 		schema: "schema/deerkins.sql",
@@ -25,7 +27,12 @@ export const DATABASES = {
 	},
 };
 
-export const ACTIONS = { init: "schema", seed: "seed", purge: "purge" };
+export const ACTIONS = {
+	init: "schema",
+	seed: "seed",
+	purge: "purge",
+	reset: "reset",
+};
 
 export const ENVIRONMENTS = ["local", "remote", "preview"];
 

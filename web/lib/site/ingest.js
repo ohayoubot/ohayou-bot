@@ -44,13 +44,14 @@ const PREFIX = "ingest.v1\n";
  *
  * "json" means the value is stored as a json string; the bot sends the value
  * itself and this stringifies it, so the two sides cannot disagree about
- * encoding.
+ * encoding. "boolean" is stored as 0 or 1, because sqlite has no other kind.
  */
 const TABLES = {
 	ohayou: {
 		plot: {
-			account: "string",
+			id: "string",
 			nick: "string",
+			named: "boolean",
 			acres: "integer",
 			land: "json",
 			wealth: "string",
@@ -216,6 +217,12 @@ function flatten(row, columns) {
 					throw new Error(`${name} is not an integer`);
 				}
 				out[name] = value;
+				break;
+			case "boolean":
+				if (typeof value !== "boolean") {
+					throw new Error(`${name} is not a boolean`);
+				}
+				out[name] = value ? 1 : 0;
 				break;
 			case "json":
 				if (value === undefined || value === null) {

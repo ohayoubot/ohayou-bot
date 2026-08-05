@@ -49,6 +49,10 @@ type Store interface {
 	VaultTransfer(ctx context.Context, nick string, ohayousDelta, vaultDelta int, last, dayStart time.Time) error
 	Top(ctx context.Context, n int) ([]store.UserOhayous, error)
 
+	// Players lists everyone who has ever ohayou'd, oldest hands first. They all
+	// appear on the map; what their plot says about them is decided per user.
+	Players(ctx context.Context) ([]string, error)
+
 	// Build consumes metals (from user_metals), items (from user_items) and
 	// ohayous, then grants outAmt of the output item. All in one transaction.
 	Build(ctx context.Context, nick string, metalCost, itemCost map[string]int, ohayouCost int, output string, outAmt int) error

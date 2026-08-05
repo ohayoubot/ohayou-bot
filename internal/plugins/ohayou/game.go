@@ -38,6 +38,11 @@ type Plugin struct {
 
 	tasks *task.Queue
 	kv    *store.KV
+	feed  *web.Feed
+
+	// published is the last projection sent for each table, so an unchanged one
+	// is not sent again.
+	published map[string][32]byte
 
 	cfg      Config
 	items    []store.Item
@@ -57,10 +62,11 @@ type Plugin struct {
 
 func New() *Plugin {
 	return &Plugin{
-		baseCtx:  context.Background(),
-		police:   newPoliceRegistry(),
-		offers:   newOffers(),
-		catAdopt: make(chan string),
+		baseCtx:   context.Background(),
+		police:    newPoliceRegistry(),
+		offers:    newOffers(),
+		catAdopt:  make(chan string),
+		published: map[string][32]byte{},
 	}
 }
 
@@ -86,7 +92,7 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 	}
 
 	g.bot, g.log, g.db, g.store, g.est = deps.Bot, deps.Log, deps.Store, st, est
-	g.tasks, g.kv = deps.Tasks, deps.KV
+	g.tasks, g.kv, g.feed = deps.Tasks, deps.KV, deps.Feed
 	g.registerTasks(g.tasks)
 	g.registerDoubleOhayou(g.tasks)
 
@@ -148,6 +154,7 @@ func (g *Plugin) Start(ctx context.Context) error {
 
 	g.log.Info("events started")
 	g.bot.Go(func() { g.catEvent(ctx) })
+	g.startPublishing(ctx)
 	return nil
 }
 
