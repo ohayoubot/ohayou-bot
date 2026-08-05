@@ -24,6 +24,12 @@ type Store interface {
 	// so running it on every start is a no-op.
 	Migrate(ctx context.Context, name, schema string) error
 
+	// AddColumn adds a column to a table that has already shipped, and is a
+	// no-op when it is already there. Migrate only creates what is missing, and
+	// a numbered migration file would fail on a fresh database that got the
+	// column from the schema.
+	AddColumn(ctx context.Context, table, column, definition string) error
+
 	// Bot state that belongs to no user. GetKV returns ErrNotFound when the key
 	// has never been set.
 	GetKV(ctx context.Context, key string) (string, error)

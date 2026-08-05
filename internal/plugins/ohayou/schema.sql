@@ -1,7 +1,11 @@
 -- Tables owned by the ohayou game. Applied by the plugin at startup, so a
 -- bot running without it never creates them.
+-- A column added here after the table shipped also needs an entry in addedColumns
+-- (game.go): this file only creates tables that are missing.
 CREATE TABLE IF NOT EXISTS users (
     username        TEXT    PRIMARY KEY,
+    account         TEXT    NOT NULL DEFAULT '',
+    web             TEXT    NOT NULL DEFAULT '',
     last            INTEGER NOT NULL DEFAULT 0,
     ohayous         INTEGER NOT NULL DEFAULT 0,
     cum_ohayous     INTEGER NOT NULL DEFAULT 0,

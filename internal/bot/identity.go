@@ -5,29 +5,37 @@ import (
 	"strings"
 )
 
-// Verify asks the network whether nick is logged in to services. An error is
-// not a "no": it means the lookup failed, and a caller gating on identification
-// must refuse rather than tell an identified user they are not.
-func (b *Bot) Verify(ctx context.Context, nick string) (bool, error) {
+// Account asks the network which services account nick is logged in to, empty
+// when it is not logged in at all. An error is not a "no": it means the lookup
+// failed, and a caller gating on identification must refuse rather than tell an
+// identified user they are not.
+func (b *Bot) Account(ctx context.Context, nick string) (string, error) {
 	who, err := b.WhoisInfo(ctx, nick)
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	return who.Identified(), nil
+	return who.Account, nil
+}
+
+// Verify asks the network whether nick is logged in to services.
+func (b *Bot) Verify(ctx context.Context, nick string) (bool, error) {
+	account, err := b.Account(ctx, nick)
+	return account != "", err
 }
 
 // Identify verifies nick and, when it checks out, remembers it until they
-// change nick or disconnect.
-func (b *Bot) Identify(ctx context.Context, nick string) (bool, error) {
-	ok, err := b.Verify(ctx, nick)
-	if err != nil || !ok {
-		return false, err
+// change nick or disconnect. It returns the account proved, empty when it did
+// not check out, so a caller can record who the nick belongs to.
+func (b *Bot) Identify(ctx context.Context, nick string) (string, error) {
+	account, err := b.Account(ctx, nick)
+	if err != nil || account == "" {
+		return "", err
 	}
 
 	b.identMu.Lock()
 	b.identified[strings.ToLower(nick)] = true
 	b.identMu.Unlock()
-	return true, nil
+	return account, nil
 }
 
 // Identified reports whether nick proved itself earlier in this session. It

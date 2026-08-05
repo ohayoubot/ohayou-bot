@@ -2,10 +2,26 @@ package store
 
 import "time"
 
+// Visibility is whether a user's holdings may be shown outside irc. Unset is
+// its own state, not a default: somebody who has never been asked is not on the
+// website, and is not treated as having agreed to be.
+type Visibility string
+
+const (
+	VisibilityUnset  Visibility = ""
+	VisibilityPublic Visibility = "public"
+	VisibilityHidden Visibility = "hidden"
+)
+
 // User is the full state for a single player. Its fields are both the user table and associated
 // tables. Should _always_ be non-nil after a load.
 type User struct {
-	Username       string
+	Username string
+	// Account is the services account last proved, empty for a user who has
+	// never identified. A nick can be taken by somebody else; an account cannot.
+	Account string
+	// Web is whether this user agreed to appear on the website.
+	Web            Visibility
 	Last           time.Time
 	Ohayous        int
 	CumOhayous     int

@@ -16,18 +16,19 @@ func answerWhois(b *Bot, nick, account string) {
 	b.finishWhois(nick, false)
 }
 
-// identify runs an Identify in the background and answers the lookup it makes.
-func identify(t *testing.T, b *Bot, nick, account string) bool {
+// identify runs an Identify in the background and answers the lookup it makes,
+// returning the account it proved.
+func identify(t *testing.T, b *Bot, nick, account string) string {
 	t.Helper()
 
 	type result struct {
-		ok  bool
-		err error
+		account string
+		err     error
 	}
 	done := make(chan result, 1)
 	go func() {
-		ok, err := b.Identify(context.Background(), nick)
-		done <- result{ok, err}
+		got, err := b.Identify(context.Background(), nick)
+		done <- result{got, err}
 	}()
 
 	waitPendingWhois(t, b, nick)
@@ -38,10 +39,10 @@ func identify(t *testing.T, b *Bot, nick, account string) bool {
 		if r.err != nil {
 			t.Fatalf("Identify(%q): %v", nick, r.err)
 		}
-		return r.ok
+		return r.account
 	case <-time.After(3 * time.Second):
 		t.Fatalf("Identify(%q) never returned", nick)
-		return false
+		return ""
 	}
 }
 
@@ -72,8 +73,8 @@ func TestIdentifiedIsFalseUntilProven(t *testing.T) {
 func TestIdentifyRemembersALoggedInNick(t *testing.T) {
 	b := testBot()
 
-	if !identify(t, b, "someone", "SomeAccount") {
-		t.Fatal("Identify said no for a nick logged in to services")
+	if got := identify(t, b, "someone", "SomeAccount"); got != "SomeAccount" {
+		t.Fatalf("Identify returned %q, want SomeAccount", got)
 	}
 	if !b.Identified("someone") {
 		t.Error("the proof was not remembered")
@@ -86,8 +87,8 @@ func TestIdentifyRemembersALoggedInNick(t *testing.T) {
 func TestIdentifyRemembersNothingForALoggedOutNick(t *testing.T) {
 	b := testBot()
 
-	if identify(t, b, "someone", "") {
-		t.Fatal("Identify said yes for a nick that is not logged in")
+	if got := identify(t, b, "someone", ""); got != "" {
+		t.Fatalf("Identify returned %q for a nick that is not logged in", got)
 	}
 	if b.Identified("someone") {
 		t.Error("a nick that failed the check was remembered anyway")
