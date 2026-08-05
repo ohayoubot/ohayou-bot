@@ -33,7 +33,7 @@ func (b *Bot) Identify(ctx context.Context, nick string) (string, error) {
 	}
 
 	b.identMu.Lock()
-	b.identified[strings.ToLower(nick)] = true
+	b.identified[strings.ToLower(nick)] = account
 	b.identMu.Unlock()
 	return account, nil
 }
@@ -41,6 +41,12 @@ func (b *Bot) Identify(ctx context.Context, nick string) (string, error) {
 // Identified reports whether nick proved itself earlier in this session. It
 // asks the server nothing, so a nick that never identified is not identified.
 func (b *Bot) Identified(nick string) bool {
+	return b.IdentifiedAs(nick) != ""
+}
+
+// IdentifiedAs is the services account nick proved earlier in this session,
+// empty when it proved none.
+func (b *Bot) IdentifiedAs(nick string) string {
 	b.identMu.RLock()
 	defer b.identMu.RUnlock()
 	return b.identified[strings.ToLower(nick)]

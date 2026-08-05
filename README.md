@@ -131,8 +131,9 @@ Requests are also subject to the bot-wide `ignoreList` and `floodDelay`.
 
 ## Drop
 
-`!upload` PMs an identified user a one-shot link to the upload site. What they
-drop there is announced in a channel the two of you share.
+`!upload` PMs a one-shot link to the upload site. What they drop there is
+announced in a channel the two of you share, under their nick, so it takes the
+same `!register` and `!identify` as `!web`: see [Web](#web).
 
 `OHAYOU_WEB_SECRET` signs the links. It belongs to the site rather than to this
 plugin, so it is the bot's rather than drop's: see [Web](#web).
@@ -273,8 +274,10 @@ directory set to `web`. It serves the world map at `/ohayou/`, the gallery at
 `/deerkins/` and the uploader at `/drop/`. See `web/README.md` for its
 databases, secrets and deploys.
 
-`!web` PMs an identified user a one-shot link that signs them in to every part
-of the site they can use. Set `web.url` to the site's front door.
+`!web` PMs a one-shot link that signs a user in to every part of the site they
+can use. It is for players who have `!register`ed and `!identify`ed: the session
+keys on the services account, so a nick that has proved nothing to the bot gets
+no link. Set `web.url` to the site's front door.
 
 ## Dev
 

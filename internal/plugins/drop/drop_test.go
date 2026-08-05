@@ -67,6 +67,14 @@ func newHarnessIn(t *testing.T, channels []string) *harness {
 	return h
 }
 
+// identify does what !identify does, so the nick has proved itself to the bot.
+func (h *harness) identify(t *testing.T, nick string) {
+	t.Helper()
+	if _, err := h.Bot.Identify(context.Background(), nick); err != nil {
+		t.Fatalf("identifying %q: %v", nick, err)
+	}
+}
+
 func message(nick, target, text string) *bot.Message {
 	fields := strings.Fields(text)
 	return &bot.Message{
@@ -104,6 +112,7 @@ func payloadOf(t *testing.T, token string) web.Grant {
 func TestUploadSendsTheLinkPrivately(t *testing.T) {
 	h := newHarness(t)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "@#chan +#other"})
+	h.identify(t, "mallow")
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
 	lines := h.Collect()
@@ -134,6 +143,7 @@ func TestUploadSendsTheLinkPrivately(t *testing.T) {
 func TestUploadGrantCarriesAccountAndSharedChannels(t *testing.T) {
 	h := newHarness(t)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "@#chan +#other #elsewhere"})
+	h.identify(t, "mallow")
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
 	_, token := linkIn(t, h.Collect())
@@ -162,6 +172,9 @@ func TestUploadGrantCarriesAccountAndSharedChannels(t *testing.T) {
 
 func TestUploadRefusesAnUnidentifiedNick(t *testing.T) {
 	h := newHarness(t)
+	// Logged in to services when they identified, logged out since.
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	h.identify(t, "mallow")
 	h.Says("mallow", bottest.Whois{Channels: "#chan"})
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
@@ -177,9 +190,53 @@ func TestUploadRefusesAnUnidentifiedNick(t *testing.T) {
 	}
 }
 
+// An upload is announced under the nick that asked for it, so a nick somebody
+// else is wearing must not become a link.
+func TestUploadRefusesANickThatNeverIdentifiedWithTheBot(t *testing.T) {
+	h := newHarness(t)
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+
+	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
+	lines := h.Collect()
+
+	for _, line := range lines {
+		if strings.Contains(line, "hemera.day/drop/#") {
+			t.Fatalf("a nick that never identified with the bot got a link: %s", line)
+		}
+	}
+	if !said(lines, "identify") {
+		t.Errorf("the refusal did not say how to fix it: %v", lines)
+	}
+	if n := h.WhoisCount(); n != 0 {
+		t.Errorf("%d whois, want the refusal decided without asking the server", n)
+	}
+}
+
+// A proof the bot never saw expire, against a nick now logged in as somebody
+// else.
+func TestUploadRefusesWhenTheAccountHasChangedSinceIdentifying(t *testing.T) {
+	h := newHarness(t)
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	h.identify(t, "mallow")
+	h.Says("mallow", bottest.Whois{Account: "Someone", Channels: "#chan"})
+
+	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
+	lines := h.Collect()
+
+	for _, line := range lines {
+		if strings.Contains(line, "hemera.day/drop/#") {
+			t.Fatalf("a nick whose account changed got a link anyway: %s", line)
+		}
+	}
+	if !said(lines, "identify") {
+		t.Errorf("the refusal did not say how to fix it: %v", lines)
+	}
+}
+
 func TestUploadRefusesWhenNoChannelIsShared(t *testing.T) {
 	h := newHarness(t)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#elsewhere"})
+	h.identify(t, "mallow")
 
 	h.plugin.cmdUpload(message("mallow", "mallow", "!upload"))
 	lines := h.Collect()
@@ -197,6 +254,8 @@ func TestUploadRefusesWhenNoChannelIsShared(t *testing.T) {
 // A lookup that fails is not a "no": the nick may well be identified.
 func TestUploadRefusesWhenTheLookupFails(t *testing.T) {
 	h := newHarness(t)
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	h.identify(t, "mallow")
 	h.NeverAnswers()
 
 	done := make(chan struct{})
@@ -225,17 +284,19 @@ func TestUploadRefusesWhenTheLookupFails(t *testing.T) {
 func TestUploadCooldownStopsRepeatWhois(t *testing.T) {
 	h := newHarness(t)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	h.identify(t, "mallow")
+	before := h.WhoisCount()
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
 	h.Collect()
-	if n := h.WhoisCount(); n != 1 {
+	if n := h.WhoisCount() - before; n != 1 {
 		t.Fatalf("%d whois for the first link, want 1", n)
 	}
 
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
 	lines := h.Collect()
 
-	if n := h.WhoisCount(); n != 1 {
+	if n := h.WhoisCount() - before; n != 1 {
 		t.Errorf("%d whois after a repeat, want the second to be refused before asking", n)
 	}
 	if !said(lines, "Try again in") {
@@ -246,6 +307,8 @@ func TestUploadCooldownStopsRepeatWhois(t *testing.T) {
 func TestUploadCooldownExpires(t *testing.T) {
 	h := newHarness(t)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	h.identify(t, "mallow")
+	before := h.WhoisCount()
 
 	now := time.Now()
 	h.plugin.now = func() time.Time { return now }
@@ -257,7 +320,7 @@ func TestUploadCooldownExpires(t *testing.T) {
 	h.plugin.cmdUpload(message("mallow", "#chan", "!upload"))
 	h.Collect()
 
-	if n := h.WhoisCount(); n != 2 {
+	if n := h.WhoisCount() - before; n != 2 {
 		t.Errorf("%d whois, want 2 once the cooldown has run out", n)
 	}
 }
@@ -265,6 +328,7 @@ func TestUploadCooldownExpires(t *testing.T) {
 func TestUploadInPrivateSaysNothingInChannel(t *testing.T) {
 	h := newHarness(t)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	h.identify(t, "mallow")
 
 	h.plugin.cmdUpload(message("mallow", "mallow", "!upload"))
 	lines := h.Collect()

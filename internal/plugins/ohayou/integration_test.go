@@ -12,6 +12,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 	"github.com/ohayoubot/ohayou-bot/internal/store/sqlite"
 	"github.com/ohayoubot/ohayou-bot/internal/task"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 // testGame wires the game to a fake network and an empty store, the way main
@@ -154,6 +155,38 @@ func TestRegisterRecordsNothingForALoggedOutNick(t *testing.T) {
 	}
 	if u.Registered {
 		t.Error("a nick that is not logged in to services was registered")
+	}
+}
+
+// Playing needs no registration; being signed in to the site as a player does.
+// !register and !identify are the game's, !web is the bot's, and this is where
+// the two meet: a nick somebody else is wearing must not become a session.
+func TestWebNeedsRegistrationAndIdentification(t *testing.T) {
+	h, _ := testGame(t, bottest.InChannels("#test"))
+
+	const url = "https://hemera.day/"
+	if !web.Install(h.Bot, web.NewMinter("0123456789abcdef0123456789abcdef"), h.Log, url, web.ScopeOhayou) {
+		t.Fatal("the site refused to install")
+	}
+	h.Says("alice", bottest.Whois{Account: "AliceAcct", Channels: "#test"})
+	h.Start()
+
+	h.Say("alice", "#test", "!ohayou")
+	h.Drain()
+
+	for _, step := range []string{"", "!register yes", "!identify"} {
+		if step != "" {
+			h.Say("alice", "#test", step)
+			h.Drain()
+		}
+
+		h.Say("alice", "#test", "!web")
+		lines := h.Drain()
+
+		want := step == "!identify"
+		if got := bottest.Said(lines, url+"#"); got != want {
+			t.Errorf("after %q: link = %v, want %v (%v)", step, got, want, lines)
+		}
 	}
 }
 

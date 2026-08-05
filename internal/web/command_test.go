@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"strings"
@@ -26,6 +27,14 @@ func install(t *testing.T, scopes web.Scope, opts ...bottest.Option) *bottest.Ha
 	return h
 }
 
+// identify does what !identify does, so the nick has proved itself to the bot.
+func identify(t *testing.T, h *bottest.Harness, nick string) {
+	t.Helper()
+	if _, err := h.Bot.Identify(context.Background(), nick); err != nil {
+		t.Fatalf("identifying %q: %v", nick, err)
+	}
+}
+
 // linkIn returns the target and grant out of whichever line carries the url.
 func linkIn(t *testing.T, lines []string) (target, token string) {
 	t.Helper()
@@ -42,6 +51,7 @@ func linkIn(t *testing.T, lines []string) (target, token string) {
 func TestWebSendsTheLinkPrivately(t *testing.T) {
 	h := install(t, web.ScopeDrop|web.ScopeOhayou)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "@#chan"})
+	identify(t, h, "mallow")
 
 	h.Say("mallow", "#chan", "!web")
 	lines := h.Drain()
@@ -65,6 +75,7 @@ func TestWebSendsTheLinkPrivately(t *testing.T) {
 func TestWebGrantCarriesEveryEnabledScope(t *testing.T) {
 	h := install(t, web.ScopeDrop|web.ScopeOhayou, bottest.InChannels("#chan", "#other"))
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "@#chan +#other"})
+	identify(t, h, "mallow")
 
 	h.Say("mallow", "#chan", "!web")
 	_, token := linkIn(t, h.Drain())
@@ -91,6 +102,7 @@ func TestWebGrantCarriesEveryEnabledScope(t *testing.T) {
 func TestWebGrantOmitsScopesNobodyAskedFor(t *testing.T) {
 	h := install(t, web.ScopeDrop)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	identify(t, h, "mallow")
 
 	h.Say("mallow", "#chan", "!web")
 	_, token := linkIn(t, h.Drain())
@@ -106,6 +118,9 @@ func TestWebGrantOmitsScopesNobodyAskedFor(t *testing.T) {
 
 func TestWebRefusesAnUnidentifiedNick(t *testing.T) {
 	h := install(t, web.ScopeDrop)
+	// Logged in to services when they identified, logged out since.
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	identify(t, h, "mallow")
 	h.Says("mallow", bottest.Whois{Channels: "#chan"})
 
 	h.Say("mallow", "#chan", "!web")
@@ -119,9 +134,62 @@ func TestWebRefusesAnUnidentifiedNick(t *testing.T) {
 	}
 }
 
+// The site login is the bot's, so services alone does not open it: without this
+// a nick left behind by somebody offline is a session in their name.
+func TestWebRefusesANickThatNeverIdentifiedWithTheBot(t *testing.T) {
+	h := install(t, web.ScopeDrop)
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+
+	h.Say("mallow", "#chan", "!web")
+	lines := h.Drain()
+
+	if _, ok := anyLink(lines); ok {
+		t.Error("a nick that never identified with the bot was given a link")
+	}
+	if !said(lines, "identify") {
+		t.Errorf("the refusal did not say how to fix it: %v", lines)
+	}
+	if n := h.WhoisCount(); n != 0 {
+		t.Errorf("%d whois, want the refusal decided without asking the server", n)
+	}
+}
+
+// A proof the bot never saw expire, against a nick now logged in as somebody
+// else.
+func TestWebRefusesWhenTheAccountHasChangedSinceIdentifying(t *testing.T) {
+	h := install(t, web.ScopeDrop)
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	identify(t, h, "mallow")
+	h.Says("mallow", bottest.Whois{Account: "Someone", Channels: "#chan"})
+
+	h.Say("mallow", "#chan", "!web")
+	lines := h.Drain()
+
+	if _, ok := anyLink(lines); ok {
+		t.Error("a nick whose account changed was given a link anyway")
+	}
+	if !said(lines, "identify") {
+		t.Errorf("the refusal did not say how to fix it: %v", lines)
+	}
+}
+
+// The same account in another case is the same account.
+func TestWebAcceptsTheAccountInAnotherCase(t *testing.T) {
+	h := install(t, web.ScopeDrop)
+	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	identify(t, h, "mallow")
+	h.Says("mallow", bottest.Whois{Account: "mallow", Channels: "#chan"})
+
+	h.Say("mallow", "#chan", "!web")
+	if _, ok := anyLink(h.Drain()); !ok {
+		t.Error("no link for a nick identified as the same account")
+	}
+}
+
 func TestWebRefusesANickWeShareNothingWith(t *testing.T) {
 	h := install(t, web.ScopeDrop)
 	h.Says("stranger", bottest.Whois{Account: "Stranger", Channels: "#elsewhere"})
+	identify(t, h, "stranger")
 
 	h.Say("stranger", "#chan", "!web")
 	lines := h.Drain()
@@ -135,10 +203,12 @@ func TestWebRefusesANickWeShareNothingWith(t *testing.T) {
 func TestWebCooldownStopsARepeat(t *testing.T) {
 	h := install(t, web.ScopeDrop)
 	h.Says("mallow", bottest.Whois{Account: "Mallow", Channels: "#chan"})
+	identify(t, h, "mallow")
+	before := h.WhoisCount()
 
 	h.Say("mallow", "#chan", "!web")
 	h.Drain()
-	if n := h.WhoisCount(); n != 1 {
+	if n := h.WhoisCount() - before; n != 1 {
 		t.Fatalf("%d whois for the first link, want 1", n)
 	}
 
@@ -147,7 +217,7 @@ func TestWebCooldownStopsARepeat(t *testing.T) {
 	if _, ok := anyLink(lines); ok {
 		t.Error("a second link came straight away")
 	}
-	if n := h.WhoisCount(); n != 1 {
+	if n := h.WhoisCount() - before; n != 1 {
 		t.Errorf("%d whois, want the repeat refused before asking", n)
 	}
 }
