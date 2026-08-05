@@ -2,7 +2,6 @@ package drop
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -88,29 +87,16 @@ func linkIn(t *testing.T, lines []string) (target, token string) {
 	return "", ""
 }
 
-// grantPayload is the wire form, decoded here rather than imported: this test
-// reads what the user was actually handed, not what the minter meant to send.
-type grantPayload struct {
-	A string   `json:"a"`
-	N string   `json:"n"`
-	C []string `json:"c"`
-	E int64    `json:"e"`
-	J string   `json:"j"`
-}
-
-func payloadOf(t *testing.T, token string) grantPayload {
+// payloadOf verifies the link the way the worker will, so this reads what the
+// user was actually handed rather than what the minter meant to send.
+func payloadOf(t *testing.T, token string) web.Grant {
 	t.Helper()
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		t.Fatalf("token %q has %d parts", token, len(parts))
-	}
-	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	g, id, err := web.NewMinter(testSecret).Verify(token)
 	if err != nil {
-		t.Fatalf("decoding payload: %v", err)
+		t.Fatalf("the link the user was given does not verify: %v", err)
 	}
-	var g grantPayload
-	if err := json.Unmarshal(raw, &g); err != nil {
-		t.Fatalf("payload json: %v", err)
+	if id == "" {
+		t.Error("the grant carries no id, so it could be redeemed twice")
 	}
 	return g
 }
@@ -153,19 +139,24 @@ func TestUploadGrantCarriesAccountAndSharedChannels(t *testing.T) {
 	_, token := linkIn(t, h.Collect())
 
 	g := payloadOf(t, token)
-	if g.A != "Mallow" {
-		t.Errorf("account = %q, want Mallow", g.A)
+	if g.Account != "Mallow" {
+		t.Errorf("account = %q, want Mallow", g.Account)
 	}
-	if g.N != "mallow" {
-		t.Errorf("nick = %q, want mallow", g.N)
+	if g.Nick != "mallow" {
+		t.Errorf("nick = %q, want mallow", g.Nick)
 	}
 	// #elsewhere is not somewhere the bot is, so it cannot be a destination.
 	// #Other keeps the bot's spelling, not the one whois echoed.
-	if len(g.C) != 2 || g.C[0] != "#chan" || g.C[1] != "#Other" {
-		t.Errorf("channels = %v, want [#chan #Other]", g.C)
+	if len(g.Channels) != 2 || g.Channels[0] != "#chan" || g.Channels[1] != "#Other" {
+		t.Errorf("channels = %v, want [#chan #Other]", g.Channels)
 	}
-	if g.E <= time.Now().Unix() {
-		t.Errorf("expiry %d is not in the future", g.E)
+	// A grant good for anything else would be one the upload page could spend
+	// somewhere the user never asked about.
+	if g.Scopes != web.ScopeDrop {
+		t.Errorf("scopes = %d, want only drop (%d)", g.Scopes, web.ScopeDrop)
+	}
+	if g.TTL <= 0 {
+		t.Errorf("ttl = %s, so the link is already dead", g.TTL)
 	}
 }
 
