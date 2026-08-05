@@ -5,20 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>drop: put images in IRC</title>
 <meta name="description" content="Drag and drop images into an IRC channel.">
-<meta name="color-scheme" content="dark light">
-<link rel="stylesheet" href="../deerkins/style.css">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../site.css">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="../deerkins/favicon.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
 </head>
 <body>
 
-<header class="topbar">
-  <h1>drop</h1>
-  <p class="tagline">Put images in IRC.</p>
+<header class="shell">
+  <div>
+    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+  </div>
 </header>
 
-<main>
+<main class="page">
+
+  <div class="pagetitle">
+    <h1>Drop</h1>
+    <p class="lede">Put a picture in a channel the bot sits in. It goes up under your nick.</p>
+  </div>
 
   <section id="waiting" hidden>
     <p class="hint">Checking your link…</p>

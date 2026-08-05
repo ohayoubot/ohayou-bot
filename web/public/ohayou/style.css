@@ -389,6 +389,20 @@
 	border-radius: 2px;
 }
 
+/* ---- a filed parcel, on its own page ---- */
+
+.certificate img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line-lit);
+	border-radius: var(--radius);
+}
+
+.certificate {
+	margin-bottom: 1.4rem;
+}
+
 /* ---- your file ---- */
 
 .file {

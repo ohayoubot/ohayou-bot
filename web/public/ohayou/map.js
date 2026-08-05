@@ -16,16 +16,6 @@ const SVG = "http://www.w3.org/2000/svg";
 /** Sea around the coast, in tiles. */
 const MARGIN = 3;
 
-/** Wealth bands, poorest first, matching internal/plugins/ohayou/web.go. */
-export const BANDS = [
-	"newcomer",
-	"settler",
-	"landowner",
-	"industrialist",
-	"magnate",
-	"tycoon",
-];
-
 const el = (name, attrs = {}) => {
 	const node = document.createElementNS(SVG, name);
 	for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);

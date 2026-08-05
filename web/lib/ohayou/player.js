@@ -10,6 +10,7 @@
  * filtering after, so it cannot be forgotten.
  */
 
+import { usage } from "../../public/ohayou/plot.js";
 import {
 	decodeParam,
 	escapeHTML as esc,
@@ -101,76 +102,111 @@ export const onRequestGetPage = guard(async ({ request, params, env }) => {
 	});
 });
 
-function page(plot, image, href, { channel, network }) {
-	const title = `${plot.nick}'s territory`;
-	const where = [channel, network].filter(Boolean).join(" on ");
-	const summary = `${plot.acres} ${
-		plot.acres === 1 ? "acre" : "acres"
-	}, ${plot.wealth}, ${plot.rations} rations collected${
-		where ? `. Played in ${where}.` : "."
-	}`;
-
+/**
+ * The shell, written out rather than built by a script: the first thing to
+ * fetch this is a crawler, and it runs none.
+ */
+function shell(title, head, body) {
 	return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
-<meta name="description" content="${esc(summary)}">
-<meta name="color-scheme" content="dark light">
-<meta property="og:type" content="profile">
-<meta property="og:title" content="${esc(title)}">
-<meta property="og:description" content="${esc(summary)}">
-<meta property="og:image" content="${esc(image)}">
-<meta property="og:url" content="${esc(href)}">
-<meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="/deerkins/style.css">
+<meta name="color-scheme" content="dark">
+${head}
+<link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/ohayou/style.css">
 <link rel="icon" href="/deerkins/favicon.svg" type="image/svg+xml">
 </head>
 <body>
-<header class="topbar">
-  <h1>${esc(plot.nick)}</h1>
-  <p class="tagline">${esc(summary)}</p>
+<header class="shell">
+  <div>
+    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <nav class="sitenav" aria-label="Sections">
+      <a href="/">home</a>
+      <a href="/ohayou/">registry</a>
+      <a href="/deerkins/">deerkins</a>
+      <a href="/drop/">drop</a>
+    </nav>
+  </div>
 </header>
-<main>
-  <section>
-    <img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630"
-         style="width:100%;height:auto;border-radius:10px">
-  </section>
-  <section>
-    <h2>What this is</h2>
-    <p>
-      An IRC bot hands out one ration a day to whoever says hello to it. This is
-      what ${esc(plot.nick)} has done with theirs${where ? `, in ${esc(where)}` : ""}.
-    </p>
-    <p>Say <code>!ohayou</code> there and you get a plot of your own.</p>
-    <p><a href="/ohayou/">See everyone's land</a></p>
-  </section>
+<main class="page">
+${body}
 </main>
 </body>
 </html>`;
 }
 
+function page(plot, image, href, { channel, network }) {
+	const title = `${plot.nick}'s territory`;
+	const where = [channel, network].filter(Boolean).join(" on ");
+	const { acres, built } = usage(plot);
+	const summary = `${acres} ${
+		acres === 1 ? "acre" : "acres"
+	}, ${plot.wealth}, ${plot.rations} rations drawn${
+		where ? `. Filed from ${where}.` : "."
+	}`;
+
+	const head = `<meta name="description" content="${esc(summary)}">
+<meta property="og:type" content="profile">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(summary)}">
+<meta property="og:image" content="${esc(image)}">
+<meta property="og:url" content="${esc(href)}">
+<meta name="twitter:card" content="summary_large_image">`;
+
+	const body = `  <section class="certificate">
+    <img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630">
+  </section>
+
+  <section class="masthead">
+    <div>
+      <h1>${esc(plot.nick)}</h1>
+      <p class="lede">
+        Parcel filed with the land office${where ? ` from ${esc(where)}` : ""},
+        and surveyed every couple of minutes.
+      </p>
+    </div>
+    <dl class="ledger">
+      <div><dd>${acres}</dd><dt>acres held</dt></div>
+      <div><dd>${built}</dd><dt>acres worked</dt></div>
+      <div><dd>${plot.rations}</dd><dt>rations drawn</dt></div>
+      <div class="filed"><dd>${esc(plot.wealth)}</dd><dt>standing</dt></div>
+    </dl>
+  </section>
+
+  <section class="panel notice">
+    <span class="stamp">What this is</span>
+    <p>
+      An IRC bot hands one ration a day to anyone who says good morning to it.
+      Rations buy acres, and acres carry cats, quarries and refineries. Above is
+      what ${esc(plot.nick)} has done with theirs.
+    </p>
+    <p>
+      Say <code>!ohayou</code>${
+				where ? ` in ${esc(where)}` : ""
+			} and the office will find you an acre of your own.
+    </p>
+    <p><a href="/ohayou/">Every parcel on the register</a></p>
+  </section>`;
+
+	return shell(title, head, body);
+}
+
 function missing() {
-	return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>No plot by that name</title>
-<meta name="color-scheme" content="dark light">
-<link rel="stylesheet" href="/deerkins/style.css">
-</head>
-<body>
-<header class="topbar"><h1>No plot by that name</h1></header>
-<main><section>
-  <p>
-    Either nobody by that name plays, or they have not put their name to their
-    land. Only a plot whose owner said it was theirs has a page.
-  </p>
-  <p><a href="/ohayou/">See everyone's land</a></p>
-</section></main>
-</body>
-</html>`;
+	return shell(
+		"No parcel by that name",
+		'<meta name="robots" content="noindex">',
+		`  <section class="panel notice">
+    <span class="stamp">Nothing on file</span>
+    <h1>No parcel by that name</h1>
+    <p>
+      Either nobody by that name plays, or they have not filed their name
+      against their land. Only a parcel whose holder asked to be named has a
+      page here.
+    </p>
+    <p><a href="/ohayou/">Every parcel on the register</a></p>
+  </section>`,
+	);
 }

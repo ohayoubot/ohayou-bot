@@ -33,27 +33,38 @@ export function layout(plot) {
 		}
 	}
 
-	// Dealt across the parcel rather than filling from one corner, so a holding
-	// reads as a settled one. The order is seeded by the plot, so it is the same
-	// on every publish and in every renderer.
-	const slots = [...Array(acres).keys()].sort(
-		(a, b) => scatter(plot.id, a) - scatter(plot.id, b),
-	);
+	// Dealt across the parcel rather than filling from one corner. Striding by a
+	// number coprime with the acreage visits every acre once and spreads them
+	// evenly, which a shuffle does not: a shuffle clumps often enough to look
+	// like a bug. Where it starts is seeded by the plot, so the same holding
+	// draws the same way on every publish and in every renderer.
+	const step = stride(acres);
+	const from = hash(plot.id) % acres;
 	const tiles = new Array(acres).fill(null);
 	built.forEach((tile, i) => {
-		tiles[slots[i]] = tile;
+		tiles[(from + i * step) % acres] = tile;
 	});
 
 	return { acres, wide, tall: Math.ceil(acres / wide), tiles };
 }
 
-/** Stable value in [0,1) for one acre of one plot. */
-function scatter(id, i) {
-	let hash = 2166136261;
-	for (const ch of `${id}:${i}`) {
-		hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+/** The golden-ratio step, walked up until it shares no factor with n. */
+function stride(n) {
+	let step = Math.max(1, Math.round(n * 0.6180339887));
+	while (step > 1 && gcd(step, n) !== 1) step--;
+	return step;
+}
+
+function gcd(a, b) {
+	return b === 0 ? a : gcd(b, a % b);
+}
+
+function hash(id) {
+	let out = 2166136261;
+	for (const ch of String(id)) {
+		out = Math.imul(out ^ ch.charCodeAt(0), 16777619) >>> 0;
 	}
-	return hash / 4294967296;
+	return out;
 }
 
 /** Acres a plot has built on, and acres it has spare. */

@@ -14,6 +14,7 @@ import {
 	toRects,
 	UNKNOWN,
 } from "../public/ohayou/sprites.js";
+import { BANDS, bandColour, TERRAIN } from "../public/ohayou/terrain.js";
 
 const items = JSON.parse(
 	readFileSync(new URL("../../data/items.json", import.meta.url)),
@@ -52,6 +53,29 @@ test("the acre limits match data/items.json", () => {
 			.map((i) => [i.name, i.acrelimit]),
 	);
 	assert.deepEqual(ACRELIMIT, theirs);
+});
+
+/* ---- the colours css and the worker both draw with ---- */
+
+const css = readFileSync(
+	new URL("../public/ohayou/style.css", import.meta.url),
+	"utf8",
+);
+
+// The map is painted by css and the card by a worker. They have to agree.
+test("style.css repeats the terrain colours exactly", () => {
+	for (const [name, hex] of Object.entries(TERRAIN)) {
+		const declared = css.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, "i"));
+		assert.ok(declared, `--${name} is not in style.css`);
+		assert.equal(declared[1].toLowerCase(), hex, `--${name}`);
+	}
+});
+
+test("every wealth band has a colour and a rule", () => {
+	for (const band of BANDS) {
+		assert.match(bandColour(band), /^#[0-9a-f]{6}$/i, band);
+		assert.ok(css.includes(`[data-band="${band}"]`), `${band} has no css rule`);
+	}
 });
 
 /* ---- sprites ---- */

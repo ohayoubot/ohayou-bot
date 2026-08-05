@@ -5,8 +5,8 @@
  * plugin added there appears here without this file knowing its name.
  */
 
-import { layout } from "./ohayou/plot.js";
-import { spriteURL } from "./ohayou/sprites.js";
+import { nav } from "./nav.js";
+import { drawWorld } from "./ohayou/map.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -29,6 +29,7 @@ let session = null;
  */
 async function start() {
 	show(waitingEl);
+	nav("#sitenav", "/");
 
 	const token = location.hash.slice(1);
 	if (token) history.replaceState(null, "", location.pathname);
@@ -126,38 +127,23 @@ function chat(site) {
 	);
 }
 
-/** The biggest holdings, drawn from the same numbers the map itself uses. */
+/**
+ * A corner of the register: the biggest holdings, drawn by the map's own
+ * renderer so the landing page cannot show something the map would not.
+ */
 function glimpse(world) {
 	const biggest = [...world.plots]
 		.sort((a, b) => b.acres - a.acres)
-		.slice(0, 12);
-
-	$("#glimpse").replaceChildren(
-		...biggest.map((plot) => {
-			const { wide, tiles } = layout(plot);
-
-			const el = document.createElement("div");
-			el.className = plot.named ? "patch" : "patch unnamed";
-			el.style.setProperty("--wide", wide);
-
-			for (const built of tiles) {
-				const tile = document.createElement("span");
-				if (built) {
-					tile.className = "built";
-					tile.style.backgroundImage = `url("${spriteURL(built.item)}")`;
-				}
-				el.append(tile);
-			}
-			return el;
-		}),
-	);
+		.slice(0, 18);
+	const { svg } = drawWorld(biggest, { flags: world.flags ?? {} });
+	$("#minimap").replaceChildren(svg);
 
 	$("#glimpsecap").textContent = `${world.totals.players} ${
-		world.totals.players === 1 ? "player" : "players"
-	} holding ${world.totals.acres} acres. `;
+		world.totals.players === 1 ? "holder" : "holders"
+	}, ${world.totals.acres} acres surveyed. `;
 	const link = document.createElement("a");
 	link.href = "/ohayou/";
-	link.textContent = "See the whole map";
+	link.textContent = "The whole register";
 	$("#glimpsecap").append(link);
 }
 
