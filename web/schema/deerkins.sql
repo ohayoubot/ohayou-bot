@@ -35,20 +35,27 @@ CREATE TABLE IF NOT EXISTS grant_used (
 
 CREATE INDEX IF NOT EXISTS grant_used_exp ON grant_used (exp);
 
--- id_hash is the sha-256 of the cookie value, so this table is not a set of
--- live sessions. channels is the json array copied from the grant; it bounds
--- where the uploader may post and cannot be widened by the browser.
-CREATE TABLE IF NOT EXISTS upload_session (
+-- One session for the whole site. id_hash is the sha-256 of the cookie value,
+-- so this table is not a set of live sessions. channels is the json array
+-- copied from the grant and bounds where the holder may post; scopes is the
+-- bitmask copied from it and bounds what they may do. The browser can widen
+-- neither.
+--
+-- upload_session was this table before sessions were shared. It is not migrated
+-- and not dropped here: its rows last twelve hours, so it drains on its own.
+-- Drop it by hand once it has.
+CREATE TABLE IF NOT EXISTS session (
   id_hash  TEXT PRIMARY KEY,
   account  TEXT NOT NULL,
   nick     TEXT NOT NULL,
   channels TEXT NOT NULL,
+  scopes   INTEGER NOT NULL DEFAULT 0,
   created  INTEGER NOT NULL,
   expires  INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS upload_session_expires ON upload_session (expires);
-CREATE INDEX IF NOT EXISTS upload_session_account ON upload_session (account);
+CREATE INDEX IF NOT EXISTS session_expires ON session (expires);
+CREATE INDEX IF NOT EXISTS session_account ON session (account);
 
 -- The queue the bot polls, append-only. It tracks its own cursor and never
 -- writes back, so there is no delivered flag. key is the r2 object key.

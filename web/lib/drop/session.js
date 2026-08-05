@@ -13,12 +13,12 @@ import {
 	rejectCrossOrigin,
 	rejectForeignOrigin,
 } from "../http.js";
-import { clearSession, issueSession, readSession } from "../session.js";
+import { clearSession, issueSession, requireScope } from "../session.js";
 
 const NO_STORE = { "cache-control": "no-store" };
 
 export const onRequestGet = guard(async ({ request, env }) => {
-	const session = await readSession(request, env);
+	const session = await requireScope(request, env, SCOPE_DROP);
 	if (!session) return fail(401, "no session");
 
 	return json({ status: "session", ...session }, { headers: NO_STORE });
@@ -45,6 +45,7 @@ export const onRequestPost = guard(async ({ request, env }) => {
 		account: grant.payload.account,
 		nick: grant.payload.nick,
 		channels: grant.payload.channels,
+		scopes: grant.payload.scopes,
 	});
 
 	return json(
