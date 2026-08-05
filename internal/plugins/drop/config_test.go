@@ -9,26 +9,33 @@ import (
 
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 var creds = config.Cloudflare{AccountID: "acct", DatabaseID: "db", APIToken: "token"}
 
 const sited = `{"url": "https://hemera.day/drop/", "imageBase": "https://img.hemera.day"}`
 
+// configure runs the plugin's own configuration with the site's secret
+// present, which is the state it is normally asked in.
 func configure(t *testing.T, block string, cf config.Cloudflare) (*Plugin, bool, error) {
+	t.Helper()
+	return configureWeb(t, block, cf, config.Web{Secret: "s"})
+}
+
+func configureWeb(t *testing.T, block string, cf config.Cloudflare, w config.Web) (*Plugin, bool, error) {
 	t.Helper()
 	p := New()
 	var raw json.RawMessage
 	if block != "" {
 		raw = json.RawMessage(block)
 	}
-	on, err := p.Configure(plugin.Config{Block: raw, Cloudflare: cf})
+	on, err := p.Configure(plugin.Config{Block: raw, Cloudflare: cf, Web: w})
 	return p, on, err
 }
 
 func TestOffWithoutASecret(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "")
-	_, on, err := configure(t, sited, creds)
+	_, on, err := configureWeb(t, sited, creds, config.Web{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +45,6 @@ func TestOffWithoutASecret(t *testing.T) {
 }
 
 func TestOffWithoutAURL(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "s")
 	_, on, err := configure(t, "", creds)
 	if err != nil {
 		t.Fatal(err)
@@ -48,21 +54,21 @@ func TestOffWithoutAURL(t *testing.T) {
 	}
 }
 
-// The secret only ever comes from the environment, so a config file carrying
-// one cannot arm the plugin.
-func TestSecretComesOnlyFromTheEnvironment(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "")
-	p, on, err := configure(t, `{"url": "https://x/", "imageBase": "https://i", "secret": "in-the-file"}`, creds)
+// The signing secret belongs to the site, not to this plugin. A secret written
+// into drop's own block is not one, and cannot arm it.
+func TestSecretInThePluginBlockIsNotASecret(t *testing.T) {
+	_, on, err := configureWeb(t,
+		`{"url": "https://x/", "imageBase": "https://i", "secret": "in-the-file"}`,
+		creds, config.Web{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if on || p.cfg.Secret != "" {
-		t.Errorf("a secret in the config file was honoured: on=%v secret=%q", on, p.cfg.Secret)
+	if on {
+		t.Error("a secret in the plugin block armed drop")
 	}
 }
 
 func TestDefaults(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "s")
 	p, on, err := configure(t, sited, creds)
 	if err != nil || !on {
 		t.Fatalf("configure: on=%v err=%v", on, err)
@@ -84,7 +90,6 @@ func TestDefaults(t *testing.T) {
 }
 
 func TestBorrowsTheSharedCloudflareBlock(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "s")
 	p, _, err := configure(t, sited, creds)
 	if err != nil {
 		t.Fatal(err)
@@ -95,7 +100,6 @@ func TestBorrowsTheSharedCloudflareBlock(t *testing.T) {
 }
 
 func TestMissingPiecesAreRefused(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "s")
 	for _, tc := range []struct {
 		block, want string
 		cf          config.Cloudflare
@@ -116,11 +120,10 @@ func TestMissingPiecesAreRefused(t *testing.T) {
 	}
 }
 
-// The worker refuses a grant reaching further ahead than maxGrantTTL, so a
+// The worker refuses a grant reaching further ahead than web.MaxTTL, so a
 // config asking for one would mint links that are dead on arrival.
 func TestGrantTTLIsBounded(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "s")
-	for _, ttl := range []int{29, maxGrantTTL + 1} {
+	for _, ttl := range []int{29, int(web.MaxTTL/time.Second) + 1} {
 		block := `{"url": "https://x/", "imageBase": "https://i", "grantTtl": ` +
 			strconv.Itoa(ttl) + `}`
 		if _, _, err := configure(t, block, creds); err == nil {
@@ -130,7 +133,6 @@ func TestGrantTTLIsBounded(t *testing.T) {
 }
 
 func TestPollFloor(t *testing.T) {
-	t.Setenv("OHAYOU_DROP_SECRET", "s")
 	if _, _, err := configure(t, `{"url": "https://x/", "imageBase": "https://i", "poll": 1}`, creds); err == nil {
 		t.Error("configure accepted a poll faster than the floor")
 	}

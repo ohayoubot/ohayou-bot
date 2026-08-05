@@ -28,6 +28,7 @@ type Config struct {
 	IgnoreList    map[string]string `json:"ignoreList"`
 	Database      string            `json:"database"` // path to the sqlite .db file
 	Cloudflare    Cloudflare        `json:"cloudflare"`
+	Web           Web               `json:"web"`
 	// Plugins holds each plugin's block unparsed. The bot does not know what is
 	// in them; the plugin that owns one reads it.
 	Plugins map[string]json.RawMessage `json:"plugins"`
@@ -41,6 +42,16 @@ type Cloudflare struct {
 	// APIToken needs the D1:Read permission on the account. OHAYOU_CF_API_TOKEN
 	// overrides it so the token need not be written to disk.
 	APIToken string `json:"apiToken"`
+}
+
+// Web is the website the bot mints signed links for, shared by the plugins with
+// a page there.
+type Web struct {
+	// Secret signs the links. It has no config field on purpose, so it cannot be
+	// committed by accident: it comes from OHAYOU_WEB_SECRET only. The worker
+	// holds the same value as UPLOAD_HMAC_SECRET, and both sides key on its utf-8
+	// bytes rather than decoding the hex.
+	Secret string `json:"-"`
 }
 
 // On resolves an optional toggle against what it defaults to when unset.
@@ -181,6 +192,7 @@ func Load(path string) (*Config, error) {
 	if token := os.Getenv("OHAYOU_CF_API_TOKEN"); token != "" {
 		cfg.Cloudflare.APIToken = token
 	}
+	cfg.Web.Secret = os.Getenv("OHAYOU_WEB_SECRET")
 	// Normalize nicks to lower case for admins
 	admins := make(map[string]string, len(cfg.Admins))
 	for nick, host := range cfg.Admins {

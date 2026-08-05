@@ -15,7 +15,7 @@ import (
 // registry the binary actually builds.
 func TestExampleConfigThroughTheRegistry(t *testing.T) {
 	t.Setenv("OHAYOU_CF_API_TOKEN", "")
-	t.Setenv("OHAYOU_DROP_SECRET", "")
+	t.Setenv("OHAYOU_WEB_SECRET", "")
 
 	cfg, err := config.Load("../../conf-example.json")
 	if err != nil {

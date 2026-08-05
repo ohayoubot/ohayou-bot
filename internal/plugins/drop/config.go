@@ -3,16 +3,13 @@ package drop
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/plugin"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
-
-// maxGrantTTL matches the ceiling the worker enforces when it verifies a grant.
-const maxGrantTTL = 900
 
 // Config is the drop block. The plugin hands a user a signed link to the upload
 // site and announces what they upload.
@@ -23,11 +20,6 @@ type Config struct {
 	AccountID  string `json:"accountId"`
 	DatabaseID string `json:"databaseId"`
 	APIToken   string `json:"apiToken"`
-	// Secret signs the grant links. It has no config field on purpose, so it
-	// cannot be committed by accident: it comes from OHAYOU_DROP_SECRET only.
-	// The worker holds the same value as UPLOAD_HMAC_SECRET, and both sides key
-	// on its utf-8 bytes rather than decoding the hex.
-	Secret string `json:"-"`
 	// URL is the upload site, e.g. "https://hemera.day/drop/".
 	URL string `json:"url"`
 	// ImageBase is where the bucket is served, e.g. "https://img.hemera.day".
@@ -35,7 +27,7 @@ type Config struct {
 	// held in two places, and disagreeing means announcing dead links.
 	ImageBase string `json:"imageBase"`
 	// GrantTTL is how many seconds a link stays good for. The worker refuses
-	// anything reaching more than maxGrantTTL ahead, so this cannot exceed it.
+	// anything reaching further ahead than web.MaxTTL, so this cannot exceed it.
 	GrantTTL int `json:"grantTtl"`
 	// PollSeconds is how often to ask D1 for uploads to announce.
 	PollSeconds int `json:"poll"`
@@ -68,8 +60,8 @@ func (c Config) Image(key string) string {
 	return strings.TrimRight(c.ImageBase, "/") + "/" + key
 }
 
-// Configure reads the environment for the signing secret, borrows the shared
-// cloudflare block, and fills in the defaults.
+// Configure borrows the shared cloudflare block and the site's secret, and
+// fills in the defaults.
 func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 	c := Config{}
 	if len(pc.Block) > 0 {
@@ -77,8 +69,6 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 			return false, fmt.Errorf("drop config: %w", err)
 		}
 	}
-	c.Secret = os.Getenv("OHAYOU_DROP_SECRET")
-
 	if c.AccountID == "" {
 		c.AccountID = pc.Cloudflare.AccountID
 	}
@@ -91,12 +81,12 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 
 	// The database it reads is not part of the question: missing that is an
 	// error below, not a plugin that quietly never answers.
-	if !config.On(c.Enabled, c.Secret != "" && c.URL != "") {
+	if !config.On(c.Enabled, pc.Web.Secret != "" && c.URL != "") {
 		return false, nil
 	}
 	switch {
-	case c.Secret == "":
-		return false, fmt.Errorf("needs OHAYOU_DROP_SECRET")
+	case pc.Web.Secret == "":
+		return false, fmt.Errorf("needs OHAYOU_WEB_SECRET")
 	case c.URL == "":
 		return false, fmt.Errorf("url is required")
 	case c.ImageBase == "":
@@ -122,8 +112,8 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 		c.RequestTimeoutMS = 10000
 	}
 
-	if c.GrantTTL < 30 || c.GrantTTL > maxGrantTTL {
-		return false, fmt.Errorf("grantTtl must be between 30 and %d seconds", maxGrantTTL)
+	if c.GrantTTL < 30 || config.Secs(c.GrantTTL) > web.MaxTTL {
+		return false, fmt.Errorf("grantTtl must be between 30 seconds and %s", web.MaxTTL)
 	}
 	// Polling faster than this buys a second of latency and spends the D1 read
 	// budget on empty answers.

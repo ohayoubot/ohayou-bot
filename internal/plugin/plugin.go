@@ -12,6 +12,7 @@ import (
 	"github.com/ohayoubot/ohayou-bot/internal/config"
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 	"github.com/ohayoubot/ohayou-bot/internal/task"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 // Deps is what the bot lends a plugin.
@@ -27,6 +28,9 @@ type Deps struct {
 	// Tasks schedules work for later, including after a restart. Already scoped
 	// to the plugin.
 	Tasks *task.Queue
+	// Web mints the signed links a plugin hands a user to prove who they are on
+	// the website. Nil when no secret is configured.
+	Web *web.Minter
 }
 
 // For scopes deps to one plugin: its own logger, and its own corner of the
@@ -56,6 +60,9 @@ type Config struct {
 	Block json.RawMessage
 	// Cloudflare is the shared D1 database, for the plugins that read one.
 	Cloudflare config.Cloudflare
+	// Web is the website's settings, so a plugin whose reason to exist is a page
+	// there can turn itself off when there is no site configured.
+	Web config.Web
 }
 
 // Configurable is a plugin that reads its own config block. Returning false
@@ -119,6 +126,7 @@ func (r *Registry) Configure(cfg *config.Config) error {
 		on, err := c.Configure(Config{
 			Block:      cfg.Plugins[p.Name()],
 			Cloudflare: cfg.Cloudflare,
+			Web:        cfg.Web,
 		})
 		if err != nil {
 			return fmt.Errorf("plugin %s: %w", p.Name(), err)

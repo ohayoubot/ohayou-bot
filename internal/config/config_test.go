@@ -206,6 +206,35 @@ func TestCloudflareTokenComesFromTheEnvironment(t *testing.T) {
 	}
 }
 
+// The site's signing secret has no field to write it into, so a config file
+// cannot carry one even by accident.
+func TestWebSecretComesOnlyFromTheEnvironment(t *testing.T) {
+	t.Setenv("OHAYOU_WEB_SECRET", "from-env")
+
+	cfg, err := Load(writeConfig(t, `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"web": {"secret": "on-disk"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Web.Secret != "from-env" {
+		t.Errorf("Secret = %q, want the environment's", cfg.Web.Secret)
+	}
+
+	t.Setenv("OHAYOU_WEB_SECRET", "")
+	cfg, err = Load(writeConfig(t, `{
+		"nick": "ohayoubot", "server": "irc.example.net",
+		"web": {"secret": "on-disk"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Web.Secret != "" {
+		t.Errorf("Secret = %q, want a secret in the file to be ignored", cfg.Web.Secret)
+	}
+}
+
 func TestOn(t *testing.T) {
 	yes, no := true, false
 	for _, tc := range []struct {

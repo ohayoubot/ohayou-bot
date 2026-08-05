@@ -33,7 +33,7 @@
      that does not exist is an error at startup rather than silence later.
      - `deerkins` - the pixel art gallery. Off unless it has a database to read.
        See [Deerkins](#deerkins).
-     - `drop` - image uploads. Off unless `OHAYOU_DROP_SECRET` is set and `url`
+     - `drop` - image uploads. Off unless `OHAYOU_WEB_SECRET` is set and `url`
        is filled in. See [Drop](#drop).
      - `youtube` - names the videos linked in a channel. Needs no credentials,
        so it is **on** unless you set `"enabled": false`. See
@@ -121,9 +121,8 @@ Requests are also subject to the bot-wide `ignoreList` and `floodDelay`.
 `!upload` PMs an identified user a one-shot link to the upload site. What they
 drop there is announced in a channel the two of you share.
 
-`OHAYOU_DROP_SECRET` signs the links and is not in `conf.json`. The site holds
-the same value as `UPLOAD_HMAC_SECRET`. Both sides key on the string's bytes, so
-it is used as written and not decoded from hex. `openssl rand -hex 32`.
+`OHAYOU_WEB_SECRET` signs the links. It belongs to the site rather than to this
+plugin, so it is the bot's rather than drop's: see [Web](#web).
 
 In the `drop` block, `url` is the site and `imageBase` is where the bucket is
 served. `imageBase` must match the site's `PUBLIC_IMAGE_BASE` or every link the
@@ -210,6 +209,12 @@ skips the migration runner, so apply anything in `deploy/migrations/` yourself
 drop, write through: the gallery at `/deerkins/` and the uploader at `/drop/`.
 It was its own repository until it grew past the one plugin it was named after.
 See `web/README.md` for its databases, secrets and deploys.
+
+`OHAYOU_WEB_SECRET` signs the one-shot links a plugin hands a user to prove who
+they are over there. It has no field in `conf.json` on purpose, so it cannot be
+committed by accident. The site holds the same value as `UPLOAD_HMAC_SECRET`;
+both sides key on the string's bytes, so it is used as written and not decoded
+from hex. `openssl rand -hex 32`.
 
 The Pages project builds with its root directory set to `web`, and keeps the
 name `deerkins`: Pages does not rename a project in place, and the name is not
