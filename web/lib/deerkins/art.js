@@ -57,8 +57,10 @@ export const onRequestGet = guard(async ({ request, env }) => {
 		Math.max(0, Number.parseInt(url.searchParams.get("start") ?? "0", 10) || 0),
 	);
 
+	// kinskode comes back with the list so the gallery can draw each entry. It
+	// is at most a kilobyte a row and the page is twenty.
 	const { results } = await env.DB.prepare(
-		"SELECT deer, creator, date FROM deer ORDER BY date DESC, id DESC LIMIT ?1 OFFSET ?2",
+		"SELECT deer, creator, date, kinskode FROM deer ORDER BY date DESC, id DESC LIMIT ?1 OFFSET ?2",
 	)
 		.bind(PAGE_SIZE + 1, start)
 		.all();

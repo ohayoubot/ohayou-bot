@@ -228,8 +228,34 @@
 	background: var(--panel);
 }
 
-.maptools button {
+#findme {
 	margin-left: auto;
+}
+
+.zoom {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	margin-left: auto;
+}
+
+.zoom output {
+	font-family: var(--mono);
+	font-size: 0.78rem;
+	color: var(--ink-dim);
+	min-width: 2.6ch;
+	text-align: center;
+}
+
+.zoom button {
+	width: 1.9rem;
+	padding: 0.2rem 0;
+	text-align: center;
+}
+
+/* The map is as wide as the zoom says; the scroller takes up the difference. */
+.mapscroll .worldmap {
+	width: 100%;
 }
 
 .scalebar {

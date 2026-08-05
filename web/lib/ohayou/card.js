@@ -7,13 +7,14 @@
  * the deer from the gallery's kinskode, so the card and the site agree.
  */
 
-import { hexOf, normalise, TRANSPARENT } from "../../public/deerkins/kins.js";
-import { layout, usage } from "../../public/ohayou/plot.js";
 import {
-	SPRITE_SIZE,
-	spriteFor,
+	hexOf,
+	normalise,
+	TRANSPARENT,
 	toRects,
-} from "../../public/ohayou/sprites.js";
+} from "../../public/deerkins/kins.js";
+import { layout, usage } from "../../public/ohayou/plot.js";
+import { SPRITE_SIZE, spriteFor } from "../../public/ohayou/sprites.js";
 import { bandColour, TERRAIN } from "../../public/ohayou/terrain.js";
 import { escapeHTML as esc } from "../http.js";
 

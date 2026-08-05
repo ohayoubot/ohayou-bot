@@ -31,7 +31,7 @@ label[for="channel"] { margin-right: .4rem; }
 
 .zone {
   margin: 1rem 0 .6rem;
-  padding: 2.5rem 1rem;
+  padding: 3rem 1rem;
   border: 2px dashed var(--line);
   border-radius: var(--radius);
   background: var(--panel-2);
@@ -53,8 +53,6 @@ label[for="channel"] { margin-right: .4rem; }
 .status { color: var(--ink-dim); font-size: .85rem; }
 
 #pending { margin-bottom: 1rem; }
-
-.pending-head { font-size: 1rem; margin: 0 0 .5rem; }
 
 .actions {
   display: flex;

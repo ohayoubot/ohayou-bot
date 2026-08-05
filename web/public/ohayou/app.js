@@ -3,12 +3,12 @@
  * fill in the signed-in file from the private endpoint.
  */
 
-import { normalise } from "../deerkins/kins.js";
+import { normalise, toDataURL } from "../deerkins/kins.js";
 import { nav } from "../nav.js";
 import { nameOf } from "./catalog.js";
 import { drawWorld } from "./map.js";
 import { usage } from "./plot.js";
-import { spriteURL, urlFor } from "./sprites.js";
+import { spriteURL } from "./sprites.js";
 import { BANDS } from "./terrain.js";
 
 const $ = (sel) => document.querySelector(sel);
@@ -42,6 +42,7 @@ async function start() {
 		onPick: deed,
 	});
 	$("#mapscroll").replaceChildren(svg);
+	zoom(svg);
 
 	const own = world.plots.find((p) => p.named && p.id === mine);
 	deed(own ?? world.plots[0]);
@@ -56,6 +57,32 @@ async function start() {
 		$("#signedout").hidden = true;
 		await file(own);
 	}
+}
+
+/**
+ * Scales the map inside its scroller. A world of a hundred parcels is a texture
+ * at a fit width; the buildings are only legible closer in.
+ */
+function zoom(svg) {
+	const steps = [1, 1.5, 2, 3, 4];
+	let at = 0;
+
+	const apply = () => {
+		svg.style.width = `${steps[at] * 100}%`;
+		$("#zoomlevel").textContent = `${steps[at]}\u00d7`;
+		$("#zoomout").disabled = at === 0;
+		$("#zoomin").disabled = at === steps.length - 1;
+	};
+
+	$("#zoomin").addEventListener("click", () => {
+		at = Math.min(steps.length - 1, at + 1);
+		apply();
+	});
+	$("#zoomout").addEventListener("click", () => {
+		at = Math.max(0, at - 1);
+		apply();
+	});
+	apply();
 }
 
 /* ---- totals ---- */
@@ -184,7 +211,7 @@ function flagOf(plot) {
 	const fig = document.createElement("figure");
 	fig.className = "deer";
 	const img = document.createElement("img");
-	img.src = urlFor(normalise(code), `flag:${plot.flag}`);
+	img.src = toDataURL(normalise(code), `flag:${plot.flag}`);
 	img.alt = `the deer named ${plot.flag}`;
 	const cap = document.createElement("figcaption");
 	cap.textContent = `flying ${plot.flag}`;
