@@ -1,0 +1,250 @@
+:root {
+  color-scheme: dark light;
+
+  --bg: #14131a;
+  --panel: #1c1b25;
+  --panel-2: #24222f;
+  --line: #35323f;
+  --ink: #e6e3ee;
+  --ink-dim: #9a95ab;
+  --accent: #ffb454;
+  --accent-ink: #241a08;
+  --focus: #7fd6ff;
+  --danger: #ff6b6b;
+  --radius: 6px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f5f2;
+    --panel: #ffffff;
+    --panel-2: #eeece7;
+    --line: #d5d2ca;
+    --ink: #23222a;
+    --ink-dim: #6a6678;
+    --accent: #b45f06;
+    --accent-ink: #fff8ec;
+    --focus: #1b6fa8;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 1.25rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+h1, h2 { line-height: 1.2; margin: 0 0 .4rem; }
+h1 { font-size: 1.6rem; letter-spacing: -.02em; }
+h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-dim); }
+p { margin: 0 0 .6rem; }
+a { color: var(--focus); }
+
+.topbar { max-width: 1180px; margin: 0 auto 1.25rem; }
+.tagline { color: var(--ink-dim); margin: 0; }
+
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  align-items: start;
+}
+
+.editor { grid-column: 1; }
+.side { grid-column: 2; display: grid; gap: 1.25rem; }
+.codes { grid-column: 1 / -1; display: grid; gap: 1.25rem; grid-template-columns: 1fr 1fr; }
+
+section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
+.codes > div { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
+.editor, .side > section { min-width: 0; }
+
+.hint { color: var(--ink-dim); font-size: .82rem; }
+
+/* ---- controls ---- */
+
+button, input, textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: .38rem .7rem;
+}
+
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+input[type="search"], input[type="text"] { width: 100%; }
+
+textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+  line-height: 1.35;
+  resize: vertical;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* ---- palette + tools ---- */
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; margin-bottom: .9rem; }
+
+.palette { display: flex; flex-wrap: wrap; gap: 3px; }
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid var(--line);
+  border-radius: 4px;
+}
+
+.swatch[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+.tools { display: flex; flex-wrap: wrap; gap: .3rem; }
+.tools button { font-size: .78rem; padding: .28rem .55rem; }
+
+.actions { display: flex; align-items: center; gap: .8rem; margin-top: .9rem; flex-wrap: wrap; }
+.status { color: var(--ink-dim); font-size: .85rem; }
+.status.error { color: var(--danger); }
+
+/* ---- grid ---- */
+
+.grid-wrap { overflow-x: auto; }
+
+.grid {
+  --cols: 30;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  width: 100%;
+  min-width: calc(var(--cols) * 14px);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.cell { aspect-ratio: 5 / 8; }
+.cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* outline-offset stays negative: .grid-wrap scrolls, so anything drawn
+   outside the grid's own box would be clipped. */
+.grid-wrap.dragover .grid { outline: 3px dashed var(--accent); outline-offset: -3px; }
+
+/* The 16 mIRC colours. Kept in step with PALETTE in kins.js. Both are
+   fixed by the IRC colour spec, so neither side moves. */
+.k-0  { background: #000000; }
+.k-1  { background: #FFFFFF; }
+.k-2  { background: #00007F; }
+.k-3  { background: #009300; }
+.k-4  { background: #FF0000; }
+.k-5  { background: #7F0000; }
+.k-6  { background: #9C009C; }
+.k-7  { background: #FC7E00; }
+.k-8  { background: #FFFF00; }
+.k-9  { background: #00FC00; }
+.k-10 { background: #009393; }
+.k-11 { background: #00FFFF; }
+.k-12 { background: #0000FC; }
+.k-13 { background: #FF00FF; }
+.k-14 { background: #7F7F7F; }
+.k-15 { background: #D2D2D2; }
+
+/* transparent: a checkerboard drawn with gradients, so there is no asset */
+.k-t {
+  background-color: #9b96a8;
+  background-image:
+    linear-gradient(45deg, #6b6678 25%, transparent 25%, transparent 75%, #6b6678 75%),
+    linear-gradient(45deg, #6b6678 25%, transparent 25%, transparent 75%, #6b6678 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+
+/* ---- gallery ---- */
+
+.gallery { list-style: none; margin: .6rem 0; padding: 0; max-height: 20rem; overflow-y: auto; }
+
+.gallery button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: .35rem .2rem;
+  font-size: .85rem;
+}
+
+.gallery button:hover { background: var(--panel-2); border-color: var(--line); }
+.gallery .name { font-weight: 600; }
+.gallery .by { color: var(--ink-dim); }
+.gallery li.current button { color: var(--accent); }
+
+.pager { display: flex; gap: .3rem; margin: 0; }
+.pager button { flex: 1; font-size: .75rem; padding: .28rem .2rem; }
+
+.export { display: flex; gap: .3rem; margin: 0; }
+.export button { flex: 1; }
+
+.check { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; font-size: .82rem; color: var(--ink-dim); }
+.check input { width: auto; margin: 0; }
+
+/* ---- dialog ---- */
+
+dialog {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  max-width: 24rem;
+  width: calc(100% - 2rem);
+}
+
+dialog::backdrop { background: rgb(0 0 0 / .6); }
+dialog label { display: block; font-size: .8rem; color: var(--ink-dim); margin-top: .7rem; }
+dialog menu { display: flex; justify-content: flex-end; gap: .5rem; margin: 1.1rem 0 0; padding: 0; }
+
+/* ---- footer ---- */
+
+footer {
+  max-width: 1180px;
+  margin: 1.5rem auto 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: .85rem;
+}
+
+.credits { font-size: .8rem; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  .editor, .side, .codes { grid-column: 1; }
+  .codes { grid-template-columns: 1fr; }
+}

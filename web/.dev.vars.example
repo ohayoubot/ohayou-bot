@@ -1,0 +1,8 @@
+# Copy to .dev.vars for local development (gitignored).
+# Production uses: wrangler pages secret put <NAME>
+IP_SALT="local-development-only-not-a-real-salt"
+
+# Shared with the irc bot, which signs upload grants with it. The bot keys on
+# the utf-8 bytes of this string; it is not hex-decoded. Generate with
+# `openssl rand -hex 32`.
+UPLOAD_HMAC_SECRET="local-development-only-not-a-real-secret"

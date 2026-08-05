@@ -1,0 +1,112 @@
+/* Layered over ../deerkins/style.css, which supplies the palette. */
+
+main {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 720px;
+}
+
+.who {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.who p { margin: 0; }
+
+label[for="channel"] { margin-right: .4rem; }
+
+.zone {
+  margin: 1rem 0 .6rem;
+  padding: 2.5rem 1rem;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  text-align: center;
+  cursor: pointer;
+}
+
+.zone p { margin: 0; }
+.zone p + p { margin-top: .3rem; }
+
+.zone:hover,
+.zone:focus-visible { border-color: var(--accent); }
+
+.zone.dragover {
+  border-color: var(--accent);
+  background: var(--panel);
+}
+
+.status { color: var(--ink-dim); font-size: .85rem; }
+
+#pending { margin-bottom: 1rem; }
+
+.pending-head { font-size: 1rem; margin: 0 0 .5rem; }
+
+.actions {
+  display: flex;
+  gap: .5rem;
+  margin: .75rem 0 .3rem;
+}
+
+#pending .hint { margin: 0; font-size: .8rem; }
+
+.drop-one {
+  margin-left: auto;
+  flex: none;
+  font-size: .75rem;
+  padding: .2rem .5rem;
+}
+
+.uploads {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .6rem;
+}
+
+.card {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  padding: .5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+
+.thumb {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.thumb canvas { display: block; max-width: 100%; max-height: 100%; }
+
+.card-body { min-width: 0; }
+.card-name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+.card-state {
+  margin: .15rem 0 0;
+  font-size: .85rem;
+  color: var(--ink-dim);
+  overflow-wrap: anywhere;
+}
+
+.card-state.bad { color: var(--danger); }
+
+.copy {
+  font-size: .75rem;
+  padding: .1rem .4rem;
+  vertical-align: baseline;
+}
+
+@media (max-width: 560px) {
+  .who { flex-direction: column; align-items: flex-start; gap: .4rem; }
+}
