@@ -442,6 +442,21 @@ func (d *DB) SetVisibility(ctx context.Context, nick string, v store.Visibility)
 	return err
 }
 
+// PlayerByAccount finds whose account this is. Empty when nobody has proved it:
+// a command from an account with no player behind it is not one to apply.
+func (d *DB) PlayerByAccount(ctx context.Context, account string) (string, error) {
+	if account == "" {
+		return "", store.ErrNotFound
+	}
+	var username string
+	err := d.db.QueryRowContext(ctx,
+		`SELECT username FROM users WHERE account=? LIMIT 1`, account).Scan(&username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", store.ErrNotFound
+	}
+	return username, err
+}
+
 // SetFlag records the deer a user flies over their plot. The name is not
 // checked against the gallery here: the site resolves it when it draws, and a
 // name that matches nothing simply flies nothing.

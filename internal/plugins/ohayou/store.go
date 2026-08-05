@@ -22,6 +22,9 @@ type Store interface {
 	SetAccount(ctx context.Context, nick, account string) error
 	SetVisibility(ctx context.Context, nick string, v store.Visibility) error
 	SetFlag(ctx context.Context, nick, deer string) error
+
+	// PlayerByAccount resolves a services account to the player who proved it.
+	PlayerByAccount(ctx context.Context, account string) (string, error)
 	SetRegister(ctx context.Context, nick string, registered bool) error
 	ResetLast(ctx context.Context, nick string) error
 	SetStatus(ctx context.Context, nick, action string, active bool) error

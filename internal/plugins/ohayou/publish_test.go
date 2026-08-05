@@ -3,6 +3,7 @@ package ohayou
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -53,22 +54,10 @@ func newSite(t *testing.T) *fakeSite {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"published","rows":` + itoa(len(body.Rows)) + `}`))
+		_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"published","rows":%d}`, len(body.Rows))))
 	}))
 	t.Cleanup(s.server.Close)
 	return s
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var digits []byte
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
-	}
-	return string(digits)
 }
 
 func (s *fakeSite) calls() []publishedTable {

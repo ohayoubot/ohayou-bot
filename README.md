@@ -43,7 +43,8 @@
      - `ohayou` - the daily economy game. On unless you set `"enabled": false`.
        `dataDir` is where `items.json` and `fortunes.txt` live (default
        `data`), and `timezone` is the calendar a daily ration runs on (default
-       `America/New_York`). See [Ohayou](#ohayou).
+       `America/New_York`). `databaseId` is the game's own D1 database, needed
+       only to take requests from the website. See [Ohayou](#ohayou).
 2. Build and run:
    ```sh
    go build ./cmd/ohayoubot
@@ -68,6 +69,17 @@ name when its owner says so with `!territory on`; until then it shows the size
 of the holding and nothing about whose it is. `!territory flag <deer>` flies a
 drawing from the [deerkins](#deerkins) gallery over it, which is the one place
 the two halves of the bot meet.
+
+Signed in, the site can ask for those same two things: a flag, and taking your
+name back off the map. It asks rather than does. The site appends to a queue,
+the bot reads it past a cursor and applies it through the same store methods irc
+uses, so every guard still stands between a browser and a player's ohayous.
+Nothing that spends or earns is on the list: the game is played in irc, and a
+site that could play for you would remove the reason to be in the channel.
+
+Set `databaseId` in the `ohayou` block to switch that on. The token is the
+shared `cloudflare` one and needs `D1:Read` and nothing more; the worker makes
+every write.
 
 ## Deerkins
 

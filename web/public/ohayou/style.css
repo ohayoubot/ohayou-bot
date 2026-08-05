@@ -287,3 +287,45 @@
 .banner span {
   aspect-ratio: 1;
 }
+
+/* ---- asking the bot for something ---- */
+
+.ask {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.ask input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
+  font: inherit;
+  font-size: 0.85em;
+  color: inherit;
+  background: color-mix(in oklab, currentColor 8%, transparent);
+  border: 1px solid color-mix(in oklab, currentColor 20%, transparent);
+  border-radius: 6px;
+}
+
+.panel button {
+  padding: 0.3rem 0.6rem;
+  font: inherit;
+  font-size: 0.85em;
+  color: inherit;
+  background: color-mix(in oklab, currentColor 12%, transparent);
+  border: 1px solid color-mix(in oklab, currentColor 22%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.panel button:hover {
+  background: color-mix(in oklab, currentColor 20%, transparent);
+}
+
+.panel button.quiet {
+  width: 100%;
+  background: none;
+  opacity: 0.7;
+  font-size: 0.78em;
+}
