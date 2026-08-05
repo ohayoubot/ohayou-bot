@@ -1,0 +1,38 @@
+/* The dashboard. Everything else comes from deerkins/style.css. */
+
+.dim {
+  opacity: 0.7;
+  font-weight: normal;
+}
+
+.places,
+.drops {
+  list-style: none;
+  padding: 0;
+}
+
+.places li {
+  margin: 0.4em 0;
+}
+
+.drops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.drops li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85em;
+}
+
+/* Uploads are any shape; a fixed box keeps the row from jumping about. */
+.drops img {
+  display: block;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 3px;
+}

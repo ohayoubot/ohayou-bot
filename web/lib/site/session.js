@@ -1,10 +1,15 @@
 /*
- * GET    /drop/api/session   who the cookie says you are
- * POST   /drop/api/session   redeem a grant from irc for a cookie
- * DELETE /drop/api/session   give it back
+ * GET    /api/session   who the cookie says you are
+ * POST   /api/session   redeem a link from irc for a cookie
+ * DELETE /api/session   give it back
+ *
+ * One session for the whole site. The scopes come from the grant and decide
+ * which plugins the cookie reaches, so this endpoint does not care which part
+ * of the site the link was minted for: it records what the link says and lets
+ * each plugin ask for its own scope.
  */
 
-import { hasScope, SCOPE_DROP, verifyGrant } from "../hmac.js";
+import { verifyGrant } from "../hmac.js";
 import {
 	fail,
 	guard,
@@ -13,22 +18,33 @@ import {
 	rejectCrossOrigin,
 	rejectForeignOrigin,
 } from "../http.js";
-import { clearSession, issueSession, requireScope } from "../session.js";
+import { clearSession, issueSession, readSession } from "../session.js";
 
 const NO_STORE = { "cache-control": "no-store" };
 
+/** What the browser is told about itself. The id_hash never leaves the worker. */
+function describe(session) {
+	return {
+		status: "session",
+		account: session.account,
+		nick: session.nick,
+		channels: session.channels,
+		scopes: session.scopes,
+	};
+}
+
 export const onRequestGet = guard(async ({ request, env }) => {
-	const session = await requireScope(request, env, SCOPE_DROP);
+	const session = await readSession(request, env);
 	if (!session) return fail(401, "no session");
 
-	return json({ status: "session", ...session }, { headers: NO_STORE });
+	return json(describe(session), { headers: NO_STORE });
 });
 
 export const onRequestPost = guard(async ({ request, env }) => {
 	const blocked = rejectCrossOrigin(request);
 	if (blocked) return blocked;
 
-	if (!env.UPLOAD_HMAC_SECRET) return fail(503, "uploads are not configured");
+	if (!env.UPLOAD_HMAC_SECRET) return fail(503, "sign-in is not configured");
 
 	const { body, error } = await readJson(request);
 	if (error) return fail(400, error);
@@ -36,27 +52,19 @@ export const onRequestPost = guard(async ({ request, env }) => {
 	const grant = await verifyGrant(body.token, env.UPLOAD_HMAC_SECRET);
 	if (!grant.ok) return refuse(grant.reason);
 
-	// A grant minted for another part of the site is not one for this.
-	if (!hasScope(grant.payload, SCOPE_DROP)) return refuse("not a drop grant");
-
 	if (!(await claim(env, grant.payload))) return refuse("already redeemed");
 
-	const cookie = await issueSession(env, {
+	const session = {
 		account: grant.payload.account,
 		nick: grant.payload.nick,
 		channels: grant.payload.channels,
 		scopes: grant.payload.scopes,
-	});
+	};
+	const cookie = await issueSession(env, session);
 
-	return json(
-		{
-			status: "session",
-			account: grant.payload.account,
-			nick: grant.payload.nick,
-			channels: grant.payload.channels,
-		},
-		{ headers: { ...NO_STORE, "set-cookie": cookie } },
-	);
+	return json(describe(session), {
+		headers: { ...NO_STORE, "set-cookie": cookie },
+	});
 });
 
 export const onRequestDelete = guard(async ({ request, env }) => {

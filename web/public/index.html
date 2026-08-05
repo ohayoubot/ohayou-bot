@@ -4,20 +4,60 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>hemera.day</title>
+<meta name="description" content="The website side of an IRC bot: draw pixel art, drop images into a channel, and keep a territory.">
 <meta name="color-scheme" content="dark light">
 <link rel="stylesheet" href="deerkins/style.css">
+<link rel="stylesheet" href="style.css">
 <link rel="icon" href="deerkins/favicon.svg" type="image/svg+xml">
+<script type="module" src="app.js"></script>
 </head>
 <body>
+
 <header class="topbar">
   <h1>hemera.day</h1>
+  <p class="tagline">The other half of an IRC bot.</p>
 </header>
+
 <main>
-  <section>
-    <h2>Sites</h2>
-    <p><a href="/deerkins/">deerkins</a>: draw pixel art for IRC.</p>
-    <p><a href="/drop/">drop</a>: put images in IRC.</p>
+
+  <section id="waiting" hidden>
+    <p class="hint">Checking your link…</p>
   </section>
+
+  <section id="you" hidden>
+    <h2>You are <span id="nick"></span> <span id="account" class="dim"></span></h2>
+    <p class="hint">
+      Signed in from IRC. <button id="signout" type="button">Sign out</button>
+    </p>
+    <p id="channels" class="hint"></p>
+  </section>
+
+  <section id="drops" hidden>
+    <h2>Your recent drops</h2>
+    <ul id="droplist" class="drops"></ul>
+  </section>
+
+  <section>
+    <h2>Where to go</h2>
+    <ul id="places" class="places"></ul>
+  </section>
+
+  <section id="signin" hidden>
+    <h2>Signing in</h2>
+    <p id="why" class="hint"></p>
+    <p>
+      Everything here belongs to an IRC bot. To sign in, say this in a channel
+      the bot is in and it will send you a one-shot link:
+    </p>
+    <p><code>!web</code></p>
+    <p class="hint">
+      You need to be identified with services, and to share a channel with the
+      bot. Nothing here asks for a password: the bot already knows who you are,
+      and the link says so.
+    </p>
+  </section>
+
 </main>
+
 </body>
 </html>

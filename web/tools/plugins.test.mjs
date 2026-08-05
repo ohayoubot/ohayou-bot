@@ -10,13 +10,20 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
+import * as hmac from "../lib/hmac.js";
+
+/** Copied out of the namespace so the scope names can be looked up by plugin. */
+const WIRE_SCOPES = { ...hmac };
 
 const read = (path) =>
 	readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const { plugins } = JSON.parse(read("public/plugins.json"));
 const routes = JSON.parse(read("public/_routes.json"));
-const landing = read("public/index.html");
+const dashboard = read("public/app.js");
+
+/** The site's own routes, which belong to no plugin. */
+const SITE_ROUTES = ["/api/*"];
 
 const exists = (path) => existsSync(new URL(`../${path}`, import.meta.url));
 
@@ -26,6 +33,7 @@ test("the manifest is not empty", () => {
 
 for (const plugin of plugins) {
 	test(`${plugin.name} is described in full`, () => {
+		assert.equal(typeof plugin.login, "boolean", "login is missing");
 		for (const field of ["name", "title", "blurb", "path", "api"]) {
 			assert.equal(typeof plugin[field], "string", `${field} is missing`);
 			assert.notEqual(plugin[field], "", `${field} is empty`);
@@ -47,17 +55,45 @@ for (const plugin of plugins) {
 		);
 	});
 
-	test(`${plugin.name} is linked from the landing page`, () => {
-		assert.ok(
-			landing.includes(`href="${plugin.path}"`),
-			`nothing on the landing page links to ${plugin.path}`,
+	// The dashboard builds its own nav from this manifest, so there is no
+	// landing page to keep in step. What it does repeat is the scope bitmask,
+	// because a page cannot import from lib.
+	test(`${plugin.name}'s scope means the same in the browser as on the wire`, () => {
+		const named = `SCOPE_${plugin.name.toUpperCase()}`;
+		const onTheWire = WIRE_SCOPES[named];
+
+		if (!plugin.login) {
+			// Nothing here is behind a session, so a scope would be one nobody
+			// checks and a link would carry a permission that means nothing.
+			assert.equal(onTheWire, undefined, `${named} exists but nothing uses it`);
+			return;
+		}
+		assert.equal(typeof onTheWire, "number", `lib/hmac.js has no ${named}`);
+
+		const inTheBrowser = dashboard.match(
+			new RegExp(`\\b${plugin.name}:\\s*1\\s*<<\\s*(\\d+)`),
+		);
+		assert.ok(inTheBrowser, `public/app.js has no scope for ${plugin.name}`);
+		assert.equal(
+			1 << Number(inTheBrowser[1]),
+			onTheWire,
+			`public/app.js disagrees with lib/hmac.js about ${plugin.name}`,
 		);
 	});
 }
 
-test("_routes.json includes nothing that is not a plugin", () => {
-	const declared = new Set(plugins.map((p) => p.api));
+test("_routes.json includes nothing that is not a plugin or the site", () => {
+	const declared = new Set([...plugins.map((p) => p.api), ...SITE_ROUTES]);
 	for (const include of routes.include) {
-		assert.ok(declared.has(include), `${include} belongs to no plugin`);
+		assert.ok(declared.has(include), `${include} belongs to nothing`);
+	}
+});
+
+test("the site's own routes are routed", () => {
+	for (const route of SITE_ROUTES) {
+		assert.ok(
+			routes.include.includes(route),
+			`${route} is not in _routes.json`,
+		);
 	}
 });
