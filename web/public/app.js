@@ -5,7 +5,8 @@
  * plugin added there appears here without this file knowing its name.
  */
 
-import { hueOf, layout } from "./ohayou/plot.js";
+import { layout } from "./ohayou/plot.js";
+import { spriteURL } from "./ohayou/sprites.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -139,11 +140,11 @@ function glimpse(world) {
 			el.className = plot.named ? "patch" : "patch unnamed";
 			el.style.setProperty("--wide", wide);
 
-			for (const item of tiles) {
+			for (const built of tiles) {
 				const tile = document.createElement("span");
-				if (item) {
+				if (built) {
 					tile.className = "built";
-					tile.style.setProperty("--hue", hueOf(item));
+					tile.style.backgroundImage = `url("${spriteURL(built.item)}")`;
 				}
 				el.append(tile);
 			}

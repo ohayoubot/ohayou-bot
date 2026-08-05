@@ -1,331 +1,484 @@
 /*
- * The world map.
- *
- * Plots are blocks of acre tiles packed into one grid, so the page reads as
- * settled ground rather than a row of cards. Every colour is one hue away from
- * every other: the page picks a hue per item name and this file decides the
- * lightness and chroma, which is what keeps a hundred arbitrary hues looking
- * like one palette. oklch rather than hsl because equal lightness there
- * actually looks equally light.
+ * The registry: masthead, the map, a deed panel and the signed-in file.
+ * Terrain colours are mixed from the palette in site.css.
  */
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+:root {
+	--sea: #050a1f;
+	--sea-lit: #0a1740;
+	--turf: #14290f;
+	--turf-lit: #1c3a14;
+	--soil: #3d2f18;
+	--pasture: #2b5417;
+	--fallow: #46402c;
+	--hedge: #16300d;
 }
 
-#summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.4rem 1.1rem;
+/* ---- masthead ---- */
+
+.masthead {
+	display: grid;
+	gap: 1rem 2rem;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: end;
+	margin-bottom: 1.1rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--line);
 }
 
-.stat b {
-  font-size: 1.35em;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+.lede {
+	max-width: 44ch;
+	color: var(--ink-dim);
+	margin: 0;
 }
 
-.when {
-  opacity: 0.55;
-  font-size: 0.85em;
-  margin-left: auto;
+.ledger {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0 1.6rem;
+	margin: 0;
+	font-family: var(--mono);
 }
 
-.map {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 1.25rem;
+.ledger div {
+	display: flex;
+	flex-direction: column-reverse;
 }
 
-/*
- * One grid for the whole world. A plot spans --wide by --tall cells, and dense
- * packing lets a small holding fill the gap a larger one left, which is what
- * makes the map look settled rather than shelved.
- */
-.world {
-  --tile: 13px;
-  flex: 1 1 20rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, var(--tile));
-  grid-auto-rows: var(--tile);
-  grid-auto-flow: row dense;
-  gap: 5px;
-  justify-content: center;
+.ledger dt {
+	font-size: 0.66rem;
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	color: var(--ink-dim);
 }
 
-.plot {
-  grid-column: span var(--wide);
-  grid-row: span var(--tall);
-  display: grid;
-  grid-template-columns: repeat(var(--wide), 1fr);
-  gap: 1px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  cursor: pointer;
-  outline-offset: 3px;
+.ledger dd {
+	margin: 0;
+	font-size: 1.45rem;
+	font-weight: 700;
+	color: var(--white);
+	font-variant-numeric: tabular-nums;
 }
 
-.acre {
-  border-radius: 2px;
-  background: color-mix(in oklab, currentColor 9%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 10%, transparent);
-  transition: filter 120ms ease;
+.ledger .filed dd {
+	font-size: 0.9rem;
+	color: var(--ink-dim);
+	font-weight: 400;
 }
 
-/* The corner a square block leaves over is not land at all. */
-.plot .acre:not(.built):nth-child(n) {
-  opacity: 1;
+/* ---- the map ---- */
+
+.survey {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: minmax(0, 1fr) 19rem;
+	align-items: start;
 }
 
-.acre.built {
-  background: linear-gradient(
-    155deg,
-    oklch(76% 0.13 var(--hue)),
-    oklch(58% 0.15 var(--hue))
-  );
-  box-shadow:
-    inset 0 1px 0 oklch(90% 0.07 var(--hue) / 0.5),
-    0 1px 2px rgb(0 0 0 / 0.25);
+.mapframe {
+	border: 1px solid var(--line-lit);
+	border-radius: var(--radius);
+	background: var(--sea);
+	overflow: hidden;
+	box-shadow: inset 0 0 0 1px #000;
 }
 
-/* Unnamed is quieter, not hidden: it is still somebody's land. */
-.plot.unnamed .acre {
-  opacity: 0.62;
+.mapscroll {
+	overflow: auto;
+	max-height: min(74vh, 42rem);
 }
 
-.plot:hover .acre,
-.plot:focus-visible .acre {
-  filter: brightness(1.25);
-  opacity: 1;
+.loading {
+	margin: 0;
+	padding: 4rem 1rem;
+	text-align: center;
+	font-family: var(--mono);
+	color: var(--ink-dim);
 }
 
-.plot.mine {
-  box-shadow: 0 0 0 2px oklch(72% 0.17 155);
+.worldmap {
+	display: block;
+	width: 100%;
+	min-width: 34rem;
+	image-rendering: pixelated;
 }
 
-/* ---- who a plot belongs to ---- */
-
-.detail {
-  flex: 0 1 15rem;
-  align-self: stretch;
-  padding: 0.85rem 1rem 1rem;
-  border: 1px solid color-mix(in oklab, currentColor 16%, transparent);
-  border-radius: 10px;
-  background: color-mix(in oklab, currentColor 4%, transparent);
+.worldmap .sea {
+	fill: var(--sea);
 }
 
-.detail h3 {
-  margin: 0 0 0.2rem;
-  font-size: 1.05em;
-  overflow-wrap: anywhere;
+.worldmap .swell {
+	fill: none;
+	stroke: var(--sea-lit);
+	stroke-width: 0.18;
 }
 
-.detail h3.anon {
-  font-weight: 400;
-  font-style: italic;
-  opacity: 0.7;
+.worldmap .turf {
+	fill: var(--turf);
 }
 
-.detail .facts {
-  margin: 0 0 0.6rem;
-  font-size: 0.82em;
-  opacity: 0.7;
+.worldmap .tuft {
+	stroke: var(--turf-lit);
+	stroke-width: 0.16;
+	stroke-linecap: round;
 }
 
-.legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  font-size: 0.82em;
+.worldmap .field {
+	fill: var(--pasture);
 }
 
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+.worldmap .graze {
+	fill: var(--pasture);
 }
 
-.legend b {
-  font-weight: 600;
-  opacity: 0.6;
+/* An acre with something on it is ploughed; the rest is grazing. */
+.worldmap .worked {
+	fill: var(--soil);
 }
 
-.swatch {
-  width: 10px;
-  height: 10px;
-  flex: none;
-  border-radius: 2px;
-  background: oklch(66% 0.15 var(--hue));
+.worldmap .hedge {
+	fill: none;
+	stroke: var(--hedge);
+	stroke-width: 0.22;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .acre {
-    transition: none;
-  }
+.worldmap .pole {
+	fill: var(--grey);
 }
 
-/* ---- your own standing ---- */
-
-.standing {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.75rem;
+/* Wealth is the strip along the foot of a parcel, which the key repeats. */
+[data-band="newcomer"] {
+	--band: #2f5c22;
+}
+[data-band="settler"] {
+	--band: var(--teal);
+}
+[data-band="landowner"] {
+	--band: var(--cyan);
+}
+[data-band="industrialist"] {
+	--band: var(--yellow);
+}
+[data-band="magnate"] {
+	--band: var(--orange);
+}
+[data-band="tycoon"] {
+	--band: var(--magenta);
 }
 
-.panel {
-  padding: 0.8rem 0.9rem 0.9rem;
-  border: 1px solid color-mix(in oklab, currentColor 16%, transparent);
-  border-radius: 10px;
-  background: color-mix(in oklab, currentColor 4%, transparent);
+.parcel[data-band] .strip {
+	fill: var(--band);
 }
 
-.panel h3 {
-  margin: 0 0 0.45rem;
-  font-size: 0.72em;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  opacity: 0.55;
+.bands li[data-band] i {
+	border-color: var(--band);
 }
 
-.figure {
-  font-size: 1.6em;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+.parcel {
+	cursor: pointer;
 }
 
-.panel .sub {
-  font-size: 0.8em;
-  opacity: 0.6;
+.parcel.unnamed .field {
+	fill: var(--fallow);
 }
 
-.rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  font-size: 0.85em;
+.parcel.unnamed .hedge {
+	stroke: #3a3527;
+	stroke-dasharray: 0.5 0.4;
 }
 
-.rows li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
+.parcel .nameplate {
+	font-family: var(--mono);
+	font-size: 0.85px;
+	fill: var(--ink);
+	text-anchor: middle;
+	paint-order: stroke;
+	stroke: #000;
+	stroke-width: 0.28px;
+	stroke-linejoin: round;
+	pointer-events: none;
 }
 
-.rows b {
-  font-weight: 600;
-  opacity: 0.65;
+.parcel:hover .worked,
+.parcel:focus-visible .worked {
+	fill: #3f3018;
 }
 
-/* A bar for the vault, which is the one figure with a ceiling. */
+.parcel:hover .hedge,
+.parcel:focus-visible .hedge,
+.parcel.picked .hedge {
+	stroke-width: 0.4;
+}
+
+.parcel.mine .hedge {
+	stroke: var(--lime);
+	stroke-width: 0.4;
+}
+
+.parcel.mine .nameplate {
+	fill: var(--lime);
+}
+
+.maptools {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.45rem 0.7rem;
+	border-top: 1px solid var(--line);
+	background: var(--panel);
+}
+
+.maptools button {
+	margin-left: auto;
+}
+
+.scalebar {
+	display: flex;
+	border: 1px solid var(--line-lit);
+}
+
+.scalebar i {
+	width: 11px;
+	height: 9px;
+	background: var(--soil);
+}
+
+.scalebar i:nth-child(odd) {
+	background: var(--turf);
+}
+
+/* ---- the deed ---- */
+
+.deed {
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--panel);
+	padding: 0.9rem 1rem 1rem;
+	min-height: 12rem;
+	position: sticky;
+	top: 1rem;
+}
+
+.deed h3 {
+	margin: 0;
+	font-size: 1.15rem;
+	color: var(--white);
+	overflow-wrap: anywhere;
+}
+
+.deed h3.anon {
+	color: var(--ink-dim);
+	font-style: italic;
+	font-size: 0.95rem;
+}
+
+.deed .band {
+	font-family: var(--mono);
+	font-size: 0.68rem;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--accent);
+}
+
+.deed .facts {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.1rem 0.7rem;
+	margin: 0.6rem 0 0.8rem;
+	font-family: var(--mono);
+	font-size: 0.8rem;
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+	padding: 0.5rem 0;
+}
+
+.deed .facts dt {
+	color: var(--ink-dim);
+}
+
+.deed .facts dd {
+	margin: 0;
+	color: var(--ink);
+	font-variant-numeric: tabular-nums;
+}
+
+.deed .deer {
+	margin: 0 0 0.7rem;
+}
+
+.deed .deer img {
+	display: block;
+	width: 100%;
+	max-width: 9rem;
+	image-rendering: pixelated;
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	background: #000;
+}
+
+.deed .deer figcaption {
+	font-family: var(--mono);
+	font-size: 0.7rem;
+	color: var(--ink-dim);
+	margin-top: 0.25rem;
+}
+
+/* ---- an item, drawn ---- */
+
+.holdings {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+}
+
+.holdings li {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.85rem;
+}
+
+.holdings img {
+	width: 22px;
+	height: 22px;
+	flex: none;
+	image-rendering: pixelated;
+}
+
+.holdings b {
+	font-family: var(--mono);
+	color: var(--white);
+	font-variant-numeric: tabular-nums;
+	min-width: 2.2ch;
+	text-align: right;
+}
+
+/* ---- key ---- */
+
+.key {
+	margin: 1.2rem 0;
+}
+
+.bands {
+	list-style: none;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem 1rem;
+	padding: 0;
+	margin: 0 0 0.5rem;
+	font-family: var(--mono);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--ink-dim);
+}
+
+.bands li {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.bands i {
+	width: 14px;
+	height: 10px;
+	border: 2px solid currentColor;
+	border-radius: 2px;
+}
+
+/* ---- your file ---- */
+
+.file {
+	margin-top: 1.6rem;
+}
+
+.panels {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+	gap: 0.7rem;
+	align-items: start;
+}
+
+.panels .panel h3 {
+	font-size: 0.68rem;
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	color: var(--ink-dim);
+	margin: 0 0 0.4rem;
+}
+
+.panels .wide {
+	grid-column: span 2;
+}
+
 .meter {
-  height: 6px;
-  margin-top: 0.35rem;
-  border-radius: 3px;
-  background: color-mix(in oklab, currentColor 12%, transparent);
-  overflow: hidden;
+	height: 6px;
+	margin-top: 0.4rem;
+	background: var(--panel-2);
+	border: 1px solid var(--line);
+	overflow: hidden;
 }
 
 .meter span {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, oklch(70% 0.13 250), oklch(64% 0.16 285));
+	display: block;
+	height: 100%;
+	background: var(--accent);
+}
+
+.rows {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	font-family: var(--mono);
+	font-size: 0.82rem;
+}
+
+.rows li {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.6rem;
+	padding: 0.12rem 0;
+}
+
+.rows b {
+	color: var(--white);
+	font-variant-numeric: tabular-nums;
 }
 
 .countdown {
-  font-variant-numeric: tabular-nums;
+	color: var(--yellow);
 }
 
 .panel.warn {
-  border-color: oklch(65% 0.16 35 / 0.6);
+	border-color: var(--red);
 }
-
-/* ---- a plot's deer ---- */
-
-.flag {
-  margin: 0 0 0.55rem;
-}
-
-.flag figcaption {
-  margin-top: 0.2rem;
-  font-size: 0.75em;
-  opacity: 0.55;
-}
-
-/*
- * The gallery's kinskode, one cell per character. Sized from the row length so
- * a wide deer and a tall one both fit the panel, and pixelated on purpose:
- * this is pixel art and should look like it.
- */
-.banner {
-  display: grid;
-  grid-template-columns: repeat(var(--cols), 1fr);
-  width: 100%;
-  max-width: 13rem;
-  border-radius: 4px;
-  overflow: hidden;
-  image-rendering: pixelated;
-}
-
-.banner span {
-  aspect-ratio: 1;
-}
-
-/* ---- asking the bot for something ---- */
 
 .ask {
-  display: flex;
-  gap: 0.35rem;
-  margin-bottom: 0.4rem;
+	display: flex;
+	gap: 0.35rem;
+	margin-bottom: 0.4rem;
 }
 
 .ask input {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0.3rem 0.45rem;
-  font: inherit;
-  font-size: 0.85em;
-  color: inherit;
-  background: color-mix(in oklab, currentColor 8%, transparent);
-  border: 1px solid color-mix(in oklab, currentColor 20%, transparent);
-  border-radius: 6px;
+	flex: 1 1 auto;
+	min-width: 0;
 }
 
-.panel button {
-  padding: 0.3rem 0.6rem;
-  font: inherit;
-  font-size: 0.85em;
-  color: inherit;
-  background: color-mix(in oklab, currentColor 12%, transparent);
-  border: 1px solid color-mix(in oklab, currentColor 22%, transparent);
-  border-radius: 6px;
-  cursor: pointer;
+.notice {
+	margin-top: 1.4rem;
+	max-width: 60ch;
 }
 
-.panel button:hover {
-  background: color-mix(in oklab, currentColor 20%, transparent);
-}
+@media (max-width: 60rem) {
+	.survey,
+	.masthead {
+		grid-template-columns: minmax(0, 1fr);
+	}
 
-.panel button.quiet {
-  width: 100%;
-  background: none;
-  opacity: 0.7;
-  font-size: 0.78em;
+	.deed {
+		position: static;
+	}
 }

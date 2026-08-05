@@ -7,7 +7,12 @@
  */
 
 import { hexOf, normalise, TRANSPARENT } from "../../public/deerkins/kins.js";
-import { hueOf, layout } from "../../public/ohayou/plot.js";
+import { layout } from "../../public/ohayou/plot.js";
+import {
+	SPRITE_SIZE,
+	spriteFor,
+	toRects,
+} from "../../public/ohayou/sprites.js";
 import { escapeHTML as esc } from "../http.js";
 
 /** The shape link previews expect. */
@@ -18,22 +23,36 @@ const BACKDROP = "#0d0f12";
 const INK = "#e8e6e3";
 const DIM = "#8b9199";
 const MINE = "#4ade80";
+const SOIL = "#2a2113";
+const EMPTY = "#1b1f24";
 
-/** The acre grid. */
+/** The acre grid, each worked acre carrying its item's sprite. */
 function land(plot, x, y, size, gap) {
 	const { wide, tiles } = layout(plot);
 
-	const rects = tiles.map((item, i) => {
+	const out = tiles.map((tile, i) => {
 		const cx = x + (i % wide) * (size + gap);
 		const cy = y + Math.floor(i / wide) * (size + gap);
-		const paint = item
-			? `oklch(66% 0.15 ${hueOf(item).toFixed(1)})`
-			: "#20242a";
-		return `<rect x="${cx}" y="${cy}" width="${size}" height="${size}" rx="${
-			size / 5
-		}" fill="${paint}"/>`;
+		const ground = `<rect x="${cx}" y="${cy}" width="${size}" height="${size}" rx="${
+			size / 6
+		}" fill="${tile ? SOIL : EMPTY}"/>`;
+		if (!tile) return ground;
+
+		const side = tile.n === 1 ? 1 : 2;
+		const box = size / side;
+		const sprites = [];
+		for (let k = 0; k < Math.min(tile.n, side * side); k++) {
+			sprites.push(
+				toRects(spriteFor(tile.item), {
+					x: cx + (k % side) * box,
+					y: cy + Math.floor(k / side) * box,
+					cell: box / SPRITE_SIZE,
+				}),
+			);
+		}
+		return ground + sprites.join("");
 	});
-	return rects.join("");
+	return out.join("");
 }
 
 /** The plot's deer, when it flies one the gallery still has. */

@@ -21,10 +21,28 @@
 /style.css
   Cache-Control: public, max-age=600
 
+/site.css
+  Cache-Control: public, max-age=600
+
+/nav.js
+  Cache-Control: public, max-age=600
+
+/plugins.json
+  Cache-Control: public, max-age=600
+
 /deerkins/*.js
   Cache-Control: public, max-age=600
 
 /deerkins/style.css
+  Cache-Control: public, max-age=600
+
+/site.css
+  Cache-Control: public, max-age=600
+
+/nav.js
+  Cache-Control: public, max-age=600
+
+/plugins.json
   Cache-Control: public, max-age=600
 
 /drop/*.js
@@ -36,5 +54,23 @@
 /ohayou/style.css
   Cache-Control: public, max-age=600
 
+/site.css
+  Cache-Control: public, max-age=600
+
+/nav.js
+  Cache-Control: public, max-age=600
+
+/plugins.json
+  Cache-Control: public, max-age=600
+
 /drop/style.css
+  Cache-Control: public, max-age=600
+
+/site.css
+  Cache-Control: public, max-age=600
+
+/nav.js
+  Cache-Control: public, max-age=600
+
+/plugins.json
   Cache-Control: public, max-age=600

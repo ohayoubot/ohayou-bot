@@ -72,11 +72,9 @@
 }
 
 .patch span.built {
-  background: linear-gradient(
-    155deg,
-    oklch(76% 0.13 var(--hue)),
-    oklch(58% 0.15 var(--hue))
-  );
+  background-size: contain;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
 }
 
 #glimpsecap a {
