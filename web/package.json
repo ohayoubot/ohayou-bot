@@ -7,15 +7,7 @@
   "scripts": {
     "dev": "wrangler pages dev",
     "deploy": "wrangler pages deploy",
-    "db:init": "wrangler d1 execute deerkins --local --file=schema.sql",
-    "db:init:remote": "wrangler d1 execute deerkins --remote --file=schema.sql",
-    "db:seed": "wrangler d1 execute deerkins --local --file=seed.sql",
-    "db:seed:remote": "wrangler d1 execute deerkins --remote --file=seed.sql",
-    "db:init:preview": "wrangler d1 execute deerkins-preview --remote --file=schema.sql",
-    "db:seed:preview": "wrangler d1 execute deerkins-preview --remote --file=seed.sql",
-    "db:purge": "wrangler d1 execute deerkins --local --file=tools/purge.sql",
-    "db:purge:remote": "wrangler d1 execute deerkins --remote --file=tools/purge.sql",
-    "db:purge:preview": "wrangler d1 execute deerkins-preview --remote --file=tools/purge.sql",
+    "db": "node tools/db.mjs",
     "test": "node --test 'tools/*.test.mjs'",
     "lint": "biome ci .",
     "lint:fix": "biome check --write ."
@@ -26,6 +18,9 @@
     "wrangler": "^4.118.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "workerd"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
   }
 }
