@@ -13,7 +13,8 @@ import {
 	TRANSPARENT,
 	toRects,
 } from "../../public/deerkins/kins.js";
-import { layout, usage } from "../../public/ohayou/plot.js";
+import { groundFor } from "../../public/ohayou/catalog.js";
+import { fieldOf, layout, usage } from "../../public/ohayou/plot.js";
 import { SPRITE_SIZE, spriteFor } from "../../public/ohayou/sprites.js";
 import { bandColour, TERRAIN } from "../../public/ohayou/terrain.js";
 import { escapeHTML as esc } from "../http.js";
@@ -111,20 +112,33 @@ function survey(plot, x, y, w, h) {
 	const py = Math.round(y + (h - ph) / 2);
 
 	const out = [
+		crops(tile),
 		`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${TERRAIN.turf}"/>`,
 		tufts(x, y, w, h),
 		`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${TERRAIN.pasture}"/>`,
 	];
 
+	// The same crops and the same ground the map draws, so a card and the map
+	// are the same holding rather than two pictures of one.
 	tiles.forEach((slot, i) => {
-		if (!slot) return;
 		const cx = px + (i % wide) * tile;
 		const cy = py + Math.floor(i / wide) * tile;
+
+		if (!slot) {
+			const crop = "abc"[fieldOf(plot.id, i % wide, Math.floor(i / wide))];
+			out.push(
+				`<rect x="${cx}" y="${cy}" width="${tile}" height="${tile}" fill="url(#crop-${crop})"/>`,
+			);
+			return;
+		}
+
 		out.push(
-			`<rect x="${cx}" y="${cy}" width="${tile}" height="${tile}" fill="${TERRAIN.soil}"/>`,
+			`<rect x="${cx}" y="${cy}" width="${tile}" height="${tile}" fill="${
+				TERRAIN[groundFor(slot.item)]
+			}"/>`,
 		);
 
-		const side = slot.n === 1 ? 1 : 2;
+		const side = slot.n === 1 ? 1 : slot.n <= 4 ? 2 : 3;
 		const box = tile / side;
 		for (let k = 0; k < Math.min(slot.n, side * side); k++) {
 			out.push(
@@ -141,6 +155,29 @@ function survey(plot, x, y, w, h) {
 		`<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="none" stroke="${TERRAIN.hedge}" stroke-width="3"/>`,
 	);
 	return out.join("");
+}
+
+/**
+ * The three crops, as patterns one acre across. The map builds the same three
+ * from css; a card is one file and carries its own, which is also why the rows
+ * are drawn once here rather than per acre.
+ */
+function crops(tile) {
+	const rows = {
+		a: ["M.18 0 v1", "M.5 0 v1", "M.82 0 v1"],
+		b: ["M0 .18 h1", "M0 .5 h1", "M0 .82 h1"],
+		c: ["M.25 .25 h.1", "M.7 .4 h.1", "M.4 .78 h.1", "M.12 .62 h.1"],
+	};
+	const ink = { a: "#23480f", b: "#2a4d12", c: "#616f27" };
+
+	const out = Object.entries(rows).map(
+		([name, d]) =>
+			`<pattern id="crop-${name}" width="${tile}" height="${tile}" patternUnits="userSpaceOnUse">` +
+			`<rect width="${tile}" height="${tile}" fill="${TERRAIN[`crop-${name}`]}"/>` +
+			`<path d="${d.join(" ")}" fill="none" stroke="${ink[name]}" stroke-width="0.07" ` +
+			`transform="scale(${tile})"/></pattern>`,
+	);
+	return `<defs>${out.join("")}</defs>`;
 }
 
 /** Grass, so the ground around a parcel is not a flat rectangle. */

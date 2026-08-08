@@ -12,7 +12,16 @@ export const TERRAIN = {
 	soil: "#3d2f18",
 	pasture: "#2b5417",
 	fallow: "#574d33",
-	hedge: "#16300d",
+	hedge: "#0b1a06",
+
+	// The three crops an unworked acre is under, and the ground the worked ones
+	// stand on. See GROUND in catalog.js for which thing takes which.
+	"crop-a": "#2f5d18",
+	"crop-b": "#38621a",
+	"crop-c": "#4a5c1c",
+	pen: "#5b4526",
+	yard: "#33333d",
+	spoil: "#3b3833",
 };
 
 /** Wealth bands, poorest first, matching internal/plugins/ohayou/web.go. */

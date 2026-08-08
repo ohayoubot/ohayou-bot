@@ -17,6 +17,27 @@ export const ACRELIMIT = {
 	refinery: 1,
 };
 
+/**
+ * What the acre under a thing looks like. A quarry stands on its own spoil and
+ * a cattery on trodden earth; one brown square under everything is what made
+ * the map read as icons on a lawn rather than as land.
+ */
+export const GROUND = {
+	cat: "pen",
+	dog: "pen",
+	cattery: "pen",
+	quarry: "spoil",
+	oilwell: "spoil",
+	workshop: "yard",
+	factory: "yard",
+	refinery: "yard",
+};
+
+/** Never null: a thing nobody has placed gets a works yard. */
+export function groundFor(item) {
+	return GROUND[item] ?? "yard";
+}
+
 /** Items that take up land. Anything else is carried, not built. */
 export function occupiesLand(item) {
 	return (ACRELIMIT[item] ?? 0) > 0;

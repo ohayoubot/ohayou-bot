@@ -8,7 +8,8 @@
  */
 
 import { normalise, toDataURL } from "../deerkins/kins.js";
-import { VERGE, worldLayout } from "./plot.js";
+import { groundFor } from "./catalog.js";
+import { fieldOf, VERGE, worldLayout } from "./plot.js";
 import { spriteURL } from "./sprites.js";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -125,7 +126,51 @@ function defs() {
 	pasture.append(el("path", { d: "M.4 1.5 v-.4 M1.5 .7 v-.4", class: "tuft" }));
 	defs.append(pasture);
 
+	// The three crops. A parcel of any size is a patchwork of them, which is
+	// what stops a large holding being one flat green rectangle. Each is one
+	// acre so a run of acres tiles it seamlessly, and the rows are drawn in the
+	// pattern rather than per acre: a four hundred acre plot costs the same as
+	// a one acre one.
+	defs.append(
+		crop("crop-a", "M.18 0 v1 M.5 0 v1 M.82 0 v1"),
+		crop("crop-b", "M0 .18 h1 M0 .5 h1 M0 .82 h1"),
+		crop("crop-c", "M.25 .25 h.1 M.7 .4 h.1 M.4 .78 h.1 M.12 .62 h.1"),
+	);
+
+	for (const name of ["pen", "yard", "spoil"]) defs.append(worked(name));
+
 	return defs;
+}
+
+/** One acre of a crop: a ground colour and the rows worked into it. */
+function crop(name, rows) {
+	const pattern = el("pattern", {
+		id: name,
+		width: 1,
+		height: 1,
+		patternUnits: "userSpaceOnUse",
+	});
+	pattern.append(el("rect", { width: 1, height: 1, class: `ground ${name}` }));
+	pattern.append(el("path", { d: rows, class: `furrow ${name}` }));
+	return pattern;
+}
+
+/** The ground a building stands on: hardstanding, a pen, or spoil. */
+function worked(name) {
+	const pattern = el("pattern", {
+		id: name,
+		width: 1,
+		height: 1,
+		patternUnits: "userSpaceOnUse",
+	});
+	pattern.append(el("rect", { width: 1, height: 1, class: `ground ${name}` }));
+	pattern.append(
+		el("path", {
+			d: "M.15 .2 h.12 M.62 .35 h.12 M.35 .72 h.12 M.8 .8 h.1",
+			class: `grit ${name}`,
+		}),
+	);
+	return pattern;
 }
 
 /**
@@ -256,6 +301,12 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 	g.setAttribute("aria-label", describe(plot, acres));
 	if (plot.named) g.dataset.band = plot.wealth;
 
+	// The fence is drawn against the parcel rather than against the map: a
+	// stroke that reads as a hedge around a hundred acres is a stripe across a
+	// single one. Everything else that outlines the parcel follows it.
+	g.style.setProperty("--fence", fence(w, h));
+
+	// Bare ground under everything, so a partial last row is not a hole.
 	g.append(
 		el("rect", {
 			class: "field",
@@ -263,39 +314,53 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 			y: 0,
 			width: w,
 			height: h,
-			rx: 0.2,
 			fill: plot.named ? "url(#pasture)" : "url(#fallow)",
 		}),
 	);
+
+	// A parcel nobody named is left as it is: bare acreage, and no reading of
+	// what is on it. Only a named one is farmed.
+	if (plot.named)
+		for (const patch of fields(plot, tiles, w, acres)) g.append(patch);
 
 	tiles.forEach((tile, i) => {
 		if (!tile || i >= acres) return;
 		const cx = i % w;
 		const cy = Math.floor(i / w);
 		g.append(
-			el("rect", { class: "worked", x: cx, y: cy, width: 1, height: 1 }),
+			el("rect", {
+				class: "worked",
+				x: cx,
+				y: cy,
+				width: 1,
+				height: 1,
+				fill: `url(#${groundFor(tile.item)})`,
+			}),
 		);
 		for (const sprite of cluster(tile, cx, cy)) g.append(sprite);
 	});
 
 	// After the buildings: a boundary a sprite can overrun is not a boundary.
-	g.append(
-		el("rect", { class: "hedge", x: 0, y: 0, width: w, height: h, rx: 0.2 }),
-	);
+	g.append(el("rect", { class: "hedge", x: 0, y: 0, width: w, height: h }));
+
+	// Wealth is the strip along the foot, which the key repeats. Sized against
+	// the parcel like the fence: a fixed strip is a third of a single acre and
+	// a hairline across four hundred.
 	if (plot.named) {
+		const deep = fence(w, h) * 1.7;
 		g.append(
-			el("rect", { class: "strip", x: 0, y: h - 0.3, width: w, height: 0.3 }),
+			el("rect", { class: "strip", x: 0, y: h - deep, width: w, height: deep }),
 		);
 	}
 
-	const banner = flag(plot, flags, w);
+	const banner = flag(plot, flags, w, h);
 	if (banner) g.append(banner);
 
 	{
 		const label = el("text", {
 			class: "nameplate",
 			x: w / 2,
-			y: h + 0.85,
+			y: h + 0.8,
 			"font-size": NAMEPLATE,
 		});
 		label.textContent = fit(plot.named ? plot.nick : ANONYMOUS, w + VERGE * 2);
@@ -309,49 +374,126 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 	return g;
 }
 
-/**
- * The buildings on one acre. One of a thing fills the acre; several share it.
- * Never smaller than a quarter tile: past that the sprite stops being one.
- */
-function cluster(tile, cx, cy) {
-	const side = tile.n === 1 ? 1 : 2;
-	const size = 1 / side;
-	const href = spriteURL(tile.item);
-	const out = [];
+/** How thick a parcel's boundary is, in tiles: a share of its short side, and
+    never so thin it vanishes nor so thick it eats the field. */
+function fence(w, h) {
+	return Math.min(0.18, Math.max(0.06, Math.min(w, h) * 0.06));
+}
 
-	for (let i = 0; i < Math.min(tile.n, side * side); i++) {
-		out.push(
-			el("image", {
-				href,
-				x: (cx + (i % side) * size).toFixed(3),
-				y: (cy + Math.floor(i / side) * size).toFixed(3),
-				width: size,
-				height: size,
-			}),
-		);
+/**
+ * The unworked acres, as merged runs of the crop each is under. Runs rather
+ * than one rect per acre: the pattern already draws the rows, so a four hundred
+ * acre plot costs a handful of nodes.
+ */
+function fields(plot, tiles, w, acres) {
+	const out = [];
+	const rows = Math.ceil(acres / w);
+
+	for (let y = 0; y < rows; y++) {
+		let from = 0;
+		let crop = -1;
+
+		const flush = (to) => {
+			if (crop < 0) return;
+			out.push(
+				el("rect", {
+					class: "crop",
+					x: from,
+					y,
+					width: to - from,
+					height: 1,
+					fill: `url(#crop-${"abc"[crop]})`,
+				}),
+			);
+		};
+
+		for (let x = 0; x <= w; x++) {
+			const i = y * w + x;
+			// Past the acreage, or built on: either way the run ends here.
+			const under =
+				x < w && i < acres && !tiles[i] ? fieldOf(plot.id, x, y) : -1;
+			if (under === crop) continue;
+			flush(x);
+			from = x;
+			crop = under;
+		}
 	}
 	return out;
 }
 
-/** The plot's deer, on a pole at the near corner. */
-function flag(plot, flags, w) {
+/**
+ * The things on one acre. One of a thing fills the acre; a handful share it,
+ * and a full acre is drawn three by three. Never smaller than a third of a
+ * tile: past that the sprite stops being one, so a denser acre reads as a full
+ * one rather than as a smaller crowd.
+ */
+function cluster(tile, cx, cy) {
+	const side = tile.n === 1 ? 1 : tile.n <= 4 ? 2 : 3;
+	const href = spriteURL(tile.item);
+
+	// Scaled by the group rather than by each image: an <image> given a
+	// fractional width is one Chromium declines to raster at all.
+	const g = el("g", {
+		class: "stand",
+		transform: `translate(${cx} ${cy}) scale(${(1 / side).toFixed(4)})`,
+	});
+	for (let i = 0; i < Math.min(tile.n, side * side); i++) {
+		g.append(
+			el("image", {
+				href,
+				x: i % side,
+				y: Math.floor(i / side),
+				width: 1,
+				height: 1,
+			}),
+		);
+	}
+	return [g];
+}
+
+/**
+ * The plot's deer, on a pole inside the parcel's top corner. Sized against the
+ * parcel: a two tile banner over a one acre holding is a banner with a holding
+ * under it.
+ */
+function flag(plot, flags, w, h) {
 	const code = plot.named && plot.flag && flags[plot.flag];
 	if (!code) return null;
 
+	const size = Math.min(1.8, Math.max(0.9, Math.min(w, h) * 0.7));
+	const pole = size * 1.25;
+
 	const g = el("g", {
 		class: "flagpole",
-		transform: `translate(${w - 0.5} -2.6)`,
+		transform: `translate(${w - 0.15} ${-pole})`,
 	});
 	g.append(
-		el("rect", { class: "pole", x: -0.08, y: 0, width: 0.16, height: 3.1 }),
+		el("rect", {
+			class: "pole",
+			x: -size * 0.05,
+			y: 0,
+			width: size * 0.1,
+			height: pole + 0.1,
+		}),
+	);
+	// Backed, because a deer is drawn in whatever sixteen colours its author
+	// chose and some of them are the colour of the sea behind it.
+	g.append(
+		el("rect", {
+			class: "banner",
+			x: -size,
+			y: 0.05,
+			width: size,
+			height: size,
+		}),
 	);
 	g.append(
 		el("image", {
 			href: toDataURL(normalise(code), `flag:${plot.flag}`),
-			x: -2.1,
-			y: 0.1,
-			width: 2,
-			height: 2,
+			x: -size,
+			y: 0.05,
+			width: size,
+			height: size,
 			preserveAspectRatio: "xMidYMid meet",
 		}),
 	);

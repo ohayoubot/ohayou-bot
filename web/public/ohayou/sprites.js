@@ -40,15 +40,15 @@ ____________`,
 
 	dog: `
 ____________
-__EEE_______
-_EEEEE______
-_EE EEOO____
-_EEEEE  O___
-_EEEEEEEEE__
-_EEEEEEEEEEE
-_EEEEEEEEE__
-_EEEEEEEE___
-__OO_OO_O___
+__OOO_______
+_OOOOO______
+_OO OONN____
+_OOOOO  N___
+_OOOOOOOOO__
+_OOOOOOOOOOO
+_OOOOOOOOO__
+_OOOOOOOO___
+__NN_NN_N___
 ____________
 ____________`,
 
@@ -96,16 +96,16 @@ ____________`,
 
 	oilwell: `
 ____________
-_____NN_____
-____N__N____
-____N__N____
-___N_NN_N___
-___N_NN_N___
-__N__NN__N__
-__N_NNNN_N__
-_N__NNNN__N_
-_NNNNNNNNNN_
-__        __
+_____OO_____
+____O__O____
+____O__O____
+___O_OO_O___
+___O_OO_O___
+__O__OO__O__
+__O_OOOO_O__
+_O__OOOO__O_
+_OOOOOOOOOO_
+_NN      NN_
 ____________`,
 
 	oilbarrel: `

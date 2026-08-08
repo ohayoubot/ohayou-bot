@@ -14,12 +14,16 @@ import { ACRELIMIT, acresFor } from "./catalog.js";
  * n is how many of that item stand on that acre, capped by its acre limit. wide
  * by tall is the block the plot fills, square bar the remainder.
  *
- * Buildings are dealt out in name order, so a holding always draws the same
- * way. Which acre one sits on is not a game rule.
+ * Buildings gather rather than scatter: acres are dealt nearest a seeded corner
+ * first, so a holding reads as a steading with its fields around it instead of
+ * icons sprinkled over a rectangle. Items go in name order, so each kind lands
+ * in its own band and a holding always draws the same way. Which acre a thing
+ * sits on is not a game rule.
  */
 export function layout(plot) {
 	const acres = Math.max(1, plot.acres);
 	const wide = Math.ceil(Math.sqrt(acres));
+	const tall = Math.ceil(acres / wide);
 
 	const built = [];
 	for (const [item, count] of Object.entries(plot.land ?? {}).sort()) {
@@ -33,30 +37,46 @@ export function layout(plot) {
 		}
 	}
 
-	// Dealt across the parcel rather than filling from one corner. Striding by a
-	// number coprime with the acreage visits every acre once and spreads them
-	// evenly, which a shuffle does not: a shuffle clumps often enough to look
-	// like a bug. Where it starts is seeded by the plot, so the same holding
-	// draws the same way on every publish and in every renderer.
-	const step = stride(acres);
-	const from = hash(plot.id) % acres;
+	const order = settle(acres, wide, tall, hash(plot.id));
 	const tiles = new Array(acres).fill(null);
 	built.forEach((tile, i) => {
-		tiles[(from + i * step) % acres] = tile;
+		tiles[order[i]] = tile;
 	});
 
-	return { acres, wide, tall: Math.ceil(acres / wide), tiles };
+	return { acres, wide, tall, tiles };
 }
 
-/** The golden-ratio step, walked up until it shares no factor with n. */
-function stride(n) {
-	let step = Math.max(1, Math.round(n * 0.6180339887));
-	while (step > 1 && gcd(step, n) !== 1) step--;
-	return step;
+/**
+ * Acre indices, nearest a seeded corner first. Squared distance rather than
+ * rows, so the built land grows as a quarter-circle and its edge against the
+ * fields is a curve. Ties break on the index, which makes the order total and
+ * the same in every renderer.
+ */
+function settle(acres, wide, tall, seed) {
+	const ax = seed & 1 ? wide - 1 : 0;
+	const ay = seed & 2 ? tall - 1 : 0;
+
+	const near = (i) => {
+		const dx = (i % wide) - ax;
+		const dy = Math.floor(i / wide) - ay;
+		return dx * dx + dy * dy;
+	};
+
+	return Array.from({ length: acres }, (_, i) => i).sort(
+		(a, b) => near(a) - near(b) || a - b,
+	);
 }
 
-function gcd(a, b) {
-	return b === 0 ? a : gcd(b, a % b);
+/** Acres to a field. Bigger than one, so a holding is a patchwork of fields
+    rather than a different crop on every acre. */
+const FIELD = 2;
+
+/**
+ * Which of the three crops the acre at x,y is under. Deterministic and shared,
+ * so the map and the card farm the same land the same way.
+ */
+export function fieldOf(id, x, y) {
+	return hash(`${id}:${Math.floor(x / FIELD)}:${Math.floor(y / FIELD)}`) % 3;
 }
 
 function hash(id) {
