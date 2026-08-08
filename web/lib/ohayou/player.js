@@ -104,7 +104,8 @@ export const onRequestGetPage = guard(async ({ request, params, env }) => {
 
 /**
  * The shell, written out rather than built by a script: the first thing to
- * fetch this is a crawler, and it runs none.
+ * fetch this is a crawler, and it runs none. The tabs are here in full for the
+ * same reason; shell.js replaces them and fills in the account menu after.
  */
 function shell(title, head, body) {
 	return `<!doctype html>
@@ -117,18 +118,24 @@ function shell(title, head, body) {
 ${head}
 <link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/ohayou/style.css">
-<link rel="icon" href="/deerkins/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/mark.svg" type="image/svg+xml">
+<script type="module" src="/player.js"></script>
 </head>
-<body>
+<body data-area="ohayou">
 <header class="shell">
   <div>
-    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
-    <nav class="sitenav" aria-label="Sections">
+    <a class="brand" href="/">
+      <img src="/mark.svg" alt="" width="26" height="26">
+      <span><b>hemera</b>.day</span>
+      <i>land office</i>
+    </a>
+    <nav class="sitenav" id="sitenav" aria-label="Sections">
       <a href="/">home</a>
-      <a href="/ohayou/">registry</a>
+      <a href="/ohayou/">land</a>
       <a href="/deerkins/">deerkins</a>
       <a href="/drop/">drop</a>
     </nav>
+    <div class="account" id="account"></div>
   </div>
 </header>
 <main class="page">
@@ -156,16 +163,13 @@ function page(plot, image, href, { channel, network }) {
 <meta property="og:url" content="${esc(href)}">
 <meta name="twitter:card" content="summary_large_image">`;
 
-	const body = `  <section class="certificate">
-    <img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630">
-  </section>
-
-  <section class="masthead">
+	const body = `  <section class="masthead">
     <div>
+      <p class="kicker">deed</p>
       <h1>${esc(plot.nick)}</h1>
       <p class="lede">
-        Parcel filed with the land office${where ? ` from ${esc(where)}` : ""},
-        and surveyed every couple of minutes.
+        Filed${where ? ` from ${esc(where)}` : ""}, and re-surveyed every couple
+        of minutes.
       </p>
     </div>
     <dl class="ledger">
@@ -176,19 +180,23 @@ function page(plot, image, href, { channel, network }) {
     </dl>
   </section>
 
+  <section class="certificate">
+    <img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630">
+  </section>
+
   <section class="panel notice">
     <span class="stamp">What this is</span>
     <p>
-      An IRC bot hands one ration a day to anyone who says good morning to it.
-      Rations buy acres, and acres carry cats, quarries and refineries. Above is
-      what ${esc(plot.nick)} has done with theirs.
+      A bot sits in a chatroom and hands one ration to anyone who says good
+      morning to it. Rations buy acres; acres carry cats, quarries and
+      refineries. Above is what ${esc(plot.nick)} did with theirs.
     </p>
     <p>
       Say <code>!ohayou</code>${
 				where ? ` in ${esc(where)}` : ""
-			} and the office will find you an acre of your own.
+			} and you get an acre of your own.
     </p>
-    <p><a href="/ohayou/">Every parcel on the register</a></p>
+    <p><a href="/ohayou/">Everyone else's land</a></p>
   </section>`;
 
 	return shell(title, head, body);
@@ -202,11 +210,10 @@ function missing() {
     <span class="stamp">Nothing on file</span>
     <h1>No parcel by that name</h1>
     <p>
-      Either nobody by that name plays, or they have not filed their name
-      against their land. Only a parcel whose holder asked to be named has a
-      page here.
+      Either nobody by that name plays, or they hold land without their name on
+      it. Only a parcel whose holder asked to be named gets a page.
     </p>
-    <p><a href="/ohayou/">Every parcel on the register</a></p>
+    <p><a href="/ohayou/">Everyone else's land</a></p>
   </section>`,
 	);
 }

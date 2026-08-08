@@ -27,6 +27,22 @@ To move a database: `wrangler d1 export` the old, `wrangler d1 create` the new,
 The export carries explicit primary keys and `sqlite_sequence`, so drop's queue
 ids survive and the bot's cursor stays valid.
 
+## The shell
+
+`public/shell.js` is the header every page wears, and the only place a session
+is read. It redeems whatever grant is in the url fragment, so a `!web` link
+signs you in on whichever page you open it, then fills in the tabs from
+`plugins.json` and the account menu from the session. A page calls
+`shell({ area, current })` and gets the session back; `area` is what colours the
+page's chrome.
+
+Only a fragment shaped like a grant is redeemed. The gallery puts an art name in
+the fragment too, and that one is left alone.
+
+`GET /api/session` is what every page loads, which makes it where a session's
+expiry is slid forward. See `lib/session.js` for the month it lasts and the
+third of it that has to be spent before a read is worth a write.
+
 ## Requirements
 
 Node 18 or newer and a Cloudflare account.
@@ -170,6 +186,10 @@ so the meta tags are in the html a crawler is handed.
 
 Only a plot whose owner named it has a page. `IRC_CHANNEL` and `IRC_NETWORK` in
 `wrangler.toml` are what the card tells a visitor to do next.
+
+The page is html a crawler can read without running anything; the one script on
+it is `public/player.js`, which fills in the header's account menu and nothing
+else. `tools/card.test.mjs` holds it to that.
 
 ## Drop
 

@@ -110,8 +110,11 @@ The bot talks to the D1 HTTP API, so it needs three things, which go in the
 top-level `cloudflare` block that drop reads too:
 
 - `accountId` - Cloudflare account id, on the right of the dashboard overview.
-- `databaseId` - from `npx wrangler d1 info deerkins`, or the `database_id`
-  already in the gallery's `wrangler.toml`.
+- `databaseId` - from `npx wrangler d1 info ohayou-site`, or the `database_id`
+  the site's `web/wrangler.toml` gives the `DB` binding. It must be the database
+  the site is *currently* deployed against: D1 has no rename, so moving the
+  gallery means a new database with a new id, and a bot still pointing at the
+  old one reads a snapshot that stops at the day of the move.
 - `OHAYOU_CF_API_TOKEN`, an API token with **Account → D1 → Read** and nothing
   else. Create it under My Profile → API Tokens → Create Token → Create Custom
   Token, scoped to the one account. `Read` is enough because the bot only runs
@@ -278,6 +281,10 @@ databases, secrets and deploys.
 can use. It is for players who have `!register`ed and `!identify`ed: the session
 keys on the services account, so a nick that has proved nothing to the bot gets
 no link. Set `web.url` to the site's front door.
+
+The link is good for five minutes; the session it buys lasts a month, and every
+page load slides that on. Signing out drops the row, so a session is revoked at
+the moment it is given back rather than when it lapses.
 
 ## Dev
 

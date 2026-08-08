@@ -20,7 +20,10 @@
 /app.js
   Cache-Control: public, max-age=600
 
-/nav.js
+/shell.js
+  Cache-Control: public, max-age=600
+
+/player.js
   Cache-Control: public, max-age=600
 
 /site.css
@@ -28,6 +31,9 @@
 
 /style.css
   Cache-Control: public, max-age=600
+
+/mark.svg
+  Cache-Control: public, max-age=86400
 
 /plugins.json
   Cache-Control: public, max-age=600

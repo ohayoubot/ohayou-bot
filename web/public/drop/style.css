@@ -1,71 +1,93 @@
 /* Layered over ../site.css, which supplies the shell and the palette. */
 
 main.page {
-  max-width: 760px;
+  max-width: 820px;
 }
 
 main.page > section {
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 1rem;
-  margin-bottom: 1rem;
+  border: 2px solid var(--line-lit);
+  box-shadow: var(--drop), var(--bevel);
+  padding: 1.1rem;
+  margin-bottom: 1.4rem;
 }
 
 main.page > .pagetitle {
   background: none;
   border: 0;
+  box-shadow: none;
   padding: 0;
 }
 
 .who {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem .7rem;
+  margin: 0;
 }
 
-.who p { margin: 0; }
+.who label {
+  font-family: var(--mono);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--ink-dim);
+}
 
-label[for="channel"] { margin-right: .4rem; }
-
+/* The target. Big, dashed, and it lights up in the page's colour. */
 .zone {
-  margin: 1rem 0 .6rem;
-  padding: 3rem 1rem;
-  border: 2px dashed var(--line);
-  border-radius: var(--radius);
-  background: var(--panel-2);
+  margin: 1.1rem 0 .6rem;
+  padding: 3.2rem 1rem;
+  border: 3px dashed var(--line-lit);
+  background: var(--black);
   text-align: center;
   cursor: pointer;
 }
 
 .zone p { margin: 0; }
-.zone p + p { margin-top: .3rem; }
+.zone p + p { margin-top: .35rem; }
+
+.zone strong {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  text-shadow: 2px 2px 0 var(--black);
+}
 
 .zone:hover,
 .zone:focus-visible { border-color: var(--accent); }
 
 .zone.dragover {
   border-color: var(--accent);
-  background: var(--panel);
+  border-style: solid;
+  background: var(--panel-2);
 }
 
-.status { color: var(--ink-dim); font-size: .85rem; }
+.status {
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: .8rem;
+  margin-bottom: 0;
+}
 
 #pending { margin-bottom: 1rem; }
 
 .actions {
   display: flex;
   gap: .5rem;
-  margin: .75rem 0 .3rem;
+  margin: .9rem 0 .4rem;
 }
 
-#pending .hint { margin: 0; font-size: .8rem; }
+#pending .hint { margin: 0; font-size: .78rem; }
+
+.bad { color: var(--danger); }
 
 .drop-one {
   margin-left: auto;
   flex: none;
-  font-size: .75rem;
+  font-size: .7rem;
   padding: .2rem .5rem;
 }
 
@@ -79,11 +101,10 @@ label[for="channel"] { margin-right: .4rem; }
 
 .card {
   display: flex;
-  gap: .75rem;
+  gap: .8rem;
   align-items: center;
-  padding: .5rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  padding: .55rem;
+  border: 2px solid var(--line);
   background: var(--panel-2);
 }
 
@@ -93,19 +114,26 @@ label[for="channel"] { margin-right: .4rem; }
   flex: none;
   display: grid;
   place-items: center;
-  background: var(--panel);
-  border-radius: 4px;
+  background: var(--black);
+  border: 2px solid var(--line);
   overflow: hidden;
 }
 
 .thumb canvas { display: block; max-width: 100%; max-height: 100%; }
 
 .card-body { min-width: 0; }
-.card-name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+.card-name {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--white);
+  overflow-wrap: anywhere;
+}
 
 .card-state {
   margin: .15rem 0 0;
-  font-size: .85rem;
+  font-size: .82rem;
   color: var(--ink-dim);
   overflow-wrap: anywhere;
 }
@@ -113,11 +141,7 @@ label[for="channel"] { margin-right: .4rem; }
 .card-state.bad { color: var(--danger); }
 
 .copy {
-  font-size: .75rem;
+  font-size: .7rem;
   padding: .1rem .4rem;
   vertical-align: baseline;
-}
-
-@media (max-width: 560px) {
-  .who { flex-direction: column; align-items: flex-start; gap: .4rem; }
 }

@@ -3,28 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>drop: put images in IRC</title>
+<title>drop · hemera.day</title>
 <meta name="description" content="Drag and drop images into an IRC channel.">
 <meta name="color-scheme" content="dark">
+<meta property="og:title" content="Drop">
+<meta property="og:description" content="Put a picture in an IRC channel. Drag it in, the bot says the link.">
 <link rel="stylesheet" href="../site.css">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="../deerkins/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../mark.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
 </head>
-<body>
+<body data-area="drop">
 
 <header class="shell">
   <div>
-    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <a class="brand" href="/">
+      <img src="/mark.svg" alt="" width="26" height="26">
+      <span><b>hemera</b>.day</span>
+      <i>land office</i>
+    </a>
     <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+    <div class="account" id="account"></div>
   </div>
 </header>
 
 <main class="page">
 
   <div class="pagetitle">
+    <p class="kicker">pictures, into a channel</p>
     <h1>Drop</h1>
-    <p class="lede">Put a picture in a channel the bot sits in. It goes up under your nick.</p>
+    <p class="lede">Drag a picture in and the bot says the link, under your nick. Camera metadata comes off on the way.</p>
   </div>
 
   <section id="waiting" hidden>
@@ -32,28 +40,27 @@
   </section>
 
   <section id="locked" hidden>
-    <span class="stamp">Not signed in</span>
-    <p>Ask the bot for a link. In a channel it shares with you, say:</p>
-    <p><code>!upload</code></p>
+    <span class="stamp">Locked</span>
+    <p>Ask the bot for a link. In a channel it sits in with you, say:</p>
+    <p><code>!web</code></p>
     <p class="hint">
-      It replies privately. The link works once and expires in a few minutes.
-      You need to be registered and identified with the bot first
-      (<code>!register</code>, then <code>!identify</code>), because whatever
-      you drop is announced under your nick.
+      It replies privately, the link works once, and it signs you in to the
+      whole site for a month. <code>!upload</code> gets you one for this page
+      alone.
     </p>
-    <p class="hint"><code>!web</code> signs you in to the whole site at once.</p>
-    <p class="hint" id="locked-why"></p>
+    <p class="hint">
+      You have to be registered and identified with the bot first
+      (<code>!register</code>, then <code>!identify</code>), because whatever
+      you drop goes up under your nick.
+    </p>
+    <p class="hint bad" id="locked-why"></p>
   </section>
 
   <section id="ready" hidden>
-    <div class="who">
-      <p>Signed in as <strong id="nick"></strong> <span class="hint" id="account"></span></p>
-      <button type="button" id="signout">Sign out</button>
-    </div>
-
-    <p>
+    <p class="who">
       <label for="channel">Post to</label>
       <select id="channel"></select>
+      <span class="hint">as <strong id="nick"></strong>, filed under <span id="filed"></span></span>
     </p>
 
     <div id="zone" class="zone" tabindex="0" role="button"
@@ -67,10 +74,10 @@
       <span class="stamp">Ready to send</span>
       <ul id="queue" class="uploads"></ul>
       <p class="actions">
-        <button type="button" id="upload" class="primary">Upload</button>
-        <button type="button" id="discard">Discard</button>
+        <button type="button" id="upload" class="primary">Send them</button>
+        <button type="button" id="discard" class="quiet">Discard</button>
       </p>
-      <p class="hint">Nothing is sent until you press Upload.</p>
+      <p class="hint">Nothing leaves this page until you press it.</p>
     </div>
 
     <p class="status" id="status" role="status" aria-live="polite"></p>
