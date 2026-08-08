@@ -94,8 +94,14 @@ test("the page carries the tags a preview reads", async () => {
 	assert.ok(text.includes('property="og:title"'));
 	assert.ok(text.includes('property="og:image"'));
 	assert.ok(text.includes("/ohayou/api/card/mallow"));
-	// Rendered here, not by a script: the crawler will not run one.
-	assert.equal(text.includes("<script"), false);
+
+	// The page itself is rendered here, since the crawler runs no script: every
+	// fact is in the html. The one script only fills in the header's account
+	// menu, and there is no inline one for the policy to have to allow.
+	assert.ok(text.includes(">mallow<"));
+	assert.ok(text.includes(">industrialist<"));
+	assert.equal(text.match(/<script/g).length, 1);
+	assert.ok(text.includes('<script type="module" src="/player.js">'));
 });
 
 test("the card is served as an image", async () => {

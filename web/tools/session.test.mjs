@@ -6,10 +6,13 @@ import {
 	issueSession,
 	readCookie,
 	readSession,
+	renewSession,
 	requireScope,
 } from "../lib/session.js";
 
 const COOKIE = "__Host-ohayou";
+
+const TTL = 30 * 24 * 3600_000;
 
 function request(cookie) {
 	return new Request("https://hemera.day/drop/", {
@@ -17,16 +20,16 @@ function request(cookie) {
 	});
 }
 
-/** Enough of the D1 binding for issue, read and clear: records what it was
-    asked to run, and answers with whatever row the caller planted. */
-function db(row = null) {
+/** Enough of the D1 binding for issue, read, renew and clear: records what it
+    was asked to run, and answers with whatever row the caller planted. */
+function db(row = null, changes = 1) {
 	const calls = [];
 	const statement = (sql) => ({
 		bind: (...params) => {
 			calls.push({ sql, params });
 			return statement(sql);
 		},
-		run: async () => ({}),
+		run: async () => ({ meta: { changes } }),
 		first: async () => row,
 	});
 	return {
@@ -35,13 +38,14 @@ function db(row = null) {
 	};
 }
 
-/** A stored row as readSession will find it. */
+/** A stored row as readSession will find it, fresh out of the box. */
 function stored(overrides = {}) {
 	return {
 		account: "someone",
 		nick: "someone_",
 		channels: JSON.stringify(["#chan"]),
 		scopes: SCOPE_DROP,
+		expires: Date.now() + TTL,
 		...overrides,
 	};
 }
@@ -68,7 +72,7 @@ test("a missing or foreign cookie reads as null", () => {
 	assert.equal(readCookie(request("__Host-hemera=abc")), null);
 });
 
-test("a session cookie is host-only, script-proof and short-lived", async () => {
+test("a session cookie is host-only, script-proof and lasts a month", async () => {
 	const env = db();
 	const header = await issueSession(env, {
 		account: "someone",
@@ -82,7 +86,7 @@ test("a session cookie is host-only, script-proof and short-lived", async () => 
 	assert.ok(parts.has("Secure"));
 	assert.ok(parts.has("SameSite=Lax"));
 	assert.ok(parts.has("Path=/"));
-	assert.ok(parts.has("Max-Age=43200"));
+	assert.ok(parts.has(`Max-Age=${TTL / 1000}`));
 	// __Host- is void if either of these appears.
 	assert.equal(header.includes("Domain="), false);
 	assert.ok(header.startsWith(`${COOKIE}=`));
@@ -132,7 +136,8 @@ test("the channels and scopes are stored as given", async () => {
 });
 
 test("a stored session reads back whole", async () => {
-	const env = db(stored());
+	const row = stored();
+	const env = db(row);
 	const session = await readSession(request(`${COOKIE}=abc`), env);
 
 	assert.deepEqual(session, {
@@ -140,6 +145,7 @@ test("a stored session reads back whole", async () => {
 		nick: "someone_",
 		channels: ["#chan"],
 		scopes: SCOPE_DROP,
+		expires: row.expires,
 	});
 });
 
@@ -176,6 +182,51 @@ test("no cookie is no session, whatever the scope", async () => {
 	const env = db(stored());
 	assert.equal(await readSession(request(), env), null);
 	assert.equal(await requireScope(request(), env, SCOPE_DROP), null);
+});
+
+/* ---- renewal ---- */
+
+test("a session with most of its life left is not written to", async () => {
+	const env = db(stored());
+	const session = await readSession(request(`${COOKIE}=abc`), env);
+
+	assert.equal(
+		await renewSession(request(`${COOKIE}=abc`), env, session),
+		null,
+	);
+	assert.equal(env.calls.length, 1); // the read, and nothing else
+});
+
+test("a session past a third of its life slides both halves", async () => {
+	// Two-thirds spent, so a third of the TTL is left.
+	const env = db(stored({ expires: Date.now() + TTL / 3 }));
+	const session = await readSession(request(`${COOKIE}=abc`), env);
+	const header = await renewSession(request(`${COOKIE}=abc`), env, session);
+
+	assert.ok(attributes(header).has(`Max-Age=${TTL / 1000}`));
+	assert.ok(header.startsWith(`${COOKIE}=abc;`));
+
+	const update = env.calls[1];
+	assert.match(update.sql, /UPDATE session SET expires/);
+	// The new expiry is a fresh TTL, not an extension of the old one.
+	assert.ok(update.params[0] > Date.now() + TTL - 5000);
+});
+
+// The UPDATE re-checks the expiry, so a race that lost is not a live cookie.
+test("a session that expired between the read and the write is not renewed", async () => {
+	const env = db(stored({ expires: Date.now() + 1 }), 0);
+	const session = await readSession(request(`${COOKIE}=abc`), env);
+
+	assert.equal(
+		await renewSession(request(`${COOKIE}=abc`), env, session),
+		null,
+	);
+});
+
+test("there is nothing to renew without a session", async () => {
+	const env = db();
+	assert.equal(await renewSession(request(`${COOKIE}=abc`), env, null), null);
+	assert.equal(env.calls.length, 0);
 });
 
 test("clearing expires the browser copy and drops the row", async () => {

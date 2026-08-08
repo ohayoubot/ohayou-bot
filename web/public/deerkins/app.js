@@ -1,4 +1,4 @@
-import { nav } from "../nav.js";
+import { isGrant, shell } from "../shell.js";
 import { imageToKinskode } from "./image.js";
 import {
 	autoCrop,
@@ -604,8 +604,11 @@ $("#refresh").addEventListener("click", () => {
 	loadGallery();
 });
 
+/** The art named in the url, if any. A sign-in link lands in the same place
+    and belongs to the shell, so it is not a name to go looking for. */
 function fromHash() {
 	const raw = location.hash.slice(1);
+	if (isGrant(raw)) return "";
 	try {
 		return decodeURIComponent(raw).trim();
 	} catch {
@@ -627,4 +630,4 @@ const initial = fromHash();
 if (initial) loadArt(initial);
 else say("Pick a colour and drag on the grid.");
 
-nav("#sitenav", "/deerkins/");
+shell({ area: "deerkins", current: "/deerkins/" });

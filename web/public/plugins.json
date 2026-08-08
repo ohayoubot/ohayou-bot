@@ -1,27 +1,30 @@
 {
   "plugins": [
     {
+      "name": "ohayou",
+      "title": "The land",
+      "tab": "land",
+      "blurb": "Every acre anyone has bought, drawn to scale. Find your parcel, read anyone's deed.",
+      "path": "/ohayou/",
+      "api": "/ohayou/api/*",
+      "login": true
+    },
+    {
       "name": "deerkins",
-      "title": "deerkins",
-      "blurb": "draw pixel art for IRC.",
+      "title": "Deerkins",
+      "tab": "deerkins",
+      "blurb": "A drawing grid with sixteen colours in it. Save a deer, paste it into a channel, fly it over your land.",
       "path": "/deerkins/",
       "api": "/deerkins/api/*",
       "login": false
     },
     {
       "name": "drop",
-      "title": "drop",
-      "blurb": "put images in IRC.",
+      "title": "Drop",
+      "tab": "drop",
+      "blurb": "Put a picture in a channel. Drag it in, the bot says the link, the metadata gets stripped on the way.",
       "path": "/drop/",
       "api": "/drop/api/*",
-      "login": true
-    },
-    {
-      "name": "ohayou",
-      "title": "ohayou",
-      "blurb": "see the world your ohayous built.",
-      "path": "/ohayou/",
-      "api": "/ohayou/api/*",
       "login": true
     }
   ]

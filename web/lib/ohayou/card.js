@@ -37,6 +37,10 @@ const FOOT = 56;
 const PAD = 40;
 const SURVEY = 690;
 
+const WORDMARK = "hemera.day";
+/** A monospace advance at 24px, near enough for any face in the stack. */
+const FOOT_CHAR = 14.4;
+
 /** plot is a row from the projection; flag is its deer's kinskode, or null. */
 export function card(plot, flag, { channel, network } = {}) {
 	const { acres, built } = usage(plot);
@@ -64,13 +68,30 @@ ${details(plot, flag, acres, built, band)}
 <rect y="${CARD_HEIGHT - FOOT}" width="${CARD_WIDTH}" height="2" fill="${LINE}"/>
 <text x="${PAD}" y="${
 		CARD_HEIGHT - 20
-	}" fill="${WHITE}" font-family="${MONO}" font-size="24">say <tspan fill="${ACCENT}">!ohayou</tspan>${
+	}" fill="${WHITE}" font-family="${MONO}" font-size="24"${invite(
+		where,
+	)}>say <tspan fill="${ACCENT}">!ohayou</tspan>${
 		where ? ` in ${esc(where)}` : ""
-	} and the office will find you an acre</text>
+	} and take an acre</text>
 <text x="${CARD_WIDTH - PAD}" y="${
 		CARD_HEIGHT - 20
-	}" fill="${DIM}" font-family="${MONO}" font-size="24" text-anchor="end">hemera.day</text>
+	}" fill="${DIM}" font-family="${MONO}" font-size="24" text-anchor="end">${WORDMARK}</text>
 </svg>`;
+}
+
+/**
+ * A textLength for the footer's invitation, but only when a long channel name
+ * would otherwise run it under the wordmark on the right.
+ */
+function invite(where) {
+	const length = `say !ohayou${where ? ` in ${where}` : ""} and take an acre`
+		.length;
+	const room =
+		CARD_WIDTH - PAD * 2 - WORDMARK.length * FOOT_CHAR - FOOT_CHAR * 2;
+
+	return length * FOOT_CHAR <= room
+		? ""
+		: ` textLength="${Math.round(room)}" lengthAdjust="spacingAndGlyphs"`;
 }
 
 /** The parcel itself, on its own patch of ground. */

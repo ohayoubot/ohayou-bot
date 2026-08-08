@@ -4,7 +4,7 @@
  */
 
 import { normalise, toDataURL } from "../deerkins/kins.js";
-import { nav } from "../nav.js";
+import { load, shell } from "../shell.js";
 import { nameOf } from "./catalog.js";
 import { ANONYMOUS, drawWorld } from "./map.js";
 import { usage } from "./plot.js";
@@ -18,12 +18,15 @@ let mine = null;
 let ticking = null;
 
 async function start() {
-	nav("#sitenav", "/ohayou/");
 	key();
 
-	const [world, session] = await Promise.all([load("/ohayou/api/world"), me()]);
+	const [world, session] = await Promise.all([
+		load("/ohayou/api/world"),
+		shell({ area: "ohayou", current: "/ohayou/" }),
+	]);
 	if (!world) {
-		$("#loading").textContent = "The registry is not answering just now.";
+		$("#loading").textContent =
+			"The office is not answering. Try again in a minute.";
 		return;
 	}
 
@@ -106,9 +109,7 @@ function ledger(totals, updated) {
 
 	const unfiled = totals.players - totals.named;
 	$("#unfiled").textContent = unfiled
-		? `${unfiled} of ${totals.players} ${
-				totals.players === 1 ? "parcel is" : "parcels are"
-			} drawn as Anonymous, at their holder's request.`
+		? `${unfiled} of ${totals.players} drawn as Anonymous, by request.`
 		: "";
 
 	$("#ledger").replaceChildren(
@@ -149,6 +150,8 @@ function deed(plot) {
 	if (plot.named) {
 		const band = document.createElement("div");
 		band.className = "band";
+		// Carries the band so it takes the same colour the key gives it.
+		band.dataset.band = plot.wealth;
 		band.textContent = plot.wealth;
 		parts.push(band);
 	}
@@ -178,7 +181,7 @@ function deed(plot) {
 	} else {
 		parts.push(
 			hint(
-				"Held by somebody who asked not to be named. The registry publishes the acreage and nothing else.",
+				"Held by somebody who asked not to be named. Acreage, and nothing else.",
 			),
 		);
 	}
@@ -386,7 +389,7 @@ function controls(own) {
 		}).catch(() => null);
 
 		say.textContent = res?.ok
-			? "Filed. The bot picks it up within a minute."
+			? "Filed. The bot picks it up within the minute."
 			: "The bot did not take that.";
 	};
 
@@ -443,19 +446,6 @@ function ago(ms) {
 	const hours = Math.floor(minutes / 60);
 	if (hours < 24) return `${hours}h ago`;
 	return `${Math.floor(hours / 24)}d ago`;
-}
-
-async function load(url) {
-	try {
-		const res = await fetch(url);
-		return res.ok ? await res.json() : null;
-	} catch {
-		return null;
-	}
-}
-
-async function me() {
-	return load("/api/session");
 }
 
 start();

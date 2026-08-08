@@ -1,36 +1,66 @@
 /*
- * The landing page and the signed-in dashboard. The shell is site.css and the
- * map preview borrows ohayou/style.css, which this page loads for it.
+ * The front door. The shell is site.css and the map preview borrows
+ * ohayou/style.css, which this page loads for it.
  */
 
-#pitch h1 {
-	font-size: clamp(1.6rem, 4vw, 2.4rem);
-	text-transform: none;
-	letter-spacing: -0.02em;
-	max-width: 20ch;
+.front > section {
+	margin-bottom: 2.4rem;
 }
 
-#pitch .lede {
-	font-size: 1.05rem;
-	max-width: 58ch;
-	color: var(--ink-dim);
-	margin-bottom: 1.2rem;
+/* ---- the hero ---- */
+
+.hero {
+	display: grid;
+	grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+	gap: 1.5rem 2rem;
+	align-items: center;
+	margin-bottom: 2.6rem;
 }
 
-/* ---- the register, in miniature ---- */
+.hero .say {
+	min-width: 0;
+}
 
+.hero h1 {
+	font-size: clamp(1.9rem, 5.2vw, 2.9rem);
+	margin-bottom: 0.7rem;
+	overflow-wrap: anywhere;
+}
+
+.hero .lede {
+	max-width: 42ch;
+}
+
+.cta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+	margin: 1.2rem 0 0;
+}
+
+/* ---- the map, in miniature ---- */
+
+.view {
+	border: 2px solid var(--line-lit);
+	box-shadow: var(--drop), var(--bevel);
+	background: var(--sea);
+	min-width: 0;
+}
+
+/* A fixed box the whole map is letterboxed into, rather than a crop of it:
+   xMidYMid meet, so no parcel is cut in half at the bottom edge. */
 .minimap {
 	display: block;
-	border: 1px solid var(--line-lit);
-	border-radius: var(--radius);
-	background: var(--sea);
+	aspect-ratio: 16 / 9;
 	overflow: hidden;
-	max-height: 22rem;
 	line-height: 0;
+	background: var(--sea);
 }
 
 .minimap .worldmap {
 	min-width: 0;
+	width: 100%;
+	height: 100%;
 	pointer-events: none;
 }
 
@@ -39,121 +69,211 @@
 	cursor: inherit;
 }
 
-#glimpsecap {
-	margin-top: 0.5rem;
-}
-
-#glimpsecap a {
-	margin-left: 0.35rem;
-}
-
-/* ---- signed in ---- */
-
-.file h1 {
-	margin: 0.2rem 0 0.3rem;
-	text-transform: none;
-	overflow-wrap: anywhere;
-}
-
-#account {
+.viewbar {
+	display: flex;
+	align-items: center;
+	gap: 0.8rem;
+	margin: 0;
+	padding: 0.45rem 0.7rem;
+	border-top: 2px solid var(--line-lit);
+	background: var(--black);
 	font-family: var(--mono);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	color: var(--ink-dim);
+}
+
+.viewbar .more {
+	margin-left: auto;
+	color: var(--accent);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.viewbar .more:hover {
+	color: var(--white);
+}
+
+/* ---- what you have ---- */
+
+/* Borrows .ledger from ohayou/style.css, which this page already loads. */
+.fortune {
+	margin: 1rem 0 0;
+	padding: 0.6rem 0.8rem;
+	border-left: 6px solid var(--yellow);
+	background: var(--panel);
+	font-family: var(--mono);
+	font-size: 0.85rem;
 	color: var(--ink);
+}
+
+.fortune::before {
+	content: "today: ";
+	color: var(--yellow);
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	font-size: 0.7rem;
 }
 
 /* ---- where to go ---- */
 
-.places {
+.tiles {
 	list-style: none;
 	padding: 0;
 	margin: 0;
 	display: grid;
-	gap: 0.6rem;
-	grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 }
 
-.places li {
-	border: 1px solid var(--line);
-	border-radius: var(--radius);
+.tile {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	padding: 1rem;
 	background: var(--panel);
-	padding: 0.8rem 0.9rem;
+	border: 2px solid var(--line-lit);
+	box-shadow: var(--drop), var(--bevel);
 	font-size: 0.9rem;
 	color: var(--ink-dim);
 }
 
-.places a {
-	display: block;
+/* Each tile wears the colour its page wears, so the nav tab you land on is
+   the colour of the tile you pressed. */
+.tile[data-area="ohayou"] {
+	--accent: var(--lime);
+}
+
+.tile[data-area="deerkins"] {
+	--accent: var(--magenta);
+}
+
+.tile[data-area="drop"] {
+	--accent: var(--cyan);
+}
+
+.tile:hover {
+	border-color: var(--accent);
+}
+
+.tile .title {
 	font-family: var(--mono);
-	font-size: 1rem;
+	font-size: 1.15rem;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.08em;
+	letter-spacing: 0.06em;
 	text-decoration: none;
 	color: var(--accent);
-	margin-bottom: 0.15rem;
+	text-shadow: 2px 2px 0 var(--black);
 }
 
-.places li:hover {
-	border-color: var(--line-lit);
+/* The whole tile is the link's hit area; the title is what says so. */
+.tile .title::after {
+	content: "";
+	position: absolute;
+	inset: 0;
 }
 
-.places .dim {
+.tile p {
+	margin: 0;
+}
+
+.tile .foot {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: auto;
+	padding-top: 0.8rem;
+	font-family: var(--mono);
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
 	color: var(--grey);
 }
 
-/* ---- drops ---- */
+.tile .foot img {
+	image-rendering: pixelated;
+	flex: none;
+}
 
-.drops {
+.tile .art {
+	gap: 0.35rem;
+}
+
+.tile .art img {
+	width: 46px;
+	height: 46px;
+	object-fit: contain;
+	background: var(--black);
+	border: 2px solid var(--line);
+}
+
+/* ---- getting in ---- */
+
+.steps {
 	list-style: none;
-	padding: 0;
 	margin: 0;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
+	padding: 0;
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+	align-items: start;
 }
 
-.drops li {
-	display: flex;
-	flex-direction: column;
-	gap: 0.2rem;
+.steps li {
+	position: relative;
+	padding-top: 1.6rem;
+}
+
+.step {
+	position: absolute;
+	top: -0.9rem;
+	left: -0.5rem;
 	font-family: var(--mono);
-	font-size: 0.7rem;
-	color: var(--ink-dim);
+	font-size: 1.1rem;
+	font-weight: 700;
+	line-height: 1;
+	padding: 0.25rem 0.5rem;
+	background: var(--accent);
+	color: var(--accent-ink);
+	box-shadow: var(--drop-sm);
 }
 
-/* Uploads are any shape; a fixed box keeps the row from jumping about. */
-.drops img {
-	display: block;
-	width: 96px;
-	height: 96px;
-	object-fit: cover;
-	border: 1px solid var(--line);
-	border-radius: 3px;
+.steps h3 {
+	font-size: 1.05rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.steps p:last-child {
+	margin-bottom: 0;
+}
+
+.steps .bad {
+	color: var(--danger);
 }
 
 /* ---- the webchat, behind a click ---- */
 
 .chat {
-	margin: 0.9rem 0;
-	border: 1px solid var(--line);
-	border-radius: var(--radius);
-	overflow: hidden;
-	background: var(--panel-2);
+	margin-top: 0.9rem;
+	border: 2px solid var(--line);
+	background: var(--black);
 }
 
 .chatoffer {
-	padding: 0.9rem 1rem;
-}
-
-.chatoffer p {
-	max-width: 46ch;
-}
-
-.chatoffer p:last-child {
-	margin-bottom: 0;
 	display: flex;
-	align-items: center;
-	gap: 0.8rem;
 	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.9rem;
+	padding: 0.8rem;
+}
+
+.chatoffer .hint {
+	flex-basis: 100%;
+	margin: 0;
 }
 
 /* A fixed 400px is too short on a laptop and too tall on a phone. */
@@ -165,6 +285,45 @@
 	border: 0;
 }
 
-main.page > section {
-	margin-bottom: 1.6rem;
+/* ---- drops ---- */
+
+.drops {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.8rem;
+}
+
+.drops li {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	font-family: var(--mono);
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--ink-dim);
+}
+
+/* Uploads are any shape; a fixed box keeps the row from jumping about. */
+.drops img {
+	display: block;
+	width: 104px;
+	height: 104px;
+	object-fit: cover;
+	border: 2px solid var(--line-lit);
+	box-shadow: var(--drop-sm);
+	background: var(--black);
+}
+
+.drops a:hover img {
+	border-color: var(--accent);
+}
+
+@media (max-width: 62rem) {
+	.hero {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }

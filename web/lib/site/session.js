@@ -17,7 +17,12 @@ import {
 	rejectCrossOrigin,
 	rejectForeignOrigin,
 } from "../http.js";
-import { clearSession, issueSession, readSession } from "../session.js";
+import {
+	clearSession,
+	issueSession,
+	readSession,
+	renewSession,
+} from "../session.js";
 
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -32,11 +37,16 @@ function describe(session) {
 	};
 }
 
+/** Every page asks this on load, so it is where a session gets slid forward. */
 export const onRequestGet = guard(async ({ request, env }) => {
 	const session = await readSession(request, env);
 	if (!session) return fail(401, "no session");
 
-	return json(describe(session), { headers: NO_STORE });
+	const renewed = await renewSession(request, env, session);
+
+	return json(describe(session), {
+		headers: renewed ? { ...NO_STORE, "set-cookie": renewed } : NO_STORE,
+	});
 });
 
 export const onRequestPost = guard(async ({ request, env }) => {

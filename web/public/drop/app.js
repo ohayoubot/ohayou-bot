@@ -8,7 +8,7 @@
  * gifs are the exception, since a canvas would keep only the first frame.
  */
 
-import { nav } from "../nav.js";
+import { shell, signin } from "../shell.js";
 
 const API = "api";
 
@@ -25,7 +25,7 @@ const lockedWhyEl = $("#locked-why");
 const readyEl = $("#ready");
 const doneEl = $("#done");
 const nickEl = $("#nick");
-const accountEl = $("#account");
+const filedEl = $("#filed");
 const channelEl = $("#channel");
 const zoneEl = $("#zone");
 const fileEl = $("#file");
@@ -44,47 +44,24 @@ let staged = [];
 
 /* ---- session ---- */
 
-/**
- * The fragment never reaches the server's logs, and is cleared before anything
- * else runs so a shared screen or a back button does not hand the grant on.
- */
+/** The shell redeems whatever link brought you here; this only reacts to it. */
 async function start() {
 	show(waitingEl);
 
-	const token = location.hash.slice(1);
-	if (token) history.replaceState(null, "", location.pathname);
-
-	try {
-		session = token ? await redeem(token) : await current();
-	} catch {
-		return locked("Could not reach the server.");
-	}
+	session = await shell({ area: "drop", current: "/drop/" });
+	const { fromLink } = await signin();
 
 	if (!session)
 		return locked(
-			token ? "That link is expired, already used, or not valid." : "",
+			fromLink ? "That link is expired, already used, or not valid." : "",
 		);
 
 	nickEl.textContent = session.nick;
-	accountEl.textContent = `(${session.account})`;
+	filedEl.textContent = session.account;
 	channelEl.replaceChildren(
 		...session.channels.map((name) => new Option(name, name)),
 	);
 	show(readyEl);
-}
-
-async function redeem(token) {
-	const res = await fetch("/api/session", {
-		method: "POST",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ token }),
-	});
-	return res.ok ? await res.json() : null;
-}
-
-async function current() {
-	const res = await fetch("/api/session");
-	return res.ok ? await res.json() : null;
 }
 
 function locked(why) {
@@ -95,12 +72,6 @@ function locked(why) {
 function show(section) {
 	for (const el of [waitingEl, lockedEl, readyEl]) el.hidden = el !== section;
 }
-
-$("#signout").addEventListener("click", async () => {
-	await fetch("/api/session", { method: "DELETE" });
-	session = null;
-	locked("Signed out.");
-});
 
 /* ---- preparing an image ---- */
 
@@ -418,5 +389,3 @@ window.addEventListener("paste", (e) => {
 });
 
 start();
-
-nav("#sitenav", "/drop/");

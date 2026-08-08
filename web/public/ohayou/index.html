@@ -3,22 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ohayou land registry</title>
-<meta name="description" content="Every acre claimed in the ohayou game, surveyed and filed. One tile is one acre.">
+<title>the land · hemera.day</title>
+<meta name="description" content="Every acre claimed in the ohayou game, drawn to scale. One tile is one acre.">
 <meta name="color-scheme" content="dark">
-<meta property="og:title" content="The ohayou land registry">
-<meta property="og:description" content="Every acre claimed in the ohayou game, surveyed and filed. Say !ohayou once a day and take some of it.">
+<meta property="og:title" content="The land">
+<meta property="og:description" content="Every acre claimed in the ohayou game, drawn to scale. Say !ohayou once a day and take some of it.">
 <link rel="stylesheet" href="../site.css">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="../deerkins/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../mark.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
 </head>
-<body>
+<body data-area="ohayou">
 
 <header class="shell">
   <div>
-    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <a class="brand" href="/">
+      <img src="/mark.svg" alt="" width="26" height="26">
+      <span><b>hemera</b>.day</span>
+      <i>land office</i>
+    </a>
     <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+    <div class="account" id="account"></div>
   </div>
 </header>
 
@@ -26,11 +31,11 @@
 
   <section class="masthead">
     <div>
-      <h1>The ohayou land registry</h1>
+      <p class="kicker">the register</p>
+      <h1>The land</h1>
       <p class="lede">
-        Every acre anyone has claimed, surveyed to scale. One tile is one acre.
-        Land is bought with rations, and rations are handed out in a chatroom,
-        one per person per day.
+        Everything anyone has bought with a ration, drawn to scale. One tile is
+        one acre. Point at a parcel to read its deed.
       </p>
     </div>
     <dl class="ledger" id="ledger" aria-label="Survey totals"></dl>
@@ -50,7 +55,7 @@
           <output id="zoomlevel" aria-label="Zoom">1&times;</output>
           <button type="button" id="zoomin" aria-label="Zoom in">+</button>
         </span>
-        <button type="button" id="findme" hidden>Find my parcel</button>
+        <button type="button" id="findme" hidden>Find me</button>
       </div>
     </div>
 
@@ -59,36 +64,37 @@
     </aside>
   </section>
 
+  <section class="file" id="standing" hidden>
+    <h2>Your file</h2>
+    <div class="rule"></div>
+    <div class="panels" id="yours"></div>
+  </section>
+
   <section class="key">
     <h2>Key</h2>
+    <div class="rule"></div>
     <ul class="bands" id="bands"></ul>
     <p class="hint" id="unfiled"></p>
     <p class="hint">
-      A parcel is drawn at the size of the holding it describes, and carries its
+      A parcel is drawn the size of the holding it describes and carries its
       holder's nick unless they asked otherwise. One drawn as <b>Anonymous</b>
-      is bare ground: the registry publishes its acreage and nothing else.
-      Ohayous on hand, vaults and defences are never published, named or not.
+      is bare ground: the acreage, and nothing that says whose it is. Ohayous on
+      hand, vaults and defences are never drawn, named or not.
     </p>
-  </section>
-
-  <section class="file" id="standing" hidden>
-    <span class="stamp">Your file</span>
-    <div class="panels" id="yours"></div>
   </section>
 
   <section class="panel notice" id="claim">
     <span class="stamp">Filing a claim</span>
     <p>
-      Parcels are filed under a services account, not a nick, so nobody can take
-      yours by taking your name. Your land carries your nick by default; say
+      Land is filed against a services account, not a nick, so nobody takes
+      yours by taking your name. Your parcel carries your nick by default. Say
       <code>!territory off</code> to the bot and it is drawn as Anonymous
-      instead, with the acreage still shown and nothing that says it is yours.
+      instead, acreage still shown, nothing that says it is yours.
       <code>!territory on</code> puts the name back.
     </p>
     <p class="hint" id="signedout">
-      Already playing? Say <code>!web</code> to the bot and it sends you a
-      one-shot link that signs you in here. You will need to be registered and
-      identified with it first.
+      Already playing? Say <code>!web</code> to the bot. It sends you a link
+      that signs you in here for a month.
     </p>
   </section>
 

@@ -19,7 +19,12 @@ import { b64urlEncode } from "./hmac.js";
 
 const COOKIE = "__Host-ohayou";
 
-const TTL = 12 * 3600_000;
+/** A month. Signing in means going back to irc for a link, so make it count. */
+const TTL = 30 * 24 * 3600_000;
+
+/** How much of the TTL is spent before a read slides it: a write now and
+    again, not one per page load. */
+const RENEW_AFTER = TTL / 3;
 
 /**
  * __Host- makes the browser enforce host-only: no Domain, so the cookie is
@@ -87,15 +92,16 @@ export async function issueSession(env, { account, nick, channels, scopes }) {
 }
 
 /**
- * Returns {account, nick, channels, scopes} or null. Expiry is decided by the
- * query, so a session cannot outlive its row by way of a clock read here.
+ * Returns {account, nick, channels, scopes, expires} or null. The query decides
+ * the expiry, so a session cannot outlive its row by way of a clock read here;
+ * expires comes back for renewSession to judge.
  */
 export async function readSession(request, env) {
 	const id = readCookie(request);
 	if (!id) return null;
 
 	const row = await env.DB.prepare(
-		"SELECT account, nick, channels, scopes FROM session WHERE id_hash = ?1 AND expires > ?2",
+		"SELECT account, nick, channels, scopes, expires FROM session WHERE id_hash = ?1 AND expires > ?2",
 	)
 		.bind(await hash(id), Date.now())
 		.first();
@@ -108,10 +114,34 @@ export async function readSession(request, env) {
 			nick: row.nick,
 			channels: JSON.parse(row.channels),
 			scopes: row.scopes,
+			expires: row.expires,
 		};
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Slides a session's expiry and returns a Set-Cookie sliding the browser's copy
+ * with it, or null when it is too young to bother. Both halves have to move:
+ * the row says the session is alive, the cookie says the browser still sends
+ * it. The UPDATE re-checks the expiry rather than trusting the read it was
+ * handed, so one that ran out in between is not resurrected.
+ */
+export async function renewSession(request, env, session) {
+	if (!session || session.expires - Date.now() > TTL - RENEW_AFTER) return null;
+
+	const id = readCookie(request);
+	if (!id) return null;
+
+	const now = Date.now();
+	const { meta } = await env.DB.prepare(
+		"UPDATE session SET expires = ?1 WHERE id_hash = ?2 AND expires > ?3",
+	)
+		.bind(now + TTL, await hash(id), now)
+		.run();
+
+	return meta.changes === 1 ? cookie(id, Math.floor(TTL / 1000)) : null;
 }
 
 /**

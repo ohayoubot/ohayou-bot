@@ -4,102 +4,112 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>hemera.day</title>
-<meta name="description" content="An IRC bot hands out one ration a day. Rations buy acres. This is the register of what everyone has built on theirs, plus a pixel art gallery and an image drop.">
+<meta name="description" content="A bot in an IRC channel hands out one ration a day. Rations buy land. This is the map of what everyone built on theirs, a pixel art gallery, and a place to put pictures in a channel.">
 <meta name="color-scheme" content="dark">
 <meta property="og:title" content="hemera.day">
-<meta property="og:description" content="One ration a day, and the land you buy with it. The register of an IRC game, a pixel art gallery, and an image drop.">
+<meta property="og:description" content="Say good morning to a bot, take an acre. The map of an IRC game, a pixel art gallery, and an image drop.">
 <link rel="stylesheet" href="site.css">
 <link rel="stylesheet" href="ohayou/style.css">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="deerkins/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="mark.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
 </head>
-<body>
+<body data-area="home">
 
 <header class="shell">
   <div>
-    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <a class="brand" href="/">
+      <img src="/mark.svg" alt="" width="26" height="26">
+      <span><b>hemera</b>.day</span>
+      <i>land office</i>
+    </a>
     <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+    <div class="account" id="account"></div>
   </div>
 </header>
 
-<main class="page">
+<main class="page front">
 
-  <section id="waiting" hidden>
-    <p class="hint">Checking your link…</p>
+  <!-- One hero, two states. app.js fills it in once it knows which. -->
+  <section class="hero">
+    <div class="say">
+      <p class="kicker" id="kicker">&nbsp;</p>
+      <h1 id="headline">&nbsp;</h1>
+      <p class="lede" id="blurb"></p>
+      <p class="cta" id="cta"></p>
+    </div>
+
+    <div class="view">
+      <a class="minimap" href="/ohayou/" id="minimap" aria-label="The whole map"></a>
+      <p class="viewbar" id="viewbar"></p>
+    </div>
   </section>
 
-  <!-- Signed in: who you are and what is yours. -->
-  <section id="you" class="panel file" hidden>
-    <span class="stamp">Signed in</span>
-    <h1 id="nick"></h1>
-    <p class="hint">
-      Filed under <span id="account"></span>. <span id="channels"></span>
-    </p>
-    <p><button id="signout" type="button" class="quiet">Sign out</button></p>
+  <!-- Signed in: the top of your file. The whole of it is on /ohayou/. -->
+  <section id="standing" hidden>
+    <h2>What you have</h2>
+    <div class="rule"></div>
+    <dl class="ledger" id="stats"></dl>
+    <p class="fortune" id="fortune" hidden></p>
   </section>
 
+  <section class="board">
+    <h2>Where to go</h2>
+    <div class="rule"></div>
+    <ul id="places" class="tiles"></ul>
+  </section>
+
+  <!-- Signed out: what to do, in the order you have to do it. -->
+  <section id="start" hidden>
+    <h2>Getting in</h2>
+    <div class="rule"></div>
+    <ol class="steps">
+      <li class="panel">
+        <span class="step">01</span>
+        <h3>Open a chat window</h3>
+        <p>
+          IRC is a chat network older than the web. There is nothing to sign up
+          for: pick a name, connect, done. The bot keeps office in
+          <code id="channel">a channel</code> on <b id="network">IRC</b>.
+        </p>
+        <div id="chatpanel" class="chat" hidden>
+          <div id="chatoffer" class="chatoffer">
+            <button id="openchat" type="button" class="primary">Chat here</button>
+            <a id="webchat" href="#" target="_blank" rel="noreferrer noopener">or in a new tab</a>
+            <p class="hint">Nothing loads from the chat network until you press it.</p>
+          </div>
+        </div>
+      </li>
+      <li class="panel">
+        <span class="step">02</span>
+        <h3>Say <code>!ohayou</code></h3>
+        <p>
+          Twelve rations, an acre of your own, and a parcel on the map with your
+          name over it. Come back tomorrow for twelve more.
+        </p>
+        <p class="hint">Nothing here asks you for a password.</p>
+      </li>
+      <li class="panel">
+        <span class="step">03</span>
+        <h3>Say <code>!web</code></h3>
+        <p>
+          The bot sends you a link, privately, good once. It signs you in here
+          for a month so you can read your own file and fly a deer over your
+          land.
+        </p>
+        <p class="hint" id="why">
+          You have to be registered with the bot first: <code>!register</code>,
+          then <code>!identify</code>.
+        </p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- Signed in: the last few things you put in a channel. -->
   <section id="drops" hidden>
     <h2>Your recent drops</h2>
+    <div class="rule"></div>
     <ul id="droplist" class="drops"></ul>
-  </section>
-
-  <!-- Signed out: everything below explains the place to somebody who has
-       never used IRC. -->
-  <section id="pitch" hidden>
-    <h1>One ration a day, and the land you buy with it</h1>
-    <p class="lede">
-      A bot sits in a chatroom and hands one ration to anyone who says good
-      morning to it. Rations buy acres; acres carry cats, quarries, workshops
-      and refineries. This office surveys what everyone builds and files it
-      here, to scale, one tile to the acre.
-    </p>
-
-    <a class="minimap" href="/ohayou/" id="minimap" aria-label="The register of every parcel"></a>
-    <p class="hint" id="glimpsecap"></p>
-  </section>
-
-  <section id="join" class="panel" hidden>
-    <span class="stamp">Joining the register</span>
-    <p>
-      The bot keeps office in <b><code id="channel">a channel</code></b> on
-      <b><span id="network">IRC</span></b>. IRC is a chat network older than the
-      web and there is nothing to sign up for: you pick a name and connect.
-    </p>
-    <div id="chatpanel" class="chat" hidden>
-      <div id="chatoffer" class="chatoffer">
-        <p>
-          There is a client that runs on this page. Nothing loads from the chat
-          network until you ask for it.
-        </p>
-        <p>
-          <button id="openchat" type="button" class="primary">Open the chat</button>
-          <a id="webchat" href="#" target="_blank" rel="noreferrer noopener">or in a new tab</a>
-        </p>
-      </div>
-    </div>
-    <p>Then say:</p>
-    <p><code>!ohayou</code></p>
-    <p class="hint">
-      Twelve rations, one acre, and a parcel on the map. Nothing here asks you
-      for a password.
-    </p>
-  </section>
-
-  <section>
-    <h2>The rest of the office</h2>
-    <ul id="places" class="places"></ul>
-  </section>
-
-  <section id="signin" class="panel" hidden>
-    <span class="stamp">Already playing</span>
-    <p id="why" class="hint"></p>
-    <p>Say this to the bot and it sends you a one-shot link that signs you in:</p>
-    <p><code>!web</code></p>
-    <p class="hint">
-      You will need to be registered and identified with it first:
-      <code>!register</code>, then <code>!identify</code>.
-    </p>
   </section>
 
 </main>

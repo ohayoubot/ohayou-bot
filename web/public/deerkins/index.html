@@ -3,28 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>deerkins: draw art for IRC</title>
+<title>deerkins · hemera.day</title>
 <meta name="description" content="Draw pixel art in your browser and paste it into IRC.">
 <meta name="color-scheme" content="dark">
+<meta property="og:title" content="Deerkins">
+<meta property="og:description" content="A drawing grid with sixteen colours in it. Save a deer, paste it into a channel, fly it over your land.">
 <link rel="stylesheet" href="../site.css">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
 </head>
-<body>
+<body data-area="deerkins">
 
 <header class="shell">
   <div>
-    <a class="brand" href="/"><b>hemera</b>.day <span>land office</span></a>
+    <a class="brand" href="/">
+      <img src="/mark.svg" alt="" width="26" height="26">
+      <span><b>hemera</b>.day</span>
+      <i>land office</i>
+    </a>
     <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+    <div class="account" id="account"></div>
   </div>
 </header>
 
 <main class="page">
 
   <div class="pagetitle">
+    <p class="kicker">sixteen colours, no more</p>
     <h1>Deerkins</h1>
-    <p class="lede">Draw in the sixteen colours IRC has. Save it, paste it into a channel, or fly it over your parcel.</p>
+    <p class="lede">Draw in the colours IRC has. Save it, paste it into a channel, or fly it over your land.</p>
   </div>
 
   <section class="editor" aria-label="Canvas">
@@ -80,7 +88,7 @@
 
     <section>
       <h2>Export</h2>
-      <p class="hint">Downloads the current canvas.</p>
+      <p class="hint">Downloads what is on the canvas now.</p>
       <p class="export">
         <button type="button" data-export="png">PNG</button>
         <button type="button" data-export="jpg">JPG</button>
@@ -92,13 +100,13 @@
   <section class="codes">
     <div>
       <h2><label for="kinskode">kinskode</label></h2>
-      <p class="hint">One character per cell.</p>
+      <p class="hint">One character per cell. What this site stores.</p>
       <textarea id="kinskode" rows="6" spellcheck="false" wrap="off"></textarea>
       <button type="button" data-load="kinskode">↑ to canvas</button>
     </div>
     <div>
       <h2><label for="irccode">IRC codes</label></h2>
-      <p class="hint">Paste this into your IRC client.</p>
+      <p class="hint">Paste this into your client and the channel sees the picture.</p>
       <textarea id="irccode" rows="6" spellcheck="false" wrap="off"></textarea>
       <button type="button" data-load="irccode">↑ to canvas</button>
       <button type="button" id="copy-irc">Copy</button>
@@ -126,13 +134,14 @@
 
 <footer>
   <h2>About</h2>
+  <div class="rule"></div>
   <p>
-    A drawing grid that uses the 16 mIRC colours. When you save, you get two text
-    forms of the drawing: <b>kinskode</b>, the one-character-per-cell format this
-    site stores, and <b>IRC codes</b>, which you paste into a channel.
+    A drawing grid with the 16 mIRC colours in it. Saving gives you two text
+    forms of the picture: <b>kinskode</b>, one character per cell, which is what
+    this site keeps, and <b>IRC codes</b>, which you paste into a channel.
   </p>
   <p>
-    Saved art is public domain. It can be removed at any time.
+    Saved art is public domain, and can be taken down at any time.
   </p>
   <p class="credits">
     deerkins and deeritor were written by pihl. cvaj forked them as

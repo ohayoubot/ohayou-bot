@@ -18,7 +18,7 @@ const read = (path) =>
 
 const { plugins } = JSON.parse(read("public/plugins.json"));
 const routes = JSON.parse(read("public/_routes.json"));
-const dashboard = read("public/app.js");
+const shell = read("public/shell.js");
 
 /** The site's own routes, which belong to no plugin. */
 const SITE_ROUTES = ["/api/*"];
@@ -32,7 +32,7 @@ test("the manifest is not empty", () => {
 for (const plugin of plugins) {
 	test(`${plugin.name} is described in full`, () => {
 		assert.equal(typeof plugin.login, "boolean", "login is missing");
-		for (const field of ["name", "title", "blurb", "path", "api"]) {
+		for (const field of ["name", "title", "tab", "blurb", "path", "api"]) {
 			assert.equal(typeof plugin[field], "string", `${field} is missing`);
 			assert.notEqual(plugin[field], "", `${field} is empty`);
 		}
@@ -53,8 +53,8 @@ for (const plugin of plugins) {
 		);
 	});
 
-	// The dashboard builds its nav from this manifest. What it repeats is the
-	// scope bitmask, because a page cannot import from lib.
+	// The shell builds the nav from this manifest. What it repeats is the scope
+	// bitmask, because a page cannot import from lib.
 	test(`${plugin.name}'s scope means the same in the browser as on the wire`, () => {
 		const named = `SCOPE_${plugin.name.toUpperCase()}`;
 		const onTheWire = WIRE_SCOPES[named];
@@ -67,14 +67,14 @@ for (const plugin of plugins) {
 		}
 		assert.equal(typeof onTheWire, "number", `lib/hmac.js has no ${named}`);
 
-		const inTheBrowser = dashboard.match(
+		const inTheBrowser = shell.match(
 			new RegExp(`\\b${plugin.name}:\\s*1\\s*<<\\s*(\\d+)`),
 		);
-		assert.ok(inTheBrowser, `public/app.js has no scope for ${plugin.name}`);
+		assert.ok(inTheBrowser, `public/shell.js has no scope for ${plugin.name}`);
 		assert.equal(
 			1 << Number(inTheBrowser[1]),
 			onTheWire,
-			`public/app.js disagrees with lib/hmac.js about ${plugin.name}`,
+			`public/shell.js disagrees with lib/hmac.js about ${plugin.name}`,
 		);
 	});
 }
