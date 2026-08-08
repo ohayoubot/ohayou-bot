@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/ohayoubot/ohayou-bot/internal/store"
 )
@@ -79,6 +80,12 @@ func (g *Plugin) buy(u *store.User, itm string, amt int) string {
 	if err != nil {
 		g.log.Error("add item", "nick", u.Username, "item", itm, "err", err)
 		return "Something went wrong with your purchase. Try again."
+	}
+
+	// Land only: the chronicle is what the map would show changing, and the map
+	// draws acres.
+	if itm == "acre" {
+		g.record(eventLand, u.Username, "", map[string]string{"acres": strconv.Itoa(amt)})
 	}
 
 	ohayous_left := u.Ohayous - (item.Price * amt)

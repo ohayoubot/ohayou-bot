@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lately · hemera.day</title>
+<meta name="description" content="What has been happening on the land: acres bought, buildings raised, robberies, strays taken in.">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="Lately">
+<meta property="og:description" content="What has been happening on the land: acres bought, buildings raised, robberies, strays taken in.">
+<link rel="stylesheet" href="../site.css">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="../mark.svg" type="image/svg+xml">
+<script type="module" src="lately-app.js"></script>
+</head>
+<body data-area="ohayou">
+
+<header class="shell">
+  <div>
+    <a class="brand" href="/">
+      <img src="/mark.svg" alt="" width="26" height="26">
+      <span><b>hemera</b>.day</span>
+      <i>land office</i>
+    </a>
+    <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+    <div class="account" id="account"></div>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="masthead">
+    <div>
+      <p class="kicker">the day book</p>
+      <h1 id="heading">Lately</h1>
+      <p class="lede" id="lede">
+        What has happened on the land, most recent first. The office keeps the
+        last few hundred entries and no more.
+      </p>
+    </div>
+  </section>
+
+  <section class="daybook">
+    <h2 class="visually-hidden">Entries</h2>
+    <ol class="entries" id="entries">
+      <li class="loading">Reading the day book…</li>
+    </ol>
+    <p class="hint" id="footnote"></p>
+  </section>
+
+  <section class="panel notice">
+    <span class="stamp">Who gets named</span>
+    <p>
+      An entry carries a nick only where that plot carries one on the map. A
+      holder who said <code>!territory off</code> is <b>Someone</b> here as well,
+      at both ends of an entry: the day book says as much about a player as the
+      map does and no more.
+    </p>
+    <p><a href="/ohayou/">The map itself</a></p>
+  </section>
+
+</main>
+
+</body>
+</html>

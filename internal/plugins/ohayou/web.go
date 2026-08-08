@@ -61,6 +61,18 @@ type PrivatePlot struct {
 	Running []Run `json:"running"`
 }
 
+// Event is one line of the chronicle as the site is given it. Actor and Subject
+// are empty for anyone whose plot carries no name, so the feed says as much
+// about a player as the map does and no more.
+type Event struct {
+	ID      int64             `json:"id"`
+	TS      int64             `json:"ts"`
+	Kind    string            `json:"kind"`
+	Actor   string            `json:"actor"`
+	Subject string            `json:"subject"`
+	Detail  map[string]string `json:"detail"`
+}
+
 type VaultView struct {
 	Level   int `json:"level"`
 	Ohayous int `json:"ohayous"`

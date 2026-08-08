@@ -87,3 +87,17 @@ type UserOhayous struct {
 	Username string
 	Ohayous  int
 }
+
+// Event is one thing that happened. A record for display; no rule reads it.
+type Event struct {
+	ID   int64
+	TS   time.Time
+	Kind string
+	// Actor is who did it, lowercased. Empty for a world event.
+	Actor string
+	// Subject is who it was done to, empty when nobody was.
+	Subject string
+	// Detail is what the line needs to read. Strings: an amount here is a band,
+	// never a balance.
+	Detail map[string]string
+}

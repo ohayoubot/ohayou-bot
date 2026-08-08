@@ -62,6 +62,16 @@ const TABLES = {
 			fortune: "string",
 			running: "json",
 		},
+		/* The chronicle. actor and subject are empty for anyone whose plot
+		   carries no name, and detail holds bands rather than amounts. */
+		event: {
+			id: "integer",
+			ts: "integer",
+			kind: "string",
+			actor: "string",
+			subject: "string",
+			detail: "json",
+		},
 	},
 };
 

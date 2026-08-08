@@ -37,6 +37,7 @@ func (g *Plugin) Ohayou(nick string) string {
 			g.log.Error("create user", "nick", nick, "err", err)
 			return "Something went wrong creating your account. Try again."
 		}
+		g.record(eventSettle, nick, "", nil)
 		return "Congratulations on your first ohayou " + nick + "!!! You get 12 " +
 			"ohayous, which means you can buy your first cat! Type " + g.p() + "buy " +
 			"cat to do so, " + g.p() + "item cat to see what cats do, and " + g.p() +

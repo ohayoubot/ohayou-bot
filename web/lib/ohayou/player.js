@@ -10,6 +10,7 @@
  * filtering after, so it cannot be forgotten.
  */
 
+import { ago, readable } from "../../public/ohayou/chronicle.js";
 import { usage } from "../../public/ohayou/plot.js";
 import {
 	decodeParam,
@@ -19,14 +20,18 @@ import {
 	parseColumn,
 } from "../http.js";
 import { card } from "./card.js";
+import { row } from "./lately.js";
 
 const MAX_NICK = 48;
+
+/** Entries on a deed page. The whole of it is on /ohayou/lately. */
+const HISTORY = 8;
 
 function place(env) {
 	return { channel: env.IRC_CHANNEL, network: env.IRC_NETWORK };
 }
 
-async function lookup(env, name) {
+async function lookup(env, name, { history = false } = {}) {
 	if (!env.GAME) return null;
 
 	const plot = await env.GAME.prepare(
@@ -49,7 +54,23 @@ async function lookup(env, name) {
 			.first();
 		flag = deer?.kinskode ?? null;
 	}
-	return { plot, flag };
+	return { plot, flag, history: history ? await entries(env, plot.nick) : [] };
+}
+
+/**
+ * A plot's own entries. Matched on the stored nick rather than what was asked
+ * for, so a plot found case-insensitively still gets them.
+ *
+ * Only the page asks: the card is what a crawler fetches, and it shows none.
+ */
+async function entries(env, nick) {
+	const { results } = await env.GAME.prepare(
+		`SELECT id, ts, kind, actor, subject, detail FROM event
+     WHERE actor = ?1 OR subject = ?1 ORDER BY id DESC LIMIT ?2`,
+	)
+		.bind(nick, HISTORY)
+		.all();
+	return readable(results.map(row), HISTORY);
 }
 
 function wanted(params) {
@@ -81,7 +102,7 @@ export const onRequestGetPage = guard(async ({ request, params, env }) => {
 	const name = wanted(params);
 	if (!name) return fail(400, "no name given");
 
-	const found = await lookup(env, name);
+	const found = await lookup(env, name, { history: true });
 	if (!found) {
 		return new Response(missing(), {
 			status: 404,
@@ -94,7 +115,7 @@ export const onRequestGetPage = guard(async ({ request, params, env }) => {
 		found.plot.nick,
 	)}`;
 
-	return new Response(page(found.plot, image, url.href, place(env)), {
+	return new Response(page(found, image, url.href, place(env)), {
 		headers: {
 			"content-type": "text/html; charset=utf-8",
 			"cache-control": "public, max-age=300",
@@ -145,7 +166,7 @@ ${body}
 </html>`;
 }
 
-function page(plot, image, href, { channel, network }) {
+function page({ plot, history }, image, href, { channel, network }) {
 	const title = `${plot.nick}'s territory`;
 	const where = [channel, network].filter(Boolean).join(" on ");
 	const { acres, built } = usage(plot);
@@ -183,7 +204,7 @@ function page(plot, image, href, { channel, network }) {
   <section class="certificate">
     <img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630">
   </section>
-
+${daybook(plot.nick, history)}
   <section class="panel notice">
     <span class="stamp">What this is</span>
     <p>
@@ -200,6 +221,41 @@ function page(plot, image, href, { channel, network }) {
   </section>`;
 
 	return shell(title, head, body);
+}
+
+/**
+ * What happened here, written into the html: the same crawler that reads the
+ * meta tags gets the entries, and nothing on this page runs a script.
+ *
+ * A holder with no entries gets no section rather than an empty one.
+ */
+function daybook(nick, history) {
+	if (!history?.length) return "";
+
+	const entries = history
+		.map(
+			(entry) => `      <li class="entry">
+        <time datetime="${esc(new Date(entry.ts * 1000).toISOString())}">${esc(
+					ago(entry.ts),
+				)}</time>
+        <p>${esc(entry.said)}</p>
+      </li>`,
+		)
+		.join("\n");
+
+	return `
+  <section class="daybook">
+    <h2>What happened here</h2>
+    <div class="rule"></div>
+    <ol class="entries">
+${entries}
+    </ol>
+    <p class="hint">
+      <a href="/ohayou/lately?nick=${encodeURIComponent(nick)}">Everything on file for ${esc(nick)}</a>
+      &middot; <a href="/ohayou/lately">the whole day book</a>
+    </p>
+  </section>
+`;
 }
 
 function missing() {

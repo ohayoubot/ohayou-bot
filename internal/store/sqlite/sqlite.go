@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -692,6 +693,26 @@ func (d *DB) Players(ctx context.Context) ([]string, error) {
 	return out, rows.Err()
 }
 
+// Visibilities is every player's web setting, so a caller deciding what may
+// carry a nick asks once rather than per player.
+func (d *DB) Visibilities(ctx context.Context) (map[string]store.Visibility, error) {
+	rows, err := d.db.QueryContext(ctx, `SELECT username,web FROM users`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[string]store.Visibility{}
+	for rows.Next() {
+		var name, web string
+		if err := rows.Scan(&name, &web); err != nil {
+			return nil, err
+		}
+		out[name] = store.Visibility(web)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) Top(ctx context.Context, n int) ([]store.UserOhayous, error) {
 	rows, err := d.db.QueryContext(ctx, `SELECT username,ohayous FROM users ORDER BY ohayous DESC LIMIT ?`, n)
 	if err != nil {
@@ -743,4 +764,70 @@ func (d *DB) SaveFailSteal(ctx context.Context, nick string, fine int, probation
 	return guard(d.db.ExecContext(ctx,
 		`UPDATE users SET ohayous=ohayous-?, probation=?, probation_count=probation_count+1,
 		 steal_fail=steal_fail+1 WHERE username=? AND ohayous>=?`, fine, unix(probation), nick, fine))
+}
+
+// RecordEvent appends to the chronicle and drops all but the newest keep rows.
+func (d *DB) RecordEvent(ctx context.Context, e store.Event, keep int) error {
+	detail, err := json.Marshal(nonNil(e.Detail))
+	if err != nil {
+		return err
+	}
+	return d.tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO events(ts,kind,actor,subject,detail) VALUES(?,?,?,?,?)`,
+			unix(e.TS), e.Kind, e.Actor, e.Subject, string(detail)); err != nil {
+			return err
+		}
+		if keep <= 0 {
+			return nil
+		}
+		_, err := tx.ExecContext(ctx,
+			`DELETE FROM events WHERE id <= (SELECT MAX(id) FROM events) - ?`, keep)
+		return err
+	})
+}
+
+// RecentEvents returns the newest events first.
+func (d *DB) RecentEvents(ctx context.Context, limit int) ([]store.Event, error) {
+	return d.events(ctx, `SELECT id,ts,kind,actor,subject,detail FROM events
+		 ORDER BY id DESC LIMIT ?`, limit)
+}
+
+// EventsAbout returns the newest events nick took part in, either end of them.
+func (d *DB) EventsAbout(ctx context.Context, nick string, limit int) ([]store.Event, error) {
+	return d.events(ctx, `SELECT id,ts,kind,actor,subject,detail FROM events
+		 WHERE actor=? OR subject=? ORDER BY id DESC LIMIT ?`, nick, nick, limit)
+}
+
+func (d *DB) events(ctx context.Context, query string, args ...any) ([]store.Event, error) {
+	rows, err := d.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []store.Event
+	for rows.Next() {
+		var e store.Event
+		var ts int64
+		var detail string
+		if err := rows.Scan(&e.ID, &ts, &e.Kind, &e.Actor, &e.Subject, &detail); err != nil {
+			return nil, err
+		}
+		e.TS = time.Unix(ts, 0)
+		e.Detail = map[string]string{}
+		// A detail that will not read costs the line its words, not the row.
+		if err := json.Unmarshal([]byte(detail), &e.Detail); err != nil {
+			e.Detail = map[string]string{}
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+func nonNil(m map[string]string) map[string]string {
+	if m == nil {
+		return map[string]string{}
+	}
+	return m
 }
