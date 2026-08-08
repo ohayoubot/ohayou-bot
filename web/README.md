@@ -1,8 +1,8 @@
 # web
 
-The ohayou bot's Cloudflare Pages project: the world map at `/ohayou/`, the
-deerkins gallery at `/deerkins/` and the drop uploader at `/drop/`. Every
-command below runs from this directory.
+The ohayou bot's Cloudflare Pages project: the world map at `/ohayou/`, the day
+book at `/ohayou/lately`, the deerkins gallery at `/deerkins/` and the drop
+uploader at `/drop/`. Every command below runs from this directory.
 
 ## Names
 
@@ -10,7 +10,7 @@ command below runs from this directory.
 | --- | --- | --- |
 | Pages project | `ohayou-web` | |
 | D1 | `ohayou-site` | sessions, grants, the gallery, drop's queue |
-| D1 | `ohayou-game` | the world projection, the request queue |
+| D1 | `ohayou-game` | the world projection, the chronicle, the request queue |
 | R2 | `hemera` | uploaded images |
 
 Each D1 has a `-preview` twin. R2 cannot be renamed and image links already said
@@ -177,6 +177,24 @@ then. `IRC_WEBCHAT` in `wrangler.toml` is the url, and must be:
 
 `tools/site.test.mjs` checks both. Changing the host means changing that
 `frame-src` line.
+
+## The day book
+
+`/ohayou/lately` is the chronicle the bot publishes: what happened on the land,
+newest first. `?nick=<name>` narrows it to one holder, which is what a deed page
+links to. The front page shows the newest six, and a deed page the newest eight
+for that holder.
+
+The bot decides who is named before it publishes, so an entry arrives here with
+`actor` and `subject` already empty for anyone whose plot carries no name. The
+filter is passed to the api rather than applied in the page, so a name that was
+withheld cannot be found by asking for it.
+
+`public/ohayou/chronicle.js` turns an entry into a sentence, and is shared by
+the browser and the worker the way `plot.js` is. The bot has its own copy of
+those sentences for irc. Neither is authoritative: an entry whose kind this end
+has no words for is dropped rather than guessed at, so a kind the bot learns
+first costs a line, not a page.
 
 ## Player pages
 

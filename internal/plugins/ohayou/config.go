@@ -28,6 +28,8 @@ type Config struct {
 	DatabaseID string `json:"databaseId"`
 	// APIToken comes from the environment, never from a block.
 	APIToken string `json:"-"`
+	// SiteURL is the bot-wide web.url, so !news can point at the whole thing.
+	SiteURL string `json:"-"`
 	// RequestTimeoutMS bounds a single D1 request.
 	RequestTimeoutMS int `json:"requestTimeout"`
 }
@@ -57,6 +59,7 @@ func (p *Plugin) Configure(pc plugin.Config) (bool, error) {
 	if c.RequestTimeoutMS == 0 {
 		c.RequestTimeoutMS = 10000
 	}
+	c.SiteURL = pc.Web.URL
 	if c.DataDir == "" {
 		c.DataDir = "data"
 	}

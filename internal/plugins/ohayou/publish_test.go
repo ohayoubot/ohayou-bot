@@ -311,7 +311,7 @@ func TestAnUnchangedProjectionIsNotPublishedAgain(t *testing.T) {
 
 	g.publish(ctx)
 	first := len(site.calls())
-	if first != 2 {
+	if first != publishedTables {
 		t.Fatalf("%d calls for the first publish, want one per table", first)
 	}
 
@@ -363,7 +363,7 @@ func TestAFailedPublishIsRetried(t *testing.T) {
 	site.mu.Unlock()
 	g.publish(ctx)
 
-	if len(site.calls()) != 2 {
+	if len(site.calls()) != publishedTables {
 		t.Errorf("after recovery the projection was not re-sent: %+v", site.calls())
 	}
 }

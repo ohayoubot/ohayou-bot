@@ -40,5 +40,25 @@ func (g *Plugin) mine(username string, quarries int) {
 	g.say(username, strings.TrimSuffix(sb.String(), ", "))
 	if err := g.store.AddMetals(g.ctx(), username, yield); err != nil {
 		g.log.Error("add metals", "nick", username, "err", err)
+		return
+	}
+	if metal := rarest(yield); metal != "" {
+		g.record(eventStrike, username, "", map[string]string{"metal": metal})
 	}
 }
+
+// rarest is the least likely metal a run turned up, or "" when none of it is
+// worth writing down. Aluminum every eight hours is not news.
+func rarest(yield map[string]int) string {
+	best, at := "", strikeWorthy+1
+	for metal := range yield {
+		if chance := metalChance[metal]; chance < at {
+			best, at = metal, chance
+		}
+	}
+	return best
+}
+
+// strikeWorthy is the percent chance at or below which a metal is a strike:
+// uranium, silver, platinum, gold.
+const strikeWorthy = 30

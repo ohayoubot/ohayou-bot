@@ -303,3 +303,55 @@ test("a plugin with no binding cannot publish", async () => {
 
 	assert.equal(response.status, 400);
 });
+
+/* ---- the chronicle ---- */
+
+function chronicle(overrides = {}) {
+	return {
+		id: 812,
+		ts: now(),
+		kind: "steal",
+		actor: "alice",
+		subject: "bob",
+		detail: { took: "a purse of ohayous" },
+		...overrides,
+	};
+}
+
+test("the chronicle publishes", async () => {
+	const { response, body, env } = await post(
+		publish({ table: "event", rows: [chronicle()] }),
+	);
+
+	assert.equal(response.status, 200);
+	assert.deepEqual(body, { status: "published", rows: 1 });
+	assert.match(env.batches[0][1].sql, /^INSERT INTO event /);
+	assert.ok(env.batches[0][1].params.includes('{"took":"a purse of ohayous"}'));
+});
+
+// The bot leaves both empty for a player who is off the map, so the column has
+// to take one.
+test("an entry naming nobody is accepted", async () => {
+	const { response } = await post(
+		publish({
+			table: "event",
+			rows: [chronicle({ actor: "", subject: "", kind: "double", detail: {} })],
+		}),
+	);
+
+	assert.equal(response.status, 200);
+});
+
+// The allowlist is what may be public. A field the bot starts sending has to be
+// added there first.
+test("an entry carrying a column the table lacks is refused", async () => {
+	const { response, env } = await post(
+		publish({
+			table: "event",
+			rows: [{ ...chronicle(), ohayous: 4200 }],
+		}),
+	);
+
+	assert.equal(response.status, 400);
+	assert.equal(env.batches.length, 0);
+});

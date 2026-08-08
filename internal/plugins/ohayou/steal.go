@@ -82,7 +82,7 @@ func (g *Plugin) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw s
 		g.say(channel, fmt.Sprintf("%s attempts to steal from %s but %s doesn't have "+
 			"any ohayous! %s is fined %d ohayous and placed on probation for 24 hours.",
 			nickRaw, vicRaw, vicRaw, nickRaw, fine))
-		g.failSteal(thief.Username, fine)
+		g.failSteal(thief.Username, victim.Username, fine)
 		return
 	}
 
@@ -99,7 +99,7 @@ func (g *Plugin) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw s
 		g.say(channel, fmt.Sprintf("%s attempts to steal from %s %s! "+
 			"%s is fined %d ohayous and is placed on probation for 24 hours.",
 			nickRaw, vicRaw, caught, nickRaw, fine))
-		g.failSteal(thief.Username, fine)
+		g.failSteal(thief.Username, victim.Username, fine)
 	case ohayouOK && !catOK:
 		g.say(channel, fmt.Sprintf("%s attempts to steal from %s and succeeds! "+
 			"%s steals %d ohayous from %s.", nickRaw, vicRaw, nickRaw, amount, vicRaw))
@@ -119,15 +119,31 @@ func (g *Plugin) stealFrom(thief, victim *store.User, channel, nickRaw, vicRaw s
 	}
 }
 
-func (g *Plugin) failSteal(nick string, fine int) {
+func (g *Plugin) failSteal(nick, victim string, fine int) {
 	probation := time.Now().Add(24 * time.Hour).In(g.est)
 	if err := g.store.SaveFailSteal(g.ctx(), nick, fine, probation); err != nil {
 		g.log.Error("save fail steal", "nick", nick, "err", err)
+		return
 	}
+	g.record(eventCaught, nick, victim, nil)
 }
 
 func (g *Plugin) successSteal(thief, victim string, cat, ohy int) {
 	if err := g.store.SaveSuccessSteal(g.ctx(), thief, victim, cat, ohy); err != nil {
 		g.log.Error("save success steal", "thief", thief, "victim", victim, "err", err)
+		return
+	}
+	g.record(eventSteal, thief, victim, map[string]string{"took": took(cat, ohy)})
+}
+
+// took is what a robbery came away with, in bands.
+func took(cat, ohy int) string {
+	switch {
+	case cat > 0 && ohy > 0:
+		return "a cat and " + band(ohy) + " of ohayous"
+	case cat > 0:
+		return "a cat"
+	default:
+		return band(ohy) + " of ohayous"
 	}
 }

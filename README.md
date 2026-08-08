@@ -78,6 +78,27 @@ its owner says otherwise:
 An unnamed plot shows acreage and a wealth band only. Balances, vaults and
 defences are never published.
 
+### The chronicle
+
+The game keeps a log of what happened: land bought, buildings raised, rare
+metals struck, robberies either way, strays taken in, flags run up, and the
+distributor malfunctioning.
+
+```
+!news              the last few things that happened
+!news <nick>       one player's share of it
+```
+
+The newest 500 entries are kept and the oldest dropped, so the log does not
+grow without bound. Nothing reads it but `!news` and the website: no rule is
+decided from it, and it can be truncated at any point.
+
+In irc it names everybody, since the channel heard all of it as it happened. On
+the website an entry carries a nick only where that plot carries one, at both
+ends of a robbery, so `!territory off` covers the feed as well as the map.
+Amounts are bands there and in `!news` alike ("a purse of ohayous"), never
+balances.
+
 Set `databaseId` in the `ohayou` block to let the site queue `territory` and
 `flag` changes for the bot to apply. Nothing that spends or earns can be asked
 for from the site.
@@ -273,9 +294,9 @@ skips the migration runner, so apply anything in `deploy/migrations/` yourself
 ## Web
 
 `web/` is the Cloudflare Pages project `ohayou-web`, built with its root
-directory set to `web`. It serves the world map at `/ohayou/`, the gallery at
-`/deerkins/` and the uploader at `/drop/`. See `web/README.md` for its
-databases, secrets and deploys.
+directory set to `web`. It serves the world map at `/ohayou/`, the day book at
+`/ohayou/lately`, the gallery at `/deerkins/` and the uploader at `/drop/`. See
+`web/README.md` for its databases, secrets and deploys.
 
 `!web` PMs a one-shot link that signs a user in to every part of the site they
 can use. It is for players who have `!register`ed and `!identify`ed: the session

@@ -62,6 +62,25 @@ CREATE TABLE IF NOT EXISTS plot_private (
   running    TEXT NOT NULL DEFAULT '[]'
 );
 
+-- The chronicle: what happened, newest last published wins. A projection like
+-- the two above, replaced outright on every publish.
+--
+-- actor and subject are empty for anyone whose plot carries no name, decided at
+-- the bot. The same rule as plot.nick: a player drawn as Anonymous is not named
+-- by the feed beside them. detail is the json the line reads from, and holds
+-- bands ("a purse") rather than amounts.
+CREATE TABLE IF NOT EXISTS event (
+  id      INTEGER PRIMARY KEY,
+  ts      INTEGER NOT NULL,
+  kind    TEXT    NOT NULL,
+  actor   TEXT    NOT NULL DEFAULT '',
+  subject TEXT    NOT NULL DEFAULT '',
+  detail  TEXT    NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS event_actor ON event (actor);
+CREATE INDEX IF NOT EXISTS event_subject ON event (subject);
+
 -- One row per table the bot publishes, holding the last generation accepted.
 -- A publish carrying a generation this side has already seen is refused, so a
 -- replayed request cannot put yesterday's territories back.

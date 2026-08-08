@@ -50,6 +50,7 @@ func (g *Plugin) startDouble(ctx context.Context, t store.Task) error {
 	for _, c := range g.bot.Channels() {
 		g.say(c, "ERROR: Ohayou distributor is malfunctioning.")
 	}
+	g.record(eventDouble, "", "", nil)
 	return g.tasks.After(ctx, taskDoubleOff, doubleKey, active, "")
 }
 

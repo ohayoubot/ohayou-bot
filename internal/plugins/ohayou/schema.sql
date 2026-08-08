@@ -88,5 +88,17 @@ CREATE TABLE IF NOT EXISTS items (
     needs_acre     INTEGER NOT NULL DEFAULT 0
 );
 
+-- The chronicle. Trimmed to the newest rows on write; nothing is decided from it.
+CREATE TABLE IF NOT EXISTS events (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      INTEGER NOT NULL,
+    kind    TEXT    NOT NULL,
+    actor   TEXT    NOT NULL DEFAULT '',
+    subject TEXT    NOT NULL DEFAULT '',
+    detail  TEXT    NOT NULL DEFAULT '{}'
+);
+
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
 CREATE INDEX IF NOT EXISTS idx_users_ohayous ON users(ohayous DESC);
+CREATE INDEX IF NOT EXISTS idx_events_actor ON events(actor, id DESC);
+CREATE INDEX IF NOT EXISTS idx_events_subject ON events(subject, id DESC);

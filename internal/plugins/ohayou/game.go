@@ -117,6 +117,7 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 	g.bot.HandleFunc("withdraw", false, g.cmdWithdraw)
 	g.bot.HandleFunc("stats", false, g.cmdStats)
 	g.bot.HandleFunc("top", false, g.cmdTop)
+	g.bot.HandleFunc("news", false, g.cmdNews)
 	g.bot.HandleFunc("build", false, g.cmdBuild)
 	g.bot.HandleFunc("recipe", false, g.cmdRecipe)
 	g.bot.HandleFunc("inventory", false, g.cmdInventory)

@@ -416,6 +416,7 @@ func (g *Plugin) setFlag(m *bot.Message, u *store.User, to string) {
 		g.say(to, "Something went wrong saving that. Try again.")
 		return
 	}
+	g.record(eventFlag, u.Username, "", map[string]string{"deer": deer})
 	if deer == "" {
 		g.say(to, m.Nick+": your flag is down.")
 		return

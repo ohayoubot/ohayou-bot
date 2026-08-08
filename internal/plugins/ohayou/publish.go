@@ -22,11 +22,15 @@ const saltKey = "plotsalt"
 // often anything is written: an unchanged one is not published.
 const publishEvery = 2 * time.Minute
 
-// The two tables the site is taught to accept, in web/lib/site/ingest.js.
+// The tables the site is taught to accept, in web/lib/site/ingest.js.
 const (
 	tablePlot        = "plot"
 	tablePlotPrivate = "plot_private"
+	tableEvent       = "event"
 )
+
+// publishedTables is how many of them one round sends.
+const publishedTables = 3
 
 // startPublishing keeps the site's copy in step, when there is a site.
 func (g *Plugin) startPublishing(ctx context.Context) {
@@ -56,6 +60,27 @@ func (g *Plugin) publish(ctx context.Context) {
 	// Second: a run cut short between the two leaves the site showing less than
 	// it could rather than more than it should.
 	g.send(ctx, tablePlotPrivate, private)
+
+	// After both, for the same reason: the feed names people the map draws.
+	events, err := g.eventProjection(ctx)
+	if err != nil {
+		g.log.Error("building the chronicle", "err", err)
+		return
+	}
+	g.send(ctx, tableEvent, events)
+}
+
+// eventProjection is the newest events, with anyone hidden left unnamed.
+func (g *Plugin) eventProjection(ctx context.Context) ([]Event, error) {
+	vis, err := g.store.Visibilities(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading visibilities: %w", err)
+	}
+	events, err := g.store.RecentEvents(ctx, eventLog)
+	if err != nil {
+		return nil, fmt.Errorf("reading the chronicle: %w", err)
+	}
+	return g.chronicle(events, vis), nil
 }
 
 func (g *Plugin) send(ctx context.Context, table string, rows any) {

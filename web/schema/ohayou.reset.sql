@@ -11,6 +11,7 @@
 
 DROP TABLE IF EXISTS plot;
 DROP TABLE IF EXISTS plot_private;
+DROP TABLE IF EXISTS event;
 
 -- publish goes too: with the tables gone, the generations that filled them mean
 -- nothing, and keeping them would make the next publish look stale.

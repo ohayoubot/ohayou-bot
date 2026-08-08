@@ -57,6 +57,14 @@ type Store interface {
 	// appear on the map; what their plot says about them is decided per user.
 	Players(ctx context.Context) ([]string, error)
 
+	// Visibilities is every player's web setting, in one query.
+	Visibilities(ctx context.Context) (map[string]store.Visibility, error)
+
+	// The chronicle. RecordEvent keeps only the newest keep rows.
+	RecordEvent(ctx context.Context, e store.Event, keep int) error
+	RecentEvents(ctx context.Context, limit int) ([]store.Event, error)
+	EventsAbout(ctx context.Context, nick string, limit int) ([]store.Event, error)
+
 	// Build consumes metals (from user_metals), items (from user_items) and
 	// ohayous, then grants outAmt of the output item. All in one transaction.
 	Build(ctx context.Context, nick string, metalCost, itemCost map[string]int, ohayouCost int, output string, outAmt int) error

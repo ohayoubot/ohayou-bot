@@ -49,6 +49,12 @@ func helpTopics(p string) []bot.Topic {
 			Lines: []string{
 				p + "stats gives a full breakdown in PM, " + p + "inventory lists your items and ohayous, " + p + "quarry shows mined metals, and " + p + "top ranks the richest players.",
 			}},
+		{Name: "news", Summary: "what has been happening",
+			Aliases: []string{"chronicle", "lately"},
+			Lines: []string{
+				p + "news is the last few things that happened out there: land bought, buildings raised, robberies, strays taken in. " + p + "news <nick> is one player's share of it.",
+				"The same record is on the website, where a plot drawn as Anonymous is left unnamed. " + p + "territory off covers the feed as well as the map.",
+			}},
 		{Name: "territory", Summary: "showing your territory outside irc",
 			Aliases: []string{"map"},
 			Lines: []string{

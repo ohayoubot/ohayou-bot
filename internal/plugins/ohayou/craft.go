@@ -114,6 +114,12 @@ func (g *Plugin) cmdBuild(m *bot.Message) {
 		g.say(to, "Something went wrong building that. Try again.")
 		return
 	}
+	// Only what takes up land, the same rule the map draws by: a gear is not a
+	// thing that happened to the countryside.
+	if item, err := g.store.GetItem(g.ctx(), rec.name); err == nil && item.Acrelimit > 0 {
+		g.record(eventBuild, user.Username, "", map[string]string{"thing": rec.name})
+	}
+
 	g.say(to, fmt.Sprintf("%s built %d %s! (%s)", user.Username, rec.amount, rec.name, rec.desc))
 }
 

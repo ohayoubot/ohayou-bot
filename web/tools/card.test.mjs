@@ -18,17 +18,39 @@ function plot(overrides = {}) {
 	};
 }
 
-/** A GAME binding holding one plot, and a gallery holding one deer. */
-function env(row, deer = null, extra = {}) {
-	const answering = (first) => ({
-		prepare: () => ({ bind: () => ({ first: async () => first }) }),
+/** A GAME binding holding one plot and its entries, and a gallery holding one
+    deer. */
+function env(row, deer = null, extra = {}, events = []) {
+	const answering = (first, results = []) => ({
+		prepare: () => ({
+			bind: () => ({
+				first: async () => first,
+				all: async () => ({ results }),
+			}),
+		}),
 	});
 	const out = {
-		GAME: answering(row ? { ...row, land: JSON.stringify(row.land) } : null),
+		GAME: answering(
+			row ? { ...row, land: JSON.stringify(row.land) } : null,
+			events,
+		),
 		...extra,
 	};
 	if (deer !== null) out.DB = answering(deer);
 	return out;
+}
+
+/** One row of the chronicle as the ingest endpoint stores it. */
+function entry(overrides = {}) {
+	return {
+		id: 1,
+		ts: Math.floor(Date.now() / 1000) - 7200,
+		kind: "build",
+		actor: "mallow",
+		subject: "",
+		detail: '{"thing":"refinery"}',
+		...overrides,
+	};
 }
 
 async function get(handler, name, context) {
@@ -153,4 +175,61 @@ test("bare land shows neither", () => {
 test("the card says where the game is played", () => {
 	const svg = card(plot(), null, { channel: "#chan", network: "Rizon" });
 	assert.ok(svg.includes("#chan on Rizon"));
+});
+
+/* ---- the day book on a deed ---- */
+
+test("a deed carries its own entries, in the html", async () => {
+	const { text } = await get(
+		onRequestGetPage,
+		"mallow",
+		env(plot(), null, {}, [entry()]),
+	);
+
+	assert.ok(text.includes("What happened here"));
+	assert.ok(text.includes("mallow raised a refinery."));
+	// Still one script: the entries are rendered here, not fetched.
+	assert.equal(text.match(/<script/g).length, 1);
+});
+
+test("a deed links to the whole of its holder's file", async () => {
+	const { text } = await get(
+		onRequestGetPage,
+		"mallow",
+		env(plot(), null, {}, [entry()]),
+	);
+
+	assert.ok(text.includes("/ohayou/lately?nick=mallow"));
+});
+
+// A holder nothing has happened to gets no section, rather than an empty one.
+test("a deed with no entries has no day book", async () => {
+	const { text } = await get(onRequestGetPage, "mallow", env(plot()));
+
+	assert.equal(text.includes("What happened here"), false);
+});
+
+test("an entry cannot carry markup into a deed", async () => {
+	const { text } = await get(
+		onRequestGetPage,
+		"mallow",
+		env(plot(), null, {}, [
+			entry({ detail: '{"thing":"<img src=x onerror=alert(1)>"}' }),
+		]),
+	);
+
+	assert.equal(text.includes("<img src=x"), false);
+	assert.ok(text.includes("&lt;img"));
+});
+
+// A kind this end has no words for is dropped, not printed raw.
+test("an entry with no words is left out", async () => {
+	const { text } = await get(
+		onRequestGetPage,
+		"mallow",
+		env(plot(), null, {}, [entry({ kind: "invented-later" })]),
+	);
+
+	assert.equal(text.includes("What happened here"), false);
+	assert.equal(text.includes("invented-later"), false);
 });

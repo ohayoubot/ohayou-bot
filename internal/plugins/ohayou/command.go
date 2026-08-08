@@ -134,6 +134,7 @@ func (g *Plugin) applyFlag(ctx context.Context, c command, nick string) {
 		g.log.Error("applying a flag", "id", c.ID, "nick", nick, "err", err)
 		return
 	}
+	g.record(eventFlag, nick, "", map[string]string{"deer": deer})
 	g.log.Info("request applied", "id", c.ID, "kind", c.Kind, "nick", nick, "flag", deer)
 }
 

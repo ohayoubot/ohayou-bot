@@ -45,7 +45,9 @@ func (g *Plugin) waitCatAdopt(ctx context.Context) {
 		}
 		if err := g.store.AddCat(g.ctx(), user.Username, 1); err != nil {
 			g.log.Error("add cat", "nick", user.Username, "err", err)
+			return
 		}
+		g.record(eventCat, user.Username, "", nil)
 	case <-time.After(15 * time.Second):
 		g.log.Info("event: cat wandered off (no taker)")
 		for _, c := range g.bot.Channels() {
