@@ -3,6 +3,8 @@
  * Terrain colours are mixed from the palette in site.css.
  */
 
+/* Repeated from terrain.js, which the card draws with.
+   tools/world.map.test.mjs fails if the two drift. */
 :root {
 	--sea: #050a1f;
 	--sea-lit: #0a1740;
@@ -11,7 +13,13 @@
 	--soil: #3d2f18;
 	--pasture: #2b5417;
 	--fallow: #574d33;
-	--hedge: #16300d;
+	--hedge: #0b1a06;
+	--crop-a: #2f5d18;
+	--crop-b: #38621a;
+	--crop-c: #4a5c1c;
+	--pen: #5b4526;
+	--yard: #33333d;
+	--spoil: #3b3833;
 }
 
 /* ---- masthead ---- */
@@ -141,24 +149,90 @@
 	fill: var(--pasture);
 }
 
-/* An acre with something on it is ploughed; the rest is grazing. */
-.worldmap .worked {
-	fill: var(--soil);
+/* ---- what an acre is under ---- */
+
+.worldmap .ground.crop-a {
+	fill: var(--crop-a);
+}
+.worldmap .ground.crop-b {
+	fill: var(--crop-b);
+}
+.worldmap .ground.crop-c {
+	fill: var(--crop-c);
+}
+.worldmap .ground.pen {
+	fill: var(--pen);
+}
+.worldmap .ground.yard {
+	fill: var(--yard);
+}
+.worldmap .ground.spoil {
+	fill: var(--spoil);
 }
 
+/* The rows worked into a crop, and the litter on a working acre. Both are the
+   ground's own colour lifted, so a field reads as one thing at a distance and
+   as rows close up. */
+.worldmap .furrow {
+	fill: none;
+	stroke-width: 0.07;
+	stroke-linecap: butt;
+}
+
+.worldmap .furrow.crop-a {
+	stroke: #23480f;
+}
+.worldmap .furrow.crop-b {
+	stroke: #2a4d12;
+}
+.worldmap .furrow.crop-c {
+	stroke: #616f27;
+}
+
+.worldmap .grit {
+	fill: none;
+	stroke-width: 0.06;
+	stroke-linecap: butt;
+}
+
+.worldmap .grit.pen {
+	stroke: #6f5730;
+}
+.worldmap .grit.yard {
+	stroke: #43434f;
+}
+.worldmap .grit.spoil {
+	stroke: #4d493f;
+}
+
+/* ---- the fence ---- */
+
+/* --fence is set per parcel in map.js, so a boundary keeps its weight at any
+   acreage: a hedge around a hundred acres is a stripe across a single one. */
 .worldmap .hedge {
 	fill: none;
 	stroke: var(--hedge);
-	stroke-width: 0.22;
+	stroke-width: var(--fence, 0.12);
+}
+
+/* Wealth is the strip along the foot of a parcel, which the key repeats. */
+.parcel[data-band] .strip {
+	fill: var(--band);
 }
 
 .worldmap .pole {
 	fill: var(--grey);
 }
 
-/* Wealth is the strip along the foot of a parcel, which the key repeats. */
+/* A deer flies on its own ground, not on whatever it happens to be over. */
+.worldmap .banner {
+	fill: #0b0b10;
+	stroke: var(--grey);
+	stroke-width: 0.05;
+}
+
 [data-band="newcomer"] {
-	--band: #2f5c22;
+	--band: #4a7a33;
 }
 [data-band="settler"] {
 	--band: var(--teal);
@@ -174,10 +248,6 @@
 }
 [data-band="tycoon"] {
 	--band: var(--magenta);
-}
-
-.parcel[data-band] .strip {
-	fill: var(--band);
 }
 
 .bands li[data-band] i {
@@ -198,9 +268,14 @@
 	stroke-linecap: round;
 }
 
+/* Unnamed land is pegged out, not fenced. */
 .parcel.unnamed .hedge {
 	stroke: #756848;
-	stroke-dasharray: 0.5 0.4;
+	stroke-dasharray: 0.4 0.35;
+}
+
+.parcel.unnamed .field {
+	fill: var(--fallow);
 }
 
 /* Sized in map.js, which also clips the nick to fit. */
@@ -215,20 +290,15 @@
 	pointer-events: none;
 }
 
-.parcel:hover .worked,
-.parcel:focus-visible .worked {
-	fill: #3f3018;
-}
-
 .parcel:hover .hedge,
 .parcel:focus-visible .hedge,
 .parcel.picked .hedge {
-	stroke-width: 0.4;
+	stroke-width: calc(var(--fence, 0.12) * 2.4);
 }
 
+/* Yours is the one with a bright fence round it. */
 .parcel.mine .hedge {
 	stroke: var(--lime);
-	stroke-width: 0.4;
 }
 
 .parcel.unnamed .nameplate {

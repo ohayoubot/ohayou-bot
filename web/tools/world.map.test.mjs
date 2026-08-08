@@ -9,8 +9,14 @@ import {
 	MAX_ROWS,
 	toRects,
 } from "../public/deerkins/kins.js";
-import { ACRELIMIT, acresFor } from "../public/ohayou/catalog.js";
-import { layout, usage, VERGE, worldLayout } from "../public/ohayou/plot.js";
+import { ACRELIMIT, acresFor, groundFor } from "../public/ohayou/catalog.js";
+import {
+	fieldOf,
+	layout,
+	usage,
+	VERGE,
+	worldLayout,
+} from "../public/ohayou/plot.js";
 import {
 	SPRITE_SIZE,
 	SPRITES,
@@ -166,6 +172,76 @@ test("worked and spare acres add up", () => {
 	assert.equal(acres, 9);
 	assert.equal(built, 2);
 	assert.equal(spare, 7);
+});
+
+/*
+ * Buildings gather into a steading in one corner. Scattering them evenly is
+ * what made a large holding read as icons sprinkled over a rectangle, so this
+ * is a look worth keeping rather than an implementation detail.
+ */
+test("a holding's buildings gather in one corner", () => {
+	const big = plot({
+		acres: 100,
+		land: { cat: 200, quarry: 6, workshop: 20, refinery: 4 },
+	});
+	const { tiles, wide } = layout(big);
+
+	const at = tiles.flatMap((t, i) =>
+		t ? [[i % wide, Math.floor(i / wide)]] : [],
+	);
+	assert.ok(at.length > 8, "not enough built acres to judge");
+
+	// 24 acres of buildings on a 10 by 10 holding: a steading of about five
+	// tiles a side, not a sprinkling across all ten.
+	const xs = at.map(([x]) => x);
+	const ys = at.map(([, y]) => y);
+	const spanX = Math.max(...xs) - Math.min(...xs) + 1;
+	const spanY = Math.max(...ys) - Math.min(...ys) + 1;
+	const room = Math.ceil(Math.sqrt(at.length)) + 2;
+	assert.ok(spanX <= room, `buildings span ${spanX} columns, wanted ${room}`);
+	assert.ok(spanY <= room, `buildings span ${spanY} rows, wanted ${room}`);
+	assert.ok(spanX < wide && spanY < wide, "the steading fills the holding");
+
+	const held = new Set(at.map(([x, y]) => `${x},${y}`));
+	const touching = at.filter(([x, y]) =>
+		[
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1],
+		].some(([dx, dy]) => held.has(`${x + dx},${y + dy}`)),
+	);
+	assert.equal(touching.length, at.length, "a building stands on its own");
+});
+
+test("the crops are stable, in range, and a field is more than an acre", () => {
+	const of = (x, y) => fieldOf("Mallow", x, y);
+
+	for (let y = 0; y < 6; y++) {
+		for (let x = 0; x < 6; x++) {
+			assert.ok(Number.isInteger(of(x, y)) && of(x, y) >= 0 && of(x, y) < 3);
+			assert.equal(of(x, y), fieldOf("Mallow", x, y), "not deterministic");
+		}
+	}
+	// A field is a block, so its acres agree with each other.
+	assert.equal(of(0, 0), of(1, 1));
+	assert.equal(of(2, 2), of(3, 3));
+
+	// And a different holding farms its land differently.
+	const across = (id) =>
+		[0, 2, 4, 6].flatMap((y) => [0, 2, 4, 6].map((x) => fieldOf(id, x, y)));
+	assert.notDeepEqual(across("Mallow"), across("someone-else"));
+});
+
+// The ground under a thing is what stops the map reading as icons on a lawn.
+test("everything that takes land has ground to stand on", () => {
+	for (const item of Object.keys(ACRELIMIT)) {
+		const ground = groundFor(item);
+		assert.ok(
+			TERRAIN[ground],
+			`${item} stands on ${ground}, which has no colour`,
+		);
+	}
 });
 
 /* ---- the world ---- */
