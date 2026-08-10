@@ -80,6 +80,13 @@ function wanted(params) {
 	return trimmed && trimmed.length <= MAX_NICK ? trimmed : null;
 }
 
+const CARD_HEADERS = {
+	"content-type": "image/svg+xml; charset=utf-8",
+	"cache-control": "public, max-age=300",
+	"content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",
+	"x-content-type-options": "nosniff",
+};
+
 export const onRequestGetCard = guard(async ({ params, env }) => {
 	const name = wanted(params);
 	if (!name) return fail(400, "no name given");
@@ -88,14 +95,23 @@ export const onRequestGetCard = guard(async ({ params, env }) => {
 	if (!found) return fail(404, "no plot by that name");
 
 	return new Response(card(found.plot, found.flag, place(env)), {
-		headers: {
-			"content-type": "image/svg+xml; charset=utf-8",
-			"cache-control": "public, max-age=300",
-			"content-security-policy":
-				"default-src 'none'; style-src 'unsafe-inline'",
-			"x-content-type-options": "nosniff",
-		},
+		headers: CARD_HEADERS,
 	});
+});
+
+/**
+ * Some link previewers check an image with HEAD before they fetch it. Without
+ * this the asset handler answers instead, and an image url that replies with a
+ * page is an image they drop.
+ */
+export const onRequestHeadCard = guard(async ({ params, env }) => {
+	const name = wanted(params);
+	if (!name) return fail(400, "no name given");
+
+	const found = await lookup(env, name);
+	if (!found) return fail(404, "no plot by that name");
+
+	return new Response(null, { headers: CARD_HEADERS });
 });
 
 export const onRequestGetPage = guard(async ({ request, params, env }) => {
@@ -181,8 +197,13 @@ function page({ plot, history }, image, href, { channel, network }) {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(summary)}">
 <meta property="og:image" content="${esc(image)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(title)}">
 <meta property="og:url" content="${esc(href)}">
-<meta name="twitter:card" content="summary_large_image">`;
+<meta property="og:site_name" content="hemera.day">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${esc(image)}">`;
 
 	const body = `  <section class="masthead">
     <div>
