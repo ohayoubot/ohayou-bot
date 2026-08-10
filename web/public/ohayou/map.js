@@ -340,14 +340,25 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 		for (const sprite of cluster(tile, cx, cy)) g.append(sprite);
 	});
 
-	// After the buildings: a boundary a sprite can overrun is not a boundary.
-	g.append(el("rect", { class: "hedge", x: 0, y: 0, width: w, height: h }));
+	// Outside the boundary rather than astride it: half a stroke over a hundred
+	// acres is nothing, over a single one it is a lid. After the buildings,
+	// since a boundary a sprite can overrun is not a boundary.
+	const thick = fence(w, h);
+	g.append(
+		el("rect", {
+			class: "hedge",
+			x: -thick / 2,
+			y: -thick / 2,
+			width: w + thick,
+			height: h + thick,
+		}),
+	);
 
 	// Wealth is the strip along the foot, which the key repeats. Sized against
 	// the parcel like the fence: a fixed strip is a third of a single acre and
 	// a hairline across four hundred.
 	if (plot.named) {
-		const deep = fence(w, h) * 1.7;
+		const deep = thick * 1.7;
 		g.append(
 			el("rect", { class: "strip", x: 0, y: h - deep, width: w, height: deep }),
 		);
@@ -375,9 +386,9 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 }
 
 /** How thick a parcel's boundary is, in tiles: a share of its short side, and
-    never so thin it vanishes nor so thick it eats the field. */
+    never so thin it vanishes nor so thick it frames a single acre. */
 function fence(w, h) {
-	return Math.min(0.18, Math.max(0.06, Math.min(w, h) * 0.06));
+	return Math.min(0.18, Math.max(0.04, Math.min(w, h) * 0.04));
 }
 
 /**

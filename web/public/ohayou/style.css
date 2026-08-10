@@ -290,10 +290,13 @@
 	pointer-events: none;
 }
 
+/* Pointed at: a brighter boundary rather than a much fatter one, which on a
+   single acre is a box round the whole holding. */
 .parcel:hover .hedge,
 .parcel:focus-visible .hedge,
 .parcel.picked .hedge {
-	stroke-width: calc(var(--fence, 0.12) * 2.4);
+	stroke: var(--silver);
+	stroke-width: calc(var(--fence, 0.12) * 1.6);
 }
 
 /* Yours is the one with a bright fence round it. */
