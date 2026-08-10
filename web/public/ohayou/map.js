@@ -304,7 +304,12 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 	// The fence is drawn against the parcel rather than against the map: a
 	// stroke that reads as a hedge around a hundred acres is a stripe across a
 	// single one. Everything else that outlines the parcel follows it.
-	g.style.setProperty("--fence", fence(w, h));
+	// The lit weight is set here, not with calc() in css: firefox refuses a
+	// calc() resolving to a unitless number for stroke-width and falls back to
+	// a stroke a whole user unit wide.
+	const thick = fence(w, h);
+	g.style.setProperty("--fence", String(thick));
+	g.style.setProperty("--fence-lit", String(round(thick * LIT)));
 
 	// Bare ground under everything, so a partial last row is not a hole.
 	g.append(
@@ -343,7 +348,6 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 	// Outside the boundary rather than astride it: half a stroke over a hundred
 	// acres is nothing, over a single one it is a lid. After the buildings,
 	// since a boundary a sprite can overrun is not a boundary.
-	const thick = fence(w, h);
 	g.append(
 		el("rect", {
 			class: "hedge",
@@ -385,10 +389,18 @@ function drawParcel(parcel, { flags, mine, onPick, offset }) {
 	return g;
 }
 
+/** How much heavier a boundary is when the parcel is pointed at. */
+const LIT = 1.6;
+
 /** How thick a parcel's boundary is, in tiles: a share of its short side, and
     never so thin it vanishes nor so thick it frames a single acre. */
 function fence(w, h) {
 	return Math.min(0.18, Math.max(0.04, Math.min(w, h) * 0.04));
+}
+
+/** Trims the float noise off a css value. */
+function round(n) {
+	return Math.round(n * 1000) / 1000;
 }
 
 /**

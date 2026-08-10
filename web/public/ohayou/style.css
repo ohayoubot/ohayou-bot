@@ -291,12 +291,13 @@
 }
 
 /* Pointed at: a brighter boundary rather than a much fatter one, which on a
-   single acre is a box round the whole holding. */
+   single acre is a box round the whole holding. Both weights come from map.js
+   ready to use; see the note there about calc() and stroke-width. */
 .parcel:hover .hedge,
 .parcel:focus-visible .hedge,
 .parcel.picked .hedge {
 	stroke: var(--silver);
-	stroke-width: calc(var(--fence, 0.12) * 1.6);
+	stroke-width: var(--fence-lit, 0.19);
 }
 
 /* Yours is the one with a bright fence round it. */
