@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -22,29 +23,41 @@ const publishSecret = "0123456789abcdef0123456789abcdef"
 // publishedTable is one call the site received.
 type publishedTable struct {
 	Table string            `json:"table"`
+	Mode  string            `json:"mode"`
+	Keep  int               `json:"keep"`
 	Rows  []json.RawMessage `json:"rows"`
 }
 
-// fakeSite records what the bot published, the way the worker would.
+// fakeSite records what the bot published, the way the worker would: a replace
+// swaps the table, an append adds to it and trims the oldest away.
 type fakeSite struct {
 	server *httptest.Server
 
 	mu   sync.Mutex
 	got  []publishedTable
+	held map[string]map[int64]json.RawMessage
 	fail bool
+	// short answers with a table one row shorter than it is, which is what the
+	// two ends drifting apart looks like from here.
+	short bool
 }
 
 func newSite(t *testing.T) *fakeSite {
 	t.Helper()
-	s := &fakeSite{}
+	s := &fakeSite{held: map[string]map[int64]json.RawMessage{}}
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body publishedTable
 		_ = json.NewDecoder(r.Body).Decode(&body)
 
 		s.mu.Lock()
 		failing := s.fail
+		total := 0
 		if !failing {
 			s.got = append(s.got, body)
+			total = s.apply(body)
+			if s.short {
+				total--
+			}
 		}
 		s.mu.Unlock()
 
@@ -54,10 +67,54 @@ func newSite(t *testing.T) *fakeSite {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"published","rows":%d}`, len(body.Rows))))
+		_, _ = w.Write([]byte(fmt.Sprintf(
+			`{"status":"published","rows":%d,"total":%d}`, len(body.Rows), total)))
 	}))
 	t.Cleanup(s.server.Close)
 	return s
+}
+
+// apply writes the rows the way ingest.js would and returns what the table
+// holds afterwards. Called with the lock held.
+func (s *fakeSite) apply(body publishedTable) int {
+	if body.Mode != "append" || s.held[body.Table] == nil {
+		s.held[body.Table] = map[int64]json.RawMessage{}
+	}
+	rows := s.held[body.Table]
+	for i, raw := range body.Rows {
+		rows[rowID(raw, int64(i))] = raw
+	}
+
+	// The trim, newest ids kept.
+	if body.Mode == "append" && body.Keep > 0 && len(rows) > body.Keep {
+		ids := make([]int64, 0, len(rows))
+		for id := range rows {
+			ids = append(ids, id)
+		}
+		sort.Slice(ids, func(a, b int) bool { return ids[a] > ids[b] })
+		for _, id := range ids[body.Keep:] {
+			delete(rows, id)
+		}
+	}
+	return len(rows)
+}
+
+// rowID is a row's id, or fallback for a table that has none.
+func rowID(raw json.RawMessage, fallback int64) int64 {
+	var row struct {
+		ID *int64 `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &row); err == nil && row.ID != nil {
+		return *row.ID
+	}
+	return fallback
+}
+
+// holds is how many rows of a table the site is left with.
+func (s *fakeSite) holds(table string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.held[table])
 }
 
 func (s *fakeSite) calls() []publishedTable {
@@ -365,6 +422,104 @@ func TestAFailedPublishIsRetried(t *testing.T) {
 
 	if len(site.calls()) != publishedTables {
 		t.Errorf("after recovery the projection was not re-sent: %+v", site.calls())
+	}
+}
+
+// event writes one line of the chronicle and returns the game's view of it.
+func chronicled(t *testing.T, db *sqlite.DB, kind, actor, subject string) {
+	t.Helper()
+	e := store.Event{TS: time.Now(), Kind: kind, Actor: actor, Subject: subject}
+	if err := db.RecordEvent(context.Background(), e, eventLog); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+}
+
+// Adding a line to the chronicle should cost a line, not the whole feed. This
+// is most of what the site is asked to write, so it is most of the budget.
+func TestANewEntryIsAppendedRatherThanTheWholeChronicle(t *testing.T) {
+	ctx := context.Background()
+	g, db, site := publishingGame(t)
+	player(t, db, "mallow", "MallowAcct", store.VisibilityPublic)
+	chronicled(t, db, eventCat, "mallow", "")
+
+	g.publish(ctx)
+	if first := lastCall(site, tableEvent); first.Mode != "" || len(first.Rows) != 1 {
+		t.Fatalf("the first publish was %q with %d rows, want the whole feed",
+			first.Mode, len(first.Rows))
+	}
+
+	chronicled(t, db, eventCat, "mallow", "")
+	g.publish(ctx)
+
+	got := lastCall(site, tableEvent)
+	if got.Mode != "append" || len(got.Rows) != 1 {
+		t.Errorf("sent %q with %d rows, want one appended", got.Mode, len(got.Rows))
+	}
+	if got.Keep != eventFeed {
+		t.Errorf("asked the site to keep %d, want %d", got.Keep, eventFeed)
+	}
+	if held := site.holds(tableEvent); held != 2 {
+		t.Errorf("the site holds %d entries, want both", held)
+	}
+}
+
+// Withdrawing a name rewrites every entry that carried it, which an append
+// cannot do: the whole feed has to go again.
+func TestWithdrawingANameRepublishesTheWholeChronicle(t *testing.T) {
+	ctx := context.Background()
+	g, db, site := publishingGame(t)
+	player(t, db, "mallow", "MallowAcct", store.VisibilityPublic)
+	chronicled(t, db, eventCat, "mallow", "")
+
+	g.publish(ctx)
+	if err := db.SetVisibility(ctx, "mallow", store.VisibilityHidden); err != nil {
+		t.Fatal(err)
+	}
+	g.publish(ctx)
+
+	got := lastCall(site, tableEvent)
+	if got.Mode != "" {
+		t.Errorf("sent %q, want the whole feed", got.Mode)
+	}
+	if len(got.Rows) != 1 || strings.Contains(string(got.Rows[0]), "mallow") {
+		t.Errorf("the republished entry still names them: %s", got.Rows)
+	}
+}
+
+// If the site does not hold what we think it holds, stop appending to it.
+func TestASiteHoldingSomethingElseIsSentTheWholeChronicle(t *testing.T) {
+	ctx := context.Background()
+	g, db, site := publishingGame(t)
+	player(t, db, "mallow", "MallowAcct", store.VisibilityPublic)
+	chronicled(t, db, eventCat, "mallow", "")
+
+	site.mu.Lock()
+	site.short = true
+	site.mu.Unlock()
+	g.publish(ctx)
+
+	chronicled(t, db, eventCat, "mallow", "")
+	g.publish(ctx)
+
+	if got := lastCall(site, tableEvent); got.Mode != "" || len(got.Rows) != 2 {
+		t.Errorf("sent %q with %d rows, want the whole feed", got.Mode, len(got.Rows))
+	}
+}
+
+// A quiet chronicle is not sent again, appended or otherwise.
+func TestAnUnchangedChronicleIsNotSentAgain(t *testing.T) {
+	ctx := context.Background()
+	g, db, site := publishingGame(t)
+	player(t, db, "mallow", "MallowAcct", store.VisibilityPublic)
+	chronicled(t, db, eventCat, "mallow", "")
+
+	g.publish(ctx)
+	before := len(site.calls())
+	g.publish(ctx)
+	g.publish(ctx)
+
+	if got := len(site.calls()); got != before {
+		t.Errorf("%d calls after two idle rounds, want %d", got, before)
 	}
 }
 

@@ -13,8 +13,10 @@
  * grant's payload is raw bytes starting with a version byte, so neither can be
  * replayed as the other under the shared key.
  *
- * Body: plugin, table, generation, ts, rows. A publish replaces the table
- * outright, so a player who withdrew consent is absent rather than stale.
+ * Body: plugin, table, generation, ts, rows, and optionally mode and keep. A
+ * publish replaces the table outright, so a player who withdrew consent is
+ * absent rather than stale. mode "append" instead adds the rows and trims to
+ * the newest keep of them, which is what the chronicle grows by.
  */
 
 import { b64urlDecode } from "../hmac.js";
@@ -78,6 +80,13 @@ const TABLES = {
 /** Which binding a plugin's tables live in. */
 const BINDINGS = { ohayou: "GAME" };
 
+/** The tables an append may be aimed at, and the column rows are trimmed by.
+    Appending to the world would leave a withdrawn name on the map. */
+const APPENDABLE = { ohayou: { event: "id" } };
+
+/** The most rows an append may ask to keep. */
+const MAX_KEEP = 5000;
+
 export const onRequestPost = guard(async ({ request, env }) => {
 	if (!env.OHAYOU_WEB_SECRET) return fail(503, "ingest is not configured");
 
@@ -135,36 +144,73 @@ export const onRequestPost = guard(async ({ request, env }) => {
 		return json({ status: "stale", generation: seen.generation });
 	}
 
-	await replace(db, body, columns, rows);
+	const total =
+		body.mode === "append"
+			? await append(db, body, columns, rows)
+			: await replace(db, body, columns, rows);
 
 	console.log(
-		`ingest: ${body.plugin}.${body.table} generation ${body.generation}, ${rows.length} rows`,
+		`ingest: ${body.plugin}.${body.table} generation ${body.generation}, ${
+			body.mode === "append" ? `${rows.length} appended, ${total}` : rows.length
+		} rows`,
 	);
-	return json({ status: "published", rows: rows.length });
+	return json({ status: "published", rows: rows.length, total });
 });
 
 /** One batch, which D1 runs as a transaction: no half-published table. */
 async function replace(db, body, columns, rows) {
 	const names = Object.keys(columns);
-	const placeholders = names.map((_, i) => `?${i + 1}`).join(", ");
 	const insert = db.prepare(
-		`INSERT INTO ${body.table} (${names.join(", ")}) VALUES (${placeholders})`,
+		`INSERT INTO ${body.table} (${names.join(", ")}) VALUES (${holes(names)})`,
 	);
 
 	await db.batch([
 		db.prepare(`DELETE FROM ${body.table}`),
 		...rows.map((row) => insert.bind(...names.map((name) => row[name]))),
+		stamp(db, body),
+	]);
+	return rows.length;
+}
+
+/** Adds rows and trims the tail in one batch, returning what the table holds
+    afterwards: how the bot notices the two ends have drifted apart. */
+async function append(db, body, columns, rows) {
+	const key = APPENDABLE[body.plugin][body.table];
+	const names = Object.keys(columns);
+	// OR REPLACE, so a row published twice lands rather than failing the batch.
+	const insert = db.prepare(
+		`INSERT OR REPLACE INTO ${body.table} (${names.join(", ")})
+     VALUES (${holes(names)})`,
+	);
+
+	const done = await db.batch([
+		...rows.map((row) => insert.bind(...names.map((name) => row[name]))),
 		db
 			.prepare(
-				`INSERT INTO publish (plugin, table_name, generation, rows, updated)
-         VALUES (?1, ?2, ?3, ?4, ?5)
-         ON CONFLICT (plugin, table_name) DO UPDATE SET
-           generation = excluded.generation,
-           rows = excluded.rows,
-           updated = excluded.updated`,
+				`DELETE FROM ${body.table} WHERE ${key} NOT IN
+         (SELECT ${key} FROM ${body.table} ORDER BY ${key} DESC LIMIT ?1)`,
 			)
-			.bind(body.plugin, body.table, body.generation, rows.length, Date.now()),
+			.bind(body.keep),
+		stamp(db, body),
+		db.prepare(`SELECT COUNT(*) AS held FROM ${body.table}`),
 	]);
+	return done.at(-1)?.results?.[0]?.held ?? 0;
+}
+
+const holes = (names) => names.map((_, i) => `?${i + 1}`).join(", ");
+
+/** The publish row: what landed, how much is there, and when. */
+function stamp(db, body) {
+	return db
+		.prepare(
+			`INSERT INTO publish (plugin, table_name, generation, rows, updated)
+       VALUES (?1, ?2, ?3, (SELECT COUNT(*) FROM ${body.table}), ?4)
+       ON CONFLICT (plugin, table_name) DO UPDATE SET
+         generation = excluded.generation,
+         rows = excluded.rows,
+         updated = excluded.updated`,
+		)
+		.bind(body.plugin, body.table, body.generation, Date.now());
 }
 
 function validate(body) {
@@ -179,6 +225,22 @@ function validate(body) {
 		return "bad generation";
 	}
 	if (!Number.isSafeInteger(body.ts)) return "bad timestamp";
+
+	if (body.mode !== undefined && !["replace", "append"].includes(body.mode)) {
+		return `unknown mode ${body.mode}`;
+	}
+	if (body.mode === "append") {
+		if (!APPENDABLE[body.plugin]?.[body.table]) {
+			return `${body.plugin}.${body.table} may not be appended to`;
+		}
+		if (
+			!Number.isSafeInteger(body.keep) ||
+			body.keep < 1 ||
+			body.keep > MAX_KEEP
+		) {
+			return "bad keep";
+		}
+	}
 
 	const age = Math.abs(Math.floor(Date.now() / 1000) - body.ts);
 	if (age > MAX_AGE) return `timestamp is ${age}s off`;

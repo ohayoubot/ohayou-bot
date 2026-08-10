@@ -52,6 +52,11 @@ type Plugin struct {
 	// is not sent again.
 	published map[string][32]byte
 
+	// sentEvents is the chronicle the site was last given, by id, so a publish
+	// can send only what is new. Nil until it has been told anything, which is
+	// also how a restart or a disagreement asks for the whole feed.
+	sentEvents map[int64]Event
+
 	cfg      Config
 	items    []store.Item
 	fortunes []string
