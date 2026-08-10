@@ -85,4 +85,13 @@ func TestFormatItemLine(t *testing.T) {
 	if got := formatItemLine(plain); got != "cat - 12 ohayous - a cat" {
 		t.Errorf("plain line = %q", got)
 	}
+	part := store.Item{Name: "gear", Desc: "a mechanical gear"}
+	if got := formatItemLine(part); got != "gear - not for sale, must be crafted - a mechanical gear" {
+		t.Errorf("craftable line = %q", got)
+	}
+	building := store.Item{Name: "workshop", Desc: "a workshop", Acrelimit: 5}
+	want := "workshop: a workshop - Not for sale, must be crafted. Limited to 5 per acre."
+	if got := formatItemLine(building); got != want {
+		t.Errorf("craftable acre-limited line = %q", got)
+	}
 }

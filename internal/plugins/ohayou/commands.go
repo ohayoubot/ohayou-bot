@@ -199,6 +199,12 @@ func (g *Plugin) cmdItem(m *bot.Message) {
 		g.say(to, "I don't carry that item.")
 		return
 	}
+	if _, craftable := recipes[item.Name]; craftable {
+		g.say(to, fmt.Sprintf("%s: %s. Not for sale -- it must be crafted. Type %sbuild %s "+
+			"to build it, or %srecipe %s to see what it needs.",
+			item.Name, item.Desc, g.p(), item.Name, g.p(), item.Name))
+		return
+	}
 	if !item.Purchase {
 		g.say(to, fmt.Sprintf("%s: %s. Cannot be purchased.", item.Name, item.Desc))
 		return
@@ -516,6 +522,13 @@ func (g *Plugin) cmdTop(m *bot.Message) {
 }
 
 func formatItemLine(item store.Item) string {
+	if _, craftable := recipes[item.Name]; craftable {
+		if item.Acrelimit > 0 {
+			return fmt.Sprintf("%s: %s - Not for sale, must be crafted. Limited to %d per acre.",
+				item.Name, item.Desc, item.Acrelimit)
+		}
+		return fmt.Sprintf("%s - not for sale, must be crafted - %s", item.Name, item.Desc)
+	}
 	if item.Acrelimit > 0 {
 		return fmt.Sprintf("%s: %s - Price: %d ohayous. Limited to %d per acre.",
 			item.Name, item.Desc, item.Price, item.Acrelimit)
