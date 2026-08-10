@@ -436,6 +436,11 @@
 	text-align: right;
 }
 
+.deed .more {
+	margin: 0.9rem 0 0;
+	font-size: 0.85rem;
+}
+
 .deed .deer {
 	margin: 0.8rem 0 0;
 }

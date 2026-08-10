@@ -68,6 +68,22 @@ export function ago(ts, now = Date.now()) {
 	return `${Math.floor(seconds / 86_400)}d`;
 }
 
+/** One entry as a row of the day book, drawn the same way on every page. */
+export function entry(item, now = Date.now()) {
+	const li = document.createElement("li");
+	li.className = "entry";
+
+	const when = document.createElement("time");
+	when.dateTime = new Date(item.ts * 1000).toISOString();
+	when.textContent = ago(item.ts, now);
+
+	const said = document.createElement("p");
+	said.textContent = item.said;
+
+	li.append(when, said);
+	return li;
+}
+
 /** The events that have words, newest first, each with its sentence. */
 export function readable(events, limit = Number.POSITIVE_INFINITY) {
 	const out = [];

@@ -6,6 +6,7 @@
 import { normalise, toDataURL } from "../deerkins/kins.js";
 import { load, shell } from "../shell.js";
 import { nameOf } from "./catalog.js";
+import { entry, readable } from "./chronicle.js";
 import { ANONYMOUS, drawWorld } from "./map.js";
 import { usage } from "./plot.js";
 import { spriteURL } from "./sprites.js";
@@ -23,6 +24,7 @@ async function start() {
 	const [world, session] = await Promise.all([
 		load("/ohayou/api/world"),
 		shell({ area: "ohayou", current: "/ohayou/" }),
+		lately(),
 	]);
 	if (!world) {
 		$("#loading").textContent =
@@ -65,6 +67,21 @@ async function start() {
 		$("#signedout").hidden = true;
 		await file(own);
 	}
+}
+
+/* ---- what has been happening ---- */
+
+/** How many entries the map shows before sending you to the day book. */
+const LATELY = 8;
+
+async function lately() {
+	const feed = await load("/ohayou/api/lately");
+	const entries = readable(feed?.events, LATELY);
+	if (entries.length === 0) return;
+
+	const now = Date.now();
+	$("#entries").replaceChildren(...entries.map((item) => entry(item, now)));
+	$("#lately").hidden = false;
 }
 
 /**
@@ -178,6 +195,12 @@ function deed(plot) {
 
 	if (plot.named) {
 		parts.push(holdings(plot.land) ?? hint("Nothing built on it yet."));
+		parts.push(
+			more(
+				`/ohayou/lately?nick=${encodeURIComponent(plot.nick)}`,
+				"What they have been up to",
+			),
+		);
 	} else {
 		parts.push(
 			hint(
@@ -425,6 +448,16 @@ function hint(text) {
 	const p = document.createElement("p");
 	p.className = "hint";
 	p.textContent = text;
+	return p;
+}
+
+function more(href, text) {
+	const p = document.createElement("p");
+	p.className = "more";
+	const a = document.createElement("a");
+	a.href = href;
+	a.textContent = text;
+	p.append(a);
 	return p;
 }
 

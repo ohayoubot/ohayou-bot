@@ -7,7 +7,7 @@
  */
 
 import { load, shell } from "../shell.js";
-import { ago, readable } from "./chronicle.js";
+import { ago, entry, readable } from "./chronicle.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -33,7 +33,7 @@ async function start() {
 	}
 
 	const now = Date.now();
-	$("#entries").replaceChildren(...entries.map((entry) => line(entry, now)));
+	$("#entries").replaceChildren(...entries.map((item) => entry(item, now)));
 	$("#footnote").textContent = feed?.updated
 		? `Surveyed ${ago(Math.floor(feed.updated / 1000), now)} ago.`
 		: "";
@@ -53,21 +53,6 @@ function empty(nick) {
 		? "Nothing on file for that name. Either nobody by it plays, or they hold land without their name on it."
 		: "Nothing has happened yet.";
 	$("#entries").replaceChildren(li);
-}
-
-function line(entry, now) {
-	const li = document.createElement("li");
-	li.className = "entry";
-
-	const when = document.createElement("time");
-	when.dateTime = new Date(entry.ts * 1000).toISOString();
-	when.textContent = ago(entry.ts, now);
-
-	const said = document.createElement("p");
-	said.textContent = entry.said;
-
-	li.append(when, said);
-	return li;
 }
 
 start();
