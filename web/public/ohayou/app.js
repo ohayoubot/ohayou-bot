@@ -195,10 +195,11 @@ function deed(plot) {
 
 	if (plot.named) {
 		parts.push(holdings(plot.land) ?? hint("Nothing built on it yet."));
+		const nick = encodeURIComponent(plot.nick);
 		parts.push(
 			more(
-				`/ohayou/lately?nick=${encodeURIComponent(plot.nick)}`,
-				"What they have been up to",
+				[`/ohayou/p/${nick}`, "The whole deed"],
+				[`/ohayou/lately?nick=${nick}`, "Entries on file"],
 			),
 		);
 	} else {
@@ -451,13 +452,16 @@ function hint(text) {
 	return p;
 }
 
-function more(href, text) {
+function more(...links) {
 	const p = document.createElement("p");
 	p.className = "more";
-	const a = document.createElement("a");
-	a.href = href;
-	a.textContent = text;
-	p.append(a);
+	for (const [href, text] of links) {
+		if (p.childNodes.length) p.append(" · ");
+		const a = document.createElement("a");
+		a.href = href;
+		a.textContent = text;
+		p.append(a);
+	}
 	return p;
 }
 
