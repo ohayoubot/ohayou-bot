@@ -555,6 +555,14 @@ button.quiet:active:not(:disabled) {
 	background: var(--panel);
 }
 
+/* A row of them at the foot of a section. */
+.cta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+	margin: 1.2rem 0 0;
+}
+
 /* ---- numbers ---- */
 
 .figure {

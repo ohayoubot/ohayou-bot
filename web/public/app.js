@@ -8,7 +8,7 @@
  */
 
 import { normalise, toDataURL } from "./deerkins/kins.js";
-import { ago, readable } from "./ohayou/chronicle.js";
+import { entry, readable } from "./ohayou/chronicle.js";
 import { drawWorld } from "./ohayou/map.js";
 import { spriteURL } from "./ohayou/sprites.js";
 import { load, places, SCOPES, shell, signin, site } from "./shell.js";
@@ -47,22 +47,7 @@ async function lately() {
 	if (entries.length === 0) return;
 
 	const now = Date.now();
-	$("#entries").replaceChildren(
-		...entries.map((entry) => {
-			const li = document.createElement("li");
-			li.className = "entry";
-
-			const when = document.createElement("time");
-			when.dateTime = new Date(entry.ts * 1000).toISOString();
-			when.textContent = ago(entry.ts, now);
-
-			const said = document.createElement("p");
-			said.textContent = entry.said;
-
-			li.append(when, said);
-			return li;
-		}),
-	);
+	$("#entries").replaceChildren(...entries.map((item) => entry(item, now)));
 	$("#lately").hidden = false;
 }
 
