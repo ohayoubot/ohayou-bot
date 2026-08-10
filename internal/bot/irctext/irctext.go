@@ -11,13 +11,18 @@ import (
 // "PRIVMSG <target> :" the bot writes and the trailing CRLF.
 const LineLimit = 512
 
+// SourceReserve holds back room for the ":nick!user@host " the server prepends
+// when it relays the line, which counts against the same 512 bytes. Worst case,
+// since a nick change or vhost rewrites it: 30 nick, 10 ident, 63 host, ":!@ ".
+const SourceReserve = len(":") + 30 + len("!") + 10 + len("@") + 63 + len(" ")
+
 const ellipsis = "..."
 
 // LineBudget is how many bytes of message survive the trip to target as one
 // line. It can be zero or negative for an absurdly long target, which callers
 // are expected to notice.
 func LineBudget(target string) int {
-	return LineLimit - len("PRIVMSG "+target+" :\r\n")
+	return LineLimit - SourceReserve - len("PRIVMSG "+target+" :\r\n")
 }
 
 // Fit trims msg to the target's budget, marking the cut with an ellipsis.

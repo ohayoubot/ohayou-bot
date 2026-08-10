@@ -30,9 +30,23 @@ func TestLineBudgetLeavesRoomForTheProtocol(t *testing.T) {
 	for _, target := range []string{"#c", "#a-fairly-long-channel-name", "someone"} {
 		budget := LineBudget(target)
 		line := "PRIVMSG " + target + " :" + strings.Repeat("@", budget) + "\r\n"
-		if len(line) != LineLimit {
-			t.Errorf("%q: a full line is %d bytes, want exactly %d", target, len(line), LineLimit)
+		if len(line)+SourceReserve != LineLimit {
+			t.Errorf("%q: a full line plus its source is %d bytes, want exactly %d",
+				target, len(line)+SourceReserve, LineLimit)
 		}
+	}
+}
+
+// The line the server relays carries a source prefix the bot never wrote, and
+// that is the line that has to fit.
+func TestLineBudgetSurvivesTheRelay(t *testing.T) {
+	const target = "#a-fairly-long-channel-name"
+	source := ":" + strings.Repeat("n", 30) + "!" + strings.Repeat("u", 10) +
+		"@" + strings.Repeat("h", 63) + " "
+
+	relayed := source + "PRIVMSG " + target + " :" + strings.Repeat("@", LineBudget(target)) + "\r\n"
+	if len(relayed) > LineLimit {
+		t.Errorf("the relayed line is %d bytes, over the %d limit", len(relayed), LineLimit)
 	}
 }
 
