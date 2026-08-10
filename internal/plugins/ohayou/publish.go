@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/ohayoubot/ohayou-bot/internal/store"
+	"github.com/ohayoubot/ohayou-bot/internal/web"
 )
 
 // saltKey holds the salt for anonymous plot ids. It must survive a restart: a
@@ -67,7 +69,77 @@ func (g *Plugin) publish(ctx context.Context) {
 		g.log.Error("building the chronicle", "err", err)
 		return
 	}
-	g.send(ctx, tableEvent, events)
+	g.sendEvents(ctx, events)
+}
+
+// sendEvents brings the site's chronicle up to date with the entries it has
+// not been given, so a new line costs a line rather than the whole feed. The
+// whole of it still goes when an entry the site holds has changed, which is
+// what withdrawing a name does to every entry naming you.
+func (g *Plugin) sendEvents(ctx context.Context, events []Event) {
+	fresh, whole := g.unsent(events)
+	switch {
+	case whole:
+		result, err := g.feed.Publish(ctx, tableEvent, events)
+		g.recordEvents(events, result, err, len(events))
+	case len(fresh) == 0:
+		return
+	default:
+		result, err := g.feed.Append(ctx, tableEvent, fresh, eventFeed)
+		g.recordEvents(events, result, err, len(fresh))
+	}
+}
+
+// unsent is what the site has not been given, and whether the whole feed has
+// to go instead: an entry it holds reads differently, or it holds nothing.
+func (g *Plugin) unsent(events []Event) ([]Event, bool) {
+	if g.sentEvents == nil {
+		return nil, true
+	}
+	var fresh []Event
+	for _, e := range events {
+		switch held, ok := g.sentEvents[e.ID]; {
+		case !ok:
+			fresh = append(fresh, e)
+		case !sameEvent(held, e):
+			return nil, true
+		}
+	}
+	return fresh, false
+}
+
+// recordEvents remembers what the site holds, and forgets it when the answer
+// says otherwise, which sends the whole feed next round.
+func (g *Plugin) recordEvents(events []Event, result web.Result, err error, sent int) {
+	if err != nil {
+		// Left unrecorded, so the next tick retries.
+		g.log.Error("publishing", "table", tableEvent, "err", err)
+		return
+	}
+	if !result.Published() {
+		g.log.Info("published", "table", tableEvent, "status", result.Status, "rows", sent)
+		return
+	}
+	if result.Total != len(events) {
+		g.sentEvents = nil
+		g.log.Warn("the site's chronicle is not ours",
+			"theirs", result.Total, "ours", len(events))
+		return
+	}
+
+	held := make(map[int64]Event, len(events))
+	for _, e := range events {
+		held[e.ID] = e
+	}
+	g.sentEvents = held
+	g.log.Info("published", "table", tableEvent, "status", result.Status,
+		"rows", sent, "held", result.Total)
+}
+
+func sameEvent(a, b Event) bool {
+	return a.ID == b.ID && a.TS == b.TS && a.Kind == b.Kind &&
+		a.Actor == b.Actor && a.Subject == b.Subject &&
+		maps.Equal(a.Detail, b.Detail)
 }
 
 // eventProjection is the newest events, with anyone hidden left unnamed.

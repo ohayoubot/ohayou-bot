@@ -157,6 +157,16 @@ body with `OHAYOU_WEB_SECRET` and this end makes the write.
 shape of a row. A field the bot starts sending is refused until it is added
 there. Treat a change to that list as a change to what is public.
 
+A publish replaces its table outright, so a player who withdrew consent is
+absent rather than stale. The chronicle is the exception: `mode: "append"` adds
+the entries the site does not have and trims to the newest `keep`, because
+rewriting two hundred rows to add one is most of a free plan's daily write
+budget. Only the tables in `APPENDABLE` take it, and the bot asks for it only
+when every entry the site holds is one it would have sent again — withdrawing a
+name rewrites past entries, and that goes as a replace. The answer carries
+`total`, the rows the table holds afterwards; when that is not what the bot
+expects, it sends the whole feed next round.
+
 The projection's shape changes with the game's. `CREATE TABLE IF NOT EXISTS`
 cannot add a column, so rebuild it:
 

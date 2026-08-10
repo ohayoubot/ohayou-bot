@@ -69,7 +69,11 @@ function db(seen = null) {
 			prepare: statement,
 			batch: async (statements) => {
 				batches.push(statements);
-				return statements.map(() => ({ meta: { changes: 1 } }));
+				return statements.map((s) =>
+					/SELECT COUNT/.test(s.sql)
+						? { results: [{ held: 3 }] }
+						: { meta: { changes: 1 } },
+				);
 			},
 		},
 	};
@@ -99,7 +103,7 @@ test("a signed publish lands", async () => {
 	const { response, body, env } = await post(publish());
 
 	assert.equal(response.status, 200);
-	assert.deepEqual(body, { status: "published", rows: 1 });
+	assert.deepEqual(body, { status: "published", rows: 1, total: 1 });
 
 	const [batch] = env.batches;
 	assert.match(batch[0].sql, /^DELETE FROM plot$/);
@@ -285,7 +289,7 @@ test("an empty publish is a publish", async () => {
 	const { response, body, env } = await post(publish({ rows: [] }));
 
 	assert.equal(response.status, 200);
-	assert.deepEqual(body, { status: "published", rows: 0 });
+	assert.deepEqual(body, { status: "published", rows: 0, total: 0 });
 	assert.match(env.batches[0][0].sql, /^DELETE FROM plot$/);
 });
 
@@ -318,13 +322,69 @@ function chronicle(overrides = {}) {
 	};
 }
 
+function appended(overrides = {}) {
+	return publish({
+		table: "event",
+		mode: "append",
+		keep: 200,
+		rows: [chronicle()],
+		...overrides,
+	});
+}
+
+// Rewriting two hundred entries to add one is most of a day's write budget.
+test("an append adds its rows and trims the tail, leaving the rest", async () => {
+	const { response, body, env } = await post(appended());
+
+	assert.equal(response.status, 200);
+	assert.deepEqual(body, { status: "published", rows: 1, total: 3 });
+
+	const [batch] = env.batches;
+	assert.equal(
+		batch.filter((s) => /^DELETE FROM event$/.test(s.sql)).length,
+		0,
+		"it emptied the table",
+	);
+	assert.match(batch[0].sql, /^INSERT OR REPLACE INTO event /);
+	assert.match(batch[1].sql, /DELETE FROM event WHERE id NOT IN/);
+	assert.ok(batch[1].params.includes(200), "the trim kept a different number");
+	assert.match(batch[2].sql, /INSERT INTO publish/);
+	assert.match(batch[3].sql, /SELECT COUNT\(\*\) AS held FROM event/);
+});
+
+// Appending to the world would leave a withdrawn name on the map.
+test("only the tables that may be appended to are", async () => {
+	for (const body of [
+		appended({ table: "plot", rows: [plot()] }),
+		appended({ table: "plot_private", rows: [] }),
+	]) {
+		const { response, env } = await post(body);
+		assert.equal(response.status, 400, body.table);
+		assert.equal(env.batches.length, 0);
+	}
+});
+
+test("an append with no sane trim is refused", async () => {
+	for (const keep of [undefined, 0, -1, 1.5, 5001, "200"]) {
+		const { response, env } = await post(appended({ keep }));
+		assert.equal(response.status, 400, JSON.stringify(keep));
+		assert.equal(env.batches.length, 0);
+	}
+});
+
+test("a mode nobody taught it is refused", async () => {
+	const { response, env } = await post(appended({ mode: "merge" }));
+	assert.equal(response.status, 400);
+	assert.equal(env.batches.length, 0);
+});
+
 test("the chronicle publishes", async () => {
 	const { response, body, env } = await post(
 		publish({ table: "event", rows: [chronicle()] }),
 	);
 
 	assert.equal(response.status, 200);
-	assert.deepEqual(body, { status: "published", rows: 1 });
+	assert.deepEqual(body, { status: "published", rows: 1, total: 1 });
 	assert.match(env.batches[0][1].sql, /^INSERT INTO event /);
 	assert.ok(env.batches[0][1].params.includes('{"took":"a purse of ohayous"}'));
 });

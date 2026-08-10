@@ -74,6 +74,9 @@ type body struct {
 	Generation int64  `json:"generation"`
 	TS         int64  `json:"ts"`
 	Rows       any    `json:"rows"`
+	// Mode is "append" or empty for a replace, and Keep goes with it.
+	Mode string `json:"mode,omitempty"`
+	Keep int    `json:"keep,omitempty"`
 }
 
 // Result is what the site did with a publish.
@@ -82,7 +85,11 @@ type Result struct {
 	// generation this high, which is what a retry of one that landed looks
 	// like. Not a failure.
 	Status string `json:"status"`
-	Rows   int    `json:"rows"`
+	// Rows is how many were written, Total how many the table holds now. They
+	// differ for an append, where Total is how the caller checks the two ends
+	// still agree.
+	Rows  int `json:"rows"`
+	Total int `json:"total"`
 }
 
 // Published reports whether the rows were taken.
@@ -96,22 +103,31 @@ func (r Result) Published() bool { return r.Status == "published" }
 // allows for the table. Anything else is refused there, so this end cannot
 // widen what is public by sending more.
 func (f *Feed) Publish(ctx context.Context, table string, rows any) (Result, error) {
+	return f.post(ctx, body{Table: table, Rows: rows})
+}
+
+// Append adds rows to a table and leaves the site holding the newest keep of
+// them, rather than rewriting the whole table to add one. Only the tables
+// ingest.js names as appendable take it, and only rows the site does not
+// already hold differently: an append cannot correct what is there.
+func (f *Feed) Append(ctx context.Context, table string, rows any, keep int) (Result, error) {
+	return f.post(ctx, body{Table: table, Rows: rows, Mode: "append", Keep: keep})
+}
+
+func (f *Feed) post(ctx context.Context, b body) (Result, error) {
 	if f == nil {
 		return Result{}, fmt.Errorf("web: no site to publish to")
 	}
 
+	b.Plugin = f.plugin
 	// Milliseconds rather than a counter, so this survives a restart with
 	// nothing written down. The site refuses a generation it has seen, so a
 	// clock going backwards costs a skipped publish rather than a wrong one.
-	generation := f.publisher.Now().UnixMilli()
+	b.Generation = f.publisher.Now().UnixMilli()
+	b.TS = f.publisher.Now().Unix()
 
-	raw, err := json.Marshal(body{
-		Plugin:     f.plugin,
-		Table:      table,
-		Generation: generation,
-		TS:         f.publisher.Now().Unix(),
-		Rows:       rows,
-	})
+	table := b.Table
+	raw, err := json.Marshal(b)
 	if err != nil {
 		return Result{}, fmt.Errorf("web: encoding a publish: %w", err)
 	}
