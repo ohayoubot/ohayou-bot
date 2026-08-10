@@ -89,6 +89,11 @@ func (b *Bot) helpIndex(target string) []string {
 
 	var lines []string
 	var sb strings.Builder
+	flush := func() {
+		// A topic long enough to fill a line on its own still gets trimmed.
+		lines = append(lines, irctext.Fit(target, sb.String()))
+		sb.Reset()
+	}
 	for _, t := range b.topics {
 		entry := t.Name
 		if t.Summary != "" {
@@ -98,15 +103,14 @@ func (b *Bot) helpIndex(target string) []string {
 		case sb.Len() == 0:
 			sb.WriteString("Topics: " + entry)
 		case sb.Len()+len("; ")+len(entry) > budget:
-			lines = append(lines, sb.String())
-			sb.Reset()
+			flush()
 			sb.WriteString(entry)
 		default:
 			sb.WriteString("; " + entry)
 		}
 	}
 	if sb.Len() > 0 {
-		lines = append(lines, sb.String())
+		flush()
 	}
 	return lines
 }
