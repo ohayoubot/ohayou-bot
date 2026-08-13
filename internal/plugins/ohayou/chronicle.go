@@ -198,10 +198,20 @@ func pack(events []store.Event, now time.Time, max, width int) []string {
 
 // chronicleURL is where the whole of it is, when there is a site.
 func (g *Plugin) chronicleURL() string {
+	return g.pageURL("/ohayou/lately")
+}
+
+// handbookURL is the written-out game, when there is a site.
+func (g *Plugin) handbookURL() string {
+	return g.pageURL("/ohayou/help")
+}
+
+// pageURL hangs a path off the configured site, or returns "" when there is none.
+func (g *Plugin) pageURL(path string) string {
 	if g.cfg.SiteURL == "" {
 		return ""
 	}
-	return strings.TrimSuffix(strings.TrimSuffix(g.cfg.SiteURL, "#"), "/") + "/ohayou/lately"
+	return strings.TrimSuffix(strings.TrimSuffix(g.cfg.SiteURL, "#"), "/") + path
 }
 
 // chronicle is the published tier: the newest events, with an actor named only

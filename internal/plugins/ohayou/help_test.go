@@ -6,7 +6,7 @@ import (
 )
 
 func TestHelpTopicsWellFormed(t *testing.T) {
-	topics := helpTopics("!")
+	topics := helpTopics("!", "https://hemera.day/ohayou/help")
 	if len(topics) == 0 {
 		t.Fatal("no help topics defined")
 	}
@@ -36,7 +36,7 @@ func TestHelpTopicsWellFormed(t *testing.T) {
 // An alias that collides with a topic name would shadow it, and one repeated
 // across topics would send a reader somewhere arbitrary.
 func TestHelpAliasesAreDistinct(t *testing.T) {
-	topics := helpTopics("!")
+	topics := helpTopics("!", "https://hemera.day/ohayou/help")
 
 	names := map[string]bool{}
 	for _, tp := range topics {
@@ -60,7 +60,7 @@ func TestHelpAliasesAreDistinct(t *testing.T) {
 // Every command the game registers should reach some help, or a reader who
 // types !help <command> is told there is none.
 func TestEveryGameCommandHasHelp(t *testing.T) {
-	topics := helpTopics("!")
+	topics := helpTopics("!", "https://hemera.day/ohayou/help")
 
 	covered := map[string]bool{}
 	for _, tp := range topics {
@@ -81,8 +81,34 @@ func TestEveryGameCommandHasHelp(t *testing.T) {
 	}
 }
 
+// The handbook is where a new player is sent, so !help has to carry it when
+// there is a site, and must not invent one when there isn't.
+func TestHelpCarriesTheHandbook(t *testing.T) {
+	const url = "https://hemera.day/ohayou/help"
+
+	sent := map[string]bool{}
+	for _, tp := range helpTopics("!", url) {
+		if strings.Contains(strings.Join(tp.Lines, " "), url) {
+			sent[tp.Name] = true
+		}
+	}
+	for _, name := range []string{"basics", "shop"} {
+		if !sent[name] {
+			t.Errorf("topic %q does not link the handbook", name)
+		}
+	}
+
+	for _, tp := range helpTopics("!", "") {
+		for _, line := range tp.Lines {
+			if strings.Contains(line, "http") {
+				t.Errorf("topic %q links a site the bot has not got: %q", tp.Name, line)
+			}
+		}
+	}
+}
+
 func TestHelpPrefixFoldedIn(t *testing.T) {
-	for _, tp := range helpTopics("@") {
+	for _, tp := range helpTopics("@", "https://hemera.day/ohayou/help") {
 		joined := strings.Join(tp.Lines, " ")
 		if strings.Contains(joined, "!ohayou") || strings.Contains(joined, "!buy") {
 			t.Errorf("topic %q leaked a hardcoded prefix: %q", tp.Name, joined)

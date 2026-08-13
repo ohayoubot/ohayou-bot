@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>the handbook · hemera.day</title>
+<meta name="description" content="How the ohayou game works, and everything you can buy or build in it, cheapest first.">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="The handbook">
+<meta property="og:description" content="Say !ohayou once a day. This is everything there is to spend it on.">
+<link rel="stylesheet" href="../site.css">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="../mark.svg" type="image/svg+xml">
+<script type="module" src="help-app.js"></script>
+</head>
+<body data-area="ohayou">
+
+<header class="shell">
+  <div>
+    <a class="brand" href="/">
+      <img src="/mark.svg" alt="" width="26" height="26">
+      <span><b>hemera</b>.day</span>
+      <i>land office</i>
+    </a>
+    <nav class="sitenav" id="sitenav" aria-label="Sections"></nav>
+    <div class="account" id="account"></div>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="masthead">
+    <div>
+      <p class="kicker">the handbook</p>
+      <h1>How ohayou works</h1>
+      <p class="lede">
+        The game is played in a channel. Say <code>!ohayou</code> once a day and
+        the bot pays you. Everything below is what there is to spend it on.
+      </p>
+    </div>
+  </section>
+
+  <section class="file">
+    <h2>The first day</h2>
+    <div class="rule"></div>
+    <ol class="steps">
+      <li>
+        <b>Say <code>!ohayou</code>.</b> You get your ration. Come back tomorrow
+        and say it again. Say it every day and the ration grows.
+      </li>
+      <li>
+        <b>Buy a cat.</b> <code>!buy cat</code> costs 12 and adds 1 to every
+        ration you draw from then on.
+      </li>
+      <li>
+        <b>Buy an acre.</b> Land is the cap on everything. Twenty cats fill one,
+        and most buildings want an acre to themselves.
+      </li>
+      <li>
+        <b>Dig.</b> A quarry and an oil well feed the crafting tree, and what you
+        build there pays you every ration for good.
+      </li>
+    </ol>
+    <p class="hint">
+      Miss a day and your streak resets. Nothing you own is lost. Check where you
+      stand with <code>!stats</code> and <code>!inventory</code>.
+    </p>
+  </section>
+
+  <section class="file">
+    <h2>The shop</h2>
+    <div class="rule"></div>
+    <p>
+      Everything the bot sells, cheapest first. Buy with
+      <code>!buy &lt;name&gt;</code>, or <code>!buy &lt;name&gt; max</code> to
+      spend what you have.
+    </p>
+
+    <div class="purse">
+      <label for="purse">Ohayous on hand</label>
+      <input type="number" id="purse" min="0" step="1" inputmode="numeric" placeholder="how many?">
+      <button type="button" class="quiet" id="clearpurse">Clear</button>
+      <span class="sort">
+        <label for="order">Order</label>
+        <select id="order">
+          <option value="price">cheapest first</option>
+          <option value="kind">by kind</option>
+        </select>
+      </span>
+      <output class="reach" id="reach" aria-live="polite"></output>
+    </div>
+
+    <div class="catalogue" id="shop"></div>
+  </section>
+
+  <section class="file">
+    <h2>Made, not bought</h2>
+    <div class="rule"></div>
+    <p>
+      None of these are for sale. The quarry digs metals and the oil well pumps
+      barrels; <code>!build &lt;name&gt;</code> turns them into parts, and parts
+      into buildings that earn every ration. <code>!recipe &lt;name&gt;</code>
+      says what one needs.
+    </p>
+
+    <ul class="ores">
+      <li><i class="ore" data-ore="iron"></i>iron, from the quarry</li>
+      <li><i class="ore" data-ore="copper"></i>copper, from the quarry</li>
+      <li><i class="ore" data-ore="uranium"></i>uranium, from the quarry, rarely</li>
+    </ul>
+
+    <div class="catalogue" id="made"></div>
+  </section>
+
+  <section class="file">
+    <h2>The commands</h2>
+    <div class="rule"></div>
+    <dl class="commands">
+      <dt><code>!ohayou</code></dt>
+      <dd>Your daily ration. Once a day, in a channel.</dd>
+
+      <dt><code>!items</code> <code>!item</code></dt>
+      <dd>Browse the shop by category, or read one thing up close.</dd>
+
+      <dt><code>!buy</code></dt>
+      <dd>Buy one, a number, or <code>max</code>.</dd>
+
+      <dt><code>!use</code></dt>
+      <dd>Set a thing working: a quarry, an oil well, a cattery, a vault.</dd>
+
+      <dt><code>!equip</code> <code>!unequip</code></dt>
+      <dd>Put armor on and take it off.</dd>
+
+      <dt><code>!build</code> <code>!recipe</code></dt>
+      <dd>Craft a part or a building, and see what one costs.</dd>
+
+      <dt><code>!quarry</code></dt>
+      <dd>The metals you have dug up so far.</dd>
+
+      <dt><code>!steal</code></dt>
+      <dd>Rob someone. Get caught and you pay a fine and earn nothing until it
+        clears.</dd>
+
+      <dt><code>!deposit</code> <code>!withdraw</code></dt>
+      <dd>Move ohayous in and out of your vault. Thieves only reach what is not
+        in it.</dd>
+
+      <dt><code>!report</code></dt>
+      <dd>After a robbery, have the police guard you for a few hours.</dd>
+
+      <dt><code>!stats</code> <code>!inventory</code> <code>!top</code></dt>
+      <dd>Your standing, your things, and who is richest.</dd>
+
+      <dt><code>!register</code> <code>!identify</code></dt>
+      <dd>Tie your assets to your services account so nobody on your nick can
+        touch them.</dd>
+
+      <dt><code>!territory</code></dt>
+      <dd>How your land is drawn on the map, and which deer flies over it.</dd>
+
+      <dt><code>!news</code></dt>
+      <dd>What has happened lately, out there.</dd>
+    </dl>
+    <p class="hint">
+      <code>!help &lt;topic&gt;</code> in the channel covers any of these in more
+      detail.
+    </p>
+  </section>
+
+  <section class="panel notice">
+    <span class="stamp">Playing along</span>
+    <p>
+      Everything here happens in the channel. The site is the register: the
+      <a href="/ohayou/">map</a> draws every acre anyone holds, and the
+      <a href="/ohayou/lately">day book</a> says what has been happening.
+    </p>
+    <p class="hint" id="signedout">
+      Say <code>!web</code> to the bot and it sends you a link that signs you in
+      here. Signed in, this page fills in what you have and what you can afford.
+    </p>
+  </section>
+
+</main>
+
+</body>
+</html>
