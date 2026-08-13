@@ -1,367 +1,467 @@
 /*
  * Item art, in kinskode: one character per cell, the sixteen IRC colours.
  * Same format the gallery stores deer in, so kins.js renders both.
- * All sprites are 12x12.
+ * All sprites are 16x16.
  */
 
 import { toDataURL } from "../deerkins/kins.js";
 
-export const SPRITE_SIZE = 12;
+export const SPRITE_SIZE = 16;
 
 /* biome-ignore-start format: the rows are the drawing. */
 export const SPRITES = {
 	acre: `
-____________
-_O_O__O__O__
-_OOOOOOOOOO_
-_CCCCCCCCCC_
-_CICCCCICCC_
-_CCCCICCCCC_
-_CICCCCCCIC_
-_CCCICCCICC_
-_CCCCCCCCCC_
-_OOOOOOOOOO_
-_O__O__O__O_
-____________`,
+________________
+__O__O__O__O__O_
+_OOOOOOOOOOOOOO_
+_ CCCCCCCCCCCC _
+_ CIICCIICCIIC _
+_ CCCCCCCCCCCC _
+_ IICCIICCIICC _
+_ CCCCCCCCCCCC _
+_ CCIICCIICCII _
+_ CCCCCCCCCCCC _
+_ IICCIICCIICC _
+_ CCCCCCCCCCCC _
+_ CIICCIICCIIC _
+_OOOOOOOOOOOOOO_
+__O__O__O__O__O_
+________________`,
 
 	cat: `
-____________
-_G__G_______
-_GGGGG___G__
-_G G GG_GG__
-_GGGGG__GG__
-_GGGGGGGGG__
-__GGGGGGGG__
-__GGGGGGGG__
-__GG_GG_GG__
-__G___G__G__
-____________
-____________`,
+________________
+__ ________ ____
+__ G ____ G ____
+_ GGG    GGG ___
+_ GGGGGGGGGG ___
+_ GGHHGGHHGG ___
+_ GG HGGH GG ___
+_ GGAAMMAAGG ___
+_ GGA AA AGG ___
+_ GGGGGGGGGG ___
+__ GGGGGGGG ____
+__ GEAAAEGG ____
+__ GGAAAGGG  GG_
+__ GGGAAGGG  GG_
+__ AA GG AA  GG_
+________________`,
 
 	dog: `
-____________
-__OOO_______
-_OOOOO______
-_OO OONN____
-_OOOOO  N___
-_OOOOOOOOO__
-_OOOOOOOOOOO
-_OOOOOOOOO__
-_OOOOOOOO___
-__NN_NN_N___
-____________
-____________`,
+________________
+____ OOOOOO ____
+___ OOOOOOOO ___
+_ NNOOOOOOOONN _
+_ NNOO OO OONN _
+_ NNOOOOOOOONN _
+_ NNOAAAAAAONN _
+_ NNOAA  AAONN _
+__ OAADDAAO ____
+__ OOOAAOOO ____
+_ OONOAAOOO  O _
+_ ONNOAAONO OO _
+_ OOOOAAOOO O __
+_ OOOOOOOOO ____
+_ AA OO AA _____
+________________`,
 
 	cattery: `
-____________
-_____GG_____
-____GGGG____
-___DDDDDD___
-__DDDDDDDD__
-__OOOOOOOO__
-__OO    OO__
-__OO_  _OO__
-__OOO  OOO__
-__OOO  OOO__
-__OOOOOOOO__
-____________`,
+________________
+_______  _______
+______ DD ______
+_____ DDDD _____
+____ DDDDDD ____
+___ DDDDDDDD ___
+__ EEEEEEEEEE __
+__ OHOOOOOOHO __
+__ OO      OO __
+__ OO G  G OO __
+__ OO GGGG OO __
+__ OO GHHG OO __
+__ OO GGGG OO __
+__ OO GGGG OO __
+__ NNNNNNNNNN __
+________________`,
 
 	catnip: `
-____________
-______I_____
-_____III____
-____IICII___
-___IIICIII__
-____IICII___
-_____ICI____
-______C_____
-______C_____
-_____CCC____
-____________
-____________`,
+________________
+_______FF_______
+______FIIF______
+______ICCI______
+___IIIICCIIII___
+__IICIICCIICII__
+___IIICCCCIII___
+____IICCCCII____
+__IIICICCICIII__
+___IICCCCCCII___
+_____ICCCCI_____
+_______CC_______
+_______CC_______
+______ECCE______
+_______CC_______
+________________`,
 
 	quarry: `
-____________
-_______N____
-______NNN___
-____N_NON___
-___NON_NN___
-__NNONNNN_N_
-_NOONNOONNN_
-_NNNNNNNNNNN
-_NNNNNNNNNNN
-____________
-____________
-____________`,
+________________
+_____NNNNNN_____
+___NNNNNNNNNN___
+__NNKNNNNNNHNN__
+_NNNNNNNNNNNNNN_
+_NNNNNEEEENNNNN_
+_NNNNE    ENNNN_
+_NNNOE H  ENNNN_
+_NNNNE  K ENNNN_
+NNNNNE    ENNNNN
+NNKNNE    ENNHNN
+NNNNNE    ENNNNN
+NNNNNE    ENNNNN
+NNONNE    ENNONN
+NNNNNN    NNNNNN
+________________`,
 
 	oilwell: `
-____________
-_____OO_____
-____O__O____
-____O__O____
-___O_OO_O___
-___O_OO_O___
-__O__OO__O__
-__O_OOOO_O__
-_O__OOOO__O_
-_OOOOOOOOOO_
-_NN      NN_
-____________`,
+________________
+___NNNNNNNNNN___
+___O________O___
+___ON______NO___
+___O_N____N_O___
+___O__N__N__O___
+___O___NN___O___
+___O__N__N__O___
+___O_N____N_O___
+___ONNNNNNNNO___
+___O_N____N_O___
+___O__N__N__O___
+___O___NN___O___
+__NNNNNNNNNNNN__
+__N  FL  LF  N__
+__NNNNNNNNNNNN__`,
 
 	oilbarrel: `
-____________
-___NNNNNN___
-___N    N___
-___N    N___
-___NDDDDN___
-___N    N___
-___N    N___
-___NDDDDN___
-___N    N___
-___N    N___
-___NNNNNN___
-____________`,
+________________
+___ NNNNNNNN ___
+___ AOOOOOON ___
+___ OOOOOOON ___
+___ DDDDDDDE ___
+___ OOOOOOON ___
+___ OOOOOOON ___
+___ OOOOOOON ___
+___ OOOOOOON ___
+___ OOOOOOON ___
+___ DDDDDDDE ___
+___ OOOOOOON ___
+___ OOOOOOON ___
+___ OOOOOOON ___
+___ NNNNNNNN ___
+________________`,
 
 	gear: `
-____________
-___N_NN_N___
-___NNNNNN___
-_NNNNNNNNNN_
-_NN OOOO NN_
-_NNOO  OONN_
-_NNOO  OONN_
-_NN OOOO NN_
-_NNNNNNNNNN_
-___NNNNNN___
-___N_NN_N___
-____________`,
+____NN____NN____
+____NN____NN____
+___NOOOOONNNN___
+__NNOOOONNNNNN__
+NNNNOOONNNNNNNNN
+NNNOON    NNNNNN
+__NOON    NNNN__
+__NON      NNN__
+__NNN      NNN__
+__NNNN    NNNN__
+NNNNNN    NNNNNN
+NNNNNNNNNNNNNNNN
+__NNNNNNNNNNNN__
+___NNNNNNNNNN___
+____NN____NN____
+____NN____NN____`,
 
 	circuit: `
-____________
-_CCCCCCCCCC_
-_CH_HH_HH_C_
-_C  OOOO  C_
-_CH O  O HC_
-_C  O  O  C_
-_CH O  O HC_
-_C  OOOO  C_
-_CH_HH_HH_C_
-_CCCCCCCCCC_
-____________
-____________`,
+________________
+__CCCCCCCCCCCC__
+__CIICCCCCCIIC__
+__CICCHHHHCCIC__
+__CICH    HCIC__
+__CCCH    HCCC__
+__CICH  A HCIC__
+__CCCH    HCCC__
+__CICH    HCIC__
+__CCCCHHHHCCCC__
+__CIICCCCCCIIC__
+__CCICCCCCCICC__
+__CCCIIIIIICCC__
+__CCCCCCCCCCCC__
+__CHCHCHCHCHCC__
+________________`,
 
 	plastic: `
-____________
-____________
-___KKKKKK___
-__KAAKKKKK__
-__KAKKKKKK__
-__KKKKKKKK__
-__KKKKKKKK__
-__KKKKKKKK__
-___KKKKKK___
-____________
-____________
-____________`,
+________________
+________________
+____        ____
+___ KAAKKKKK ___
+__ KAKKKKKKKJ __
+_ KKKKKKKKKKKJ _
+_ KKKKKKKKKKJJ _
+_ KKKKKKKKKJJJ _
+_ JKKKKKKKJJJJ _
+_ JJKKKKKJJJJJ _
+_ JJJJJJJJJJJJ _
+__ JJJJJJJJJJ __
+___ JJJJJJJJ ___
+____        ____
+________________
+________________`,
 
 	steelplate: `
-____________
-_OOOOOOOOOO_
-_O N    N O_
-_OOOOOOOOOO_
-_OOOOOOOOOO_
-_OOOOOOOOOO_
-_OOOOOOOOOO_
-_OOOOOOOOOO_
-_O N    N O_
-_OOOOOOOOOO_
-____________
-____________`,
+________________
+________________
+_              _
+_ OOOOOOOOOOOO _
+_ O OOOOOOOO O _
+_ OOOOOOOOOOOO _
+_ OOOAAOOOOOOO _
+_ OOAAOOOOOOOO _
+_ OOOOOOOOOONN _
+_ OOOOOOOOONNN _
+_ NOOOOOOONNNN _
+_ O OOOOOOOO O _
+_ NNNNNNNNNNNN _
+_              _
+________________
+________________`,
 
 	workshop: `
-____________
-____________
-___JJJJJJ___
-__JJJJJJJJ__
-_JJJJJJJJJJ_
-_OOOOOOOOOO_
-_OO HHHH OO_
-_OO H  H OO_
-_OO HHHH OO_
-_OOOOOOOOOO_
-____________
-____________`,
+________________
+________________
+______JJJJ______
+_____JJJJJJ_____
+____JJJJJJJJ____
+___JJJJJJJJJJ___
+__JJJJJJJJJJJJ__
+_JJJJJJJJJJJJJJ_
+__ OOOOOOOOOO __
+__ OHHOOOOHHO __
+__ OHHOOOOHHO __
+__ OOOOOOOOOO __
+__ OOO    OOO __
+__ OOO    OOO __
+__ NNNNNNNNNN __
+________________`,
 
 	factory: `
-_NN_________
-_O__________
-_NN_________
-_NN__FFFFF__
-_NN_FFFFFFF_
-_FFFFFFFFFF_
-_FF HH HH F_
-_FF HH HH F_
-_FF      FF_
-_FFFFFFFFFF_
-____________
-____________`,
+__O_____________
+_OOO____________
+__O_____________
+_NN_____________
+_DD_____________
+_NN_____________
+_NN_____________
+_NN_FFFFFFFF____
+_NNFFFFFFFFFF___
+ FFFFFFFFFFFFF _
+ FHHFHHFHHFHHF _
+ FHHFHHFHHFHHF _
+ FFFFFFFFFFFFF _
+ FF      FFFFF _
+ NNNNNNNNNNNNN _
+________________`,
 
 	refinery: `
-____________
-__D_________
-__G___NNNN__
-__N__NOOOON_
-__N__NOOOON_
-_NNN_NOOOON_
-__N__NOOOON_
-__N__NOOOON_
-_NNN_NNNNNN_
-_NNNNNNNNNN_
-____________
-____________`,
+__D_____________
+_DGD____________
+__GH____________
+__ON____________
+__ON__OOOOO_____
+__ON__OONN _____
+__ON__OONN _____
+__ON__OONN _____
+__ONNNOONN _____
+__ON__OONN OOOO_
+__ON__OONN OONN_
+__ON__OONN OONN_
+__ON__OONN OONN_
+__ON__OONN OONN_
+_NNNNNNNNNNNNNN_
+________________`,
 
 	vault: `
-____________
-_NNNNNNNNNN_
-_NOOOOOOOON_
-_NO  N   ON_
-_NO HHN  ON_
-_NO HHN  ON_
-_NO  N   ON_
-_NO  NN  ON_
-_NOOOOOOOON_
-_NNNNNNNNNN_
-____________
-____________`,
+________________
+               _
+ NNNNNNNNNNNNN _
+ NNNNNNNNNNNNN _
+ NN OOOOOOO NN _
+ NN O     O NN _
+ ON O HHH O NN _
+ NN O H H O NN _
+ NN O HHH O NN _
+ ON O     O NN _
+ NN O  AA O NN _
+ NN O     O NN _
+ NN OOOOOOO NN _
+ NNNNNNNNNNNNN _
+               _
+________________`,
 
 	vaultupgrade: `
-____________
-_NNNNNNNN_H_
-_NOOOOOOOHHH
-_NO  N  HHHH
-_NO HHN__H__
-_NO HHN__H__
-_NO  N   ON_
-_NO  NN  ON_
-_NOOOOOOOON_
-_NNNNNNNNNN_
-____________
-____________`,
+________________
+               _
+ NNNNNNNNNNNNN _
+ NNNNNNNNNNNNN _
+ NN OOOOOOO NN _
+ NN O  H  O NN _
+ NN O HHH O NN _
+ NN OHHHHHO NN _
+ NN O HHH O NN _
+ NN O HHH O NN _
+ NN O HHH O NN _
+ NN O     O NN _
+ NN OOOOOOO NN _
+ NNNNNNNNNNNNN _
+               _
+________________`,
 
 	burger: `
-____________
-___GGGGGG___
-__GAGGGGAG__
-__GGGGGGGG__
-__HHHHHHHH__
-__IIIIIIII__
-__EEEEEEEE__
-__DDDDDDDD__
-__GGGGGGGG__
-___GGGGGG___
-____________
-____________`,
+____        ____
+__  GGAGGAGG  __
+_ GGGAGGGGAGGG _
+_ GGGGGGGGGGGE _
+_ EEEEEEEEEEEE _
+_ IIIIIIIIIIII _
+_ IICIIICIIICI _
+_ HHHHHHHHHHHH _
+_ EDDDDDDDDDDE _
+_ EDDDDDDDDDDE _
+_ EEEEEEEEEEEE _
+_ GGGGGGGGGGGG _
+_ GGGGGGGGGGGE _
+__  EEEEEEEE  __
+____        ____
+________________`,
 
 	pancake: `
-____________
-____________
-_____HH_____
-____HHHH____
-__GGGGGGGG__
-__EGGGGGGE__
-__GGGGGGGG__
-__EGGGGGGE__
-__GGGGGGGG__
-___EEEEEE___
-____________
-____________`,
+________________
+______OOO_______
+______OOO_______
+__  HHHHHHHH  __
+_ HHEHHHHHHEHH _
+_ GGGGGGGGGGGG _
+_ HHHHHHHHHHHH _
+_ GGGGGGGGGGGG _
+_ HHHHHHHHHHHH _
+_ GGGGGGGGGGGG _
+__ HHHHHHHHHH __
+__ GGGGGGGGGG __
+_ AAAAAAAAAAAA _
+_ OOOOOOOOOOOO _
+__  OOOOOOOO  __
+________________`,
 
 	fortunecookie: `
-____________
-____________
-____GGGG____
-__GGGGGGGG__
-_GGGAAAAGGG_
-_GGGAAAAGGG_
-_GGEGGGGEGG_
-__GGGGGGGG__
-___GG__GG___
-____________
-____________
-____________`,
+________________
+______ AAA _____
+______ AAA _____
+______ AAA _____
+___    AAA    __
+__ GGGGAAAGGG __
+_ GGHHGGGGGGGG _
+_ GGGGGGGGGGGG _
+_ GGGGGGGGGGGG _
+_ GGGGGGGGGGGG _
+_ GGGGGGGGGGGG _
+__ GGGGGGGGGG __
+__ EEEEEEEEEE __
+___ EEEEEEEE ___
+_____      _____
+________________`,
 
 	helmet: `
-____________
-____NNNN____
-___NNNNNN___
-__NNNNNNNN__
-__NN    NN__
-__NNKKKKNN__
-__NN    NN__
-__NNNNNNNN__
-___NNNNNN___
-___N____N___
-____________
-____________`,
+________________
+_______DD_______
+_______DD_______
+____   DD   ____
+___ OOODDOOO ___
+__ OOOODDOOOO __
+_ OOOOODDOOOOO _
+_ OOOOOOOOOOOO _
+_ OO        OO _
+_ OO        OO _
+_ OOOOOOOOOOOO _
+_ OO  OOOO  OO _
+_ NNNNNNNNNNNN _
+__ NNN    NNN __
+___ NN    NN ___
+________________`,
 
 	gloves: `
-____________
-__D_D__D_D__
-__DDD__DDD__
-_DDDD__DDDD_
-_DDDD__DDDD_
-_DDDD__DDDD_
-_EEEE__EEEE_
-_DDDD__DDDD_
-_DDDD__DDDD_
-__DDD__DDD__
-____________
-____________`,
+________________
+________________
+_DD DD___DD DD__
+_DDDDD___DDDDD__
+_DDDDD___DDDDD__
+ DDDDD _ DDDDD _
+ DOOOD _ DOOOD _
+ DOOOD _ DOOOD _
+ DDDDD _ DDDDD _
+ EDDDE _ EDDDE _
+ EEEEE _ EEEEE _
+ EOOOE _ EOOOE _
+ EEEEE _ EEEEE _
+  EEE  _  EEE  _
+________________
+________________`,
 
 	vest: `
-____________
-__BB____BB__
-_BBBB__BBBB_
-_BBBBBBBBBB_
-_BBOOOOOOBB_
-_BBOBBBBOBB_
-_BBOBBBBOBB_
-_BBOOOOOOBB_
-_BBBBBBBBBB_
-_BBBB__BBBB_
-_BBB____BBB_
-____________`,
+________________
+__ LLL    LLL __
+_ LLLL    LLLL _
+_ LLLLL  LLLLL _
+_ LLLLLLLLLLLL _
+_ LBBLLLLLLBBL _
+_ LOOOOOOOOOOL _
+_ LONNNNNNNNOL _
+_ LOOOOOOOOOOL _
+_ LONNNNNNNNOL _
+_ LOOOOOOOOOOL _
+_ LLLLLLLLLLLL _
+_ LBLLLLLLLLBL _
+_ LLLL    LLLL _
+__ LLL    LLL __
+________________`,
 
 	goldenrooster: `
-____________
-_____DD_____
-____DDDD____
-___HHHHHH___
-___HH HHH___
-___HHHHHGG__
-__HHHHHHH___
-__HHHHHHHH__
-__HHHHHHHH__
-___HHHHHH___
-____G__G____
-____________`,
+________________
+_________DDD____
+________DDDDD___
+________HHHHHH__
+_______HH HHHHG_
+_______HHHHHHHGG
+___GG__HHHHHHHG_
+__GGG__HHHHDD___
+_GGGG_HHHHHHH___
+_DGGGHHHHHHHHH__
+_DGGGHHHHHHHHH__
+__GGGHHHHHHHHH__
+___GHHHHHHHHH___
+____HHHHHHHHH___
+_____GG__GG_____
+____GGG__GGG____`,
 };
 /* biome-ignore-end format: the rows are the drawing. */
 
 /** Drawn for an item with no sprite. */
 export const UNKNOWN = `
-____________
-____________
-__GGGGGGGG__
-__G      G__
-__G GGGG G__
-__G G  G G__
-__G G  G G__
-__G GGGG G__
-__G      G__
-__GGGGGGGG__
-____________
-____________`;
+________________
+__            __
+_ GGGGGGGGGGGG _
+_ GGG      GGG _
+_ GGG GGGG  GG _
+_ GGGGGGGG  GG _
+_ GGGGGGG  GGG _
+_ GGGGGG  GGGG _
+_ GGGGG  GGGGG _
+_ GGGGG  GGGGG _
+_ GGGGGGGGGGGG _
+_ GGGGG  GGGGG _
+_ GGGGG  GGGGG _
+_ GGGGGGGGGGGG _
+__            __
+________________`;
 
 /** Never null: an unknown item gets UNKNOWN. */
 export function spriteFor(item) {
