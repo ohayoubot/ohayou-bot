@@ -131,7 +131,7 @@ func (g *Plugin) Register(deps plugin.Deps) error {
 	g.bot.HandleFunc("identify", false, g.cmdIdentify)
 	g.bot.HandleFunc("quarry", false, g.cmdQuarry)
 	g.bot.HandleFunc("report", false, g.cmdReport)
-	g.bot.Help(helpTopics(g.p())...)
+	g.bot.Help(helpTopics(g.p(), g.handbookURL())...)
 
 	g.log.Info("enabled", "timezone", g.cfg.Timezone, "fortunes", len(g.fortunes))
 	return nil

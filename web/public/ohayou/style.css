@@ -671,6 +671,339 @@
 	color: var(--ink-dim);
 }
 
+/* ---- the handbook ---- */
+
+/* Numbered in the margin, so the four steps read as an order to do them in. */
+.steps {
+	list-style: none;
+	counter-reset: step;
+	margin: 0 0 0.9rem;
+	padding: 0;
+	max-width: 62ch;
+}
+
+.steps li {
+	counter-increment: step;
+	position: relative;
+	padding: 0.45rem 0 0.45rem 2.6rem;
+	border-bottom: 1px solid var(--line);
+}
+
+.steps li::before {
+	content: counter(step);
+	position: absolute;
+	left: 0;
+	top: 0.4rem;
+	width: 1.7rem;
+	padding: 0.1rem 0;
+	text-align: center;
+	font-family: var(--mono);
+	font-size: 0.8rem;
+	font-weight: 700;
+	color: var(--accent-ink);
+	background: var(--accent);
+	box-shadow: var(--drop-sm);
+}
+
+/* The purse: what you have, and how the shop is ordered. */
+.purse {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.8rem;
+	margin: 0.9rem 0 1.1rem;
+	padding: 0.7rem 0.8rem;
+	background: var(--panel);
+	border: 2px solid var(--line-lit);
+	box-shadow: var(--drop-sm), var(--bevel);
+}
+
+.purse label {
+	font-family: var(--mono);
+	font-size: 0.66rem;
+	text-transform: uppercase;
+	letter-spacing: 0.16em;
+	color: var(--ink-dim);
+}
+
+.purse input {
+	width: 8rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.purse .sort {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.purse .reach {
+	margin-left: auto;
+	font-family: var(--mono);
+	font-size: 0.78rem;
+	font-weight: 700;
+	color: var(--accent);
+}
+
+.catalogue {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+	gap: 0.8rem;
+}
+
+/* A shop ticket: the thing on the left, what it costs and does on the right. */
+.ticket {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.7rem;
+	padding: 0.7rem;
+	background: var(--panel);
+	border: 2px solid var(--line-lit);
+	box-shadow: var(--drop-sm), var(--bevel);
+}
+
+.ticket .art {
+	width: 48px;
+	height: 48px;
+	image-rendering: pixelated;
+	background: var(--black);
+	border: 2px solid var(--line);
+	padding: 2px;
+}
+
+.ticket .top {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.ticket h3 {
+	margin: 0;
+	font-size: 0.95rem;
+	color: var(--white);
+	text-shadow: 2px 2px 0 var(--black);
+}
+
+.ticket .price {
+	margin: 0;
+	flex: none;
+	text-align: right;
+	font-family: var(--mono);
+	line-height: 1.1;
+}
+
+.ticket .price b {
+	font-size: 1.05rem;
+	color: var(--accent);
+	font-variant-numeric: tabular-nums;
+}
+
+.ticket .price .unit {
+	display: block;
+	font-size: 0.58rem;
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	color: var(--ink-dim);
+}
+
+.ticket .price.made {
+	font-size: 0.62rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.16em;
+	color: var(--accent-ink);
+	background: var(--cyan);
+	padding: 0.1rem 0.4rem;
+	align-self: start;
+}
+
+/* The price as a bar, so the shop can be scanned by cost rather than read. */
+.ticket .worth {
+	display: block;
+	width: 4.5rem;
+	height: 4px;
+	margin: 0.25rem 0 0 auto;
+	background: var(--black);
+	border: 1px solid var(--line);
+}
+
+.ticket .worth i {
+	display: block;
+	height: 100%;
+	background: var(--accent);
+}
+
+.ticket .kind {
+	margin: 0.15rem 0 0.35rem;
+	font-family: var(--mono);
+	font-size: 0.6rem;
+	text-transform: uppercase;
+	letter-spacing: 0.16em;
+	color: var(--ink-dim);
+}
+
+.ticket .blurb {
+	margin: 0;
+	font-size: 0.86rem;
+}
+
+.ticket .facts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	list-style: none;
+	margin: 0.5rem 0 0;
+	padding: 0;
+}
+
+.ticket .facts li {
+	font-family: var(--mono);
+	font-size: 0.66rem;
+	color: var(--ink);
+	background: var(--panel-2);
+	border: 1px solid var(--line-lit);
+	padding: 0.1rem 0.35rem;
+}
+
+.ticket .owned {
+	margin: 0.5rem 0 0;
+	font-family: var(--mono);
+	font-size: 0.68rem;
+	color: var(--lime);
+}
+
+.ticket .short {
+	margin: 0.2rem 0 0;
+	font-size: 0.62rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	color: var(--danger);
+}
+
+/* Out of reach at the stated purse: still readable, plainly not yet yours. */
+.ticket.beyond {
+	opacity: 0.5;
+}
+
+.ticket.within {
+	border-color: var(--accent);
+}
+
+/* ---- a recipe ---- */
+
+.recipe {
+	margin-top: 0.55rem;
+	padding-top: 0.45rem;
+	border-top: 2px solid var(--line);
+}
+
+.recipe .label {
+	margin: 0 0 0.3rem;
+	font-family: var(--mono);
+	font-size: 0.6rem;
+	text-transform: uppercase;
+	letter-spacing: 0.18em;
+	color: var(--ink-dim);
+}
+
+.needs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.needs li {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.15rem 0.4rem 0.15rem 0.2rem;
+	background: var(--black);
+	border: 1px solid var(--line-lit);
+	font-family: var(--mono);
+	font-size: 0.7rem;
+	color: var(--ink-dim);
+}
+
+.needs img {
+	width: 20px;
+	height: 20px;
+	image-rendering: pixelated;
+	flex: none;
+}
+
+.needs b {
+	color: var(--white);
+	font-variant-numeric: tabular-nums;
+}
+
+/* The three metals have no sprite: they come out of the quarry as a count. */
+.ores {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem 1.4rem;
+	list-style: none;
+	margin: 0 0 1rem;
+	padding: 0;
+	font-family: var(--mono);
+	font-size: 0.72rem;
+	color: var(--ink-dim);
+}
+
+.ores li {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+}
+
+.ore {
+	width: 12px;
+	height: 12px;
+	flex: none;
+	margin-left: 0.2rem;
+	box-shadow: 0 0 0 2px var(--black);
+}
+
+.ore[data-ore="iron"] {
+	background: var(--silver);
+}
+
+.ore[data-ore="copper"] {
+	background: var(--orange);
+}
+
+.ore[data-ore="uranium"] {
+	background: var(--lime);
+}
+
+/* ---- the command reference ---- */
+
+.commands {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.35rem 1.2rem;
+	margin: 0;
+	max-width: 78ch;
+}
+
+.commands dt {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	padding-top: 0.1rem;
+}
+
+.commands dd {
+	margin: 0;
+	padding-bottom: 0.35rem;
+	border-bottom: 1px solid var(--line);
+	font-size: 0.88rem;
+}
+
 @media (max-width: 62rem) {
 	.survey,
 	.masthead {
@@ -693,5 +1026,20 @@
 
 	.panels .wide {
 		grid-column: auto;
+	}
+
+	/* The reference reads as a list once there is no room for two columns. */
+	.commands {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.15rem;
+	}
+
+	.commands dd {
+		margin-bottom: 0.45rem;
+	}
+
+	.purse .reach {
+		margin-left: 0;
+		width: 100%;
 	}
 }

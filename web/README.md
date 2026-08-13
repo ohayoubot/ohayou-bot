@@ -1,8 +1,9 @@
 # web
 
 The ohayou bot's Cloudflare Pages project: the world map at `/ohayou/`, the day
-book at `/ohayou/lately`, the deerkins gallery at `/deerkins/` and the drop
-uploader at `/drop/`. Every command below runs from this directory.
+book at `/ohayou/lately`, the handbook at `/ohayou/help`, the deerkins gallery
+at `/deerkins/` and the drop uploader at `/drop/`. Every command below runs from
+this directory.
 
 ## Names
 
@@ -205,6 +206,24 @@ the browser and the worker the way `plot.js` is. The bot has its own copy of
 those sentences for irc. Neither is authoritative: an entry whose kind this end
 has no words for is dropped rather than guessed at, so a kind the bot learns
 first costs a line, not a page.
+
+## The handbook
+
+`/ohayou/help` is the game written out: how a ration works, every item drawn,
+and what each crafted thing needs. The bot's own `!help` points at it, so the
+two have to stay in step.
+
+`public/ohayou/items.js` restates `data/items.json` and the recipe list in
+`internal/plugins/ohayou/craft.go`. Neither is served anywhere the page could
+fetch it, and the catalogue does not change between publishes, so the page
+carries its own copy the way `catalog.js` carries the acre limits.
+`tools/handbook.test.mjs` reads both files and fails if the copy has drifted:
+`ITEMS` is compared against the whole of `items.json`, not field by field, so
+anything the game adds to an item has to reach the handbook.
+
+Signing in fills in two things and nothing else: the ohayous in the purse, which
+dims what you cannot afford, and a count against anything you already hold.
+Everything else on the page renders with the game down.
 
 ## Player pages
 

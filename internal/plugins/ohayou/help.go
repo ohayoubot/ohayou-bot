@@ -4,20 +4,28 @@ import "github.com/ohayoubot/ohayou-bot/internal/bot"
 
 // helpTopics is what the game teaches the bot's !help. Aliases are the commands
 // and nouns each topic covers, so !help steal reaches the topic about it.
-func helpTopics(p string) []bot.Topic {
+// handbook is the website's guide, or "" when the bot has no site configured.
+func helpTopics(p, handbook string) []bot.Topic {
+	basics := []string{
+		"Ohayous are the currency. Say " + p + "ohayou once a day to collect your ration. Skip a day and any streak resets; random events can double it or drop a stray cat.",
+		"Spend ohayous in the shop, sink them into industry, or gamble them on " + p + "steal. Check where you stand with " + p + "stats and " + p + "inventory.",
+	}
+	shop := []string{
+		"Browse with " + p + "items <category> and read one up close with " + p + "item <name>. Buy with " + p + "buy <item> [n], or " + p + "buy <item> max to spend what you can.",
+		"Some items you " + p + "use (like a fortunecookie or a vault); armor you " + p + "equip and " + p + "unequip. " + p + "inventory lists what you own.",
+	}
+	if handbook != "" {
+		basics = append(basics, "The whole game is written out at "+handbook+", with every item drawn.")
+		shop = append(shop, "Everything for sale is at "+handbook+", cheapest first, and what each crafted thing needs.")
+	}
+
 	return []bot.Topic{
 		{Name: "basics", Summary: "the daily ration and how ohayous work",
 			Aliases: []string{"ohayou", "game"},
-			Lines: []string{
-				"Ohayous are the currency. Say " + p + "ohayou once a day to collect your ration. Skip a day and any streak resets; random events can double it or drop a stray cat.",
-				"Spend ohayous in the shop, sink them into industry, or gamble them on " + p + "steal. Check where you stand with " + p + "stats and " + p + "inventory.",
-			}},
+			Lines:   basics},
 		{Name: "shop", Summary: "buying, using and wearing items",
 			Aliases: []string{"buy", "items", "item", "use", "equip", "unequip"},
-			Lines: []string{
-				"Browse with " + p + "items <category> and read one up close with " + p + "item <name>. Buy with " + p + "buy <item> [n], or " + p + "buy <item> max to spend what you can.",
-				"Some items you " + p + "use (like a fortunecookie or a vault); armor you " + p + "equip and " + p + "unequip. " + p + "inventory lists what you own.",
-			}},
+			Lines:   shop},
 		{Name: "industry", Summary: "acres, mining, oil and building factories",
 			Aliases: []string{"acre", "quarry", "oilwell", "build", "recipe"},
 			Lines: []string{
