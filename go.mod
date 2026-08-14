@@ -1,6 +1,6 @@
 module github.com/ohayoubot/ohayou-bot
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/ohayoubot/go-ircevent v0.1.1
