@@ -19,7 +19,6 @@ let purse = null;
 let held = {};
 
 const shop = forSale();
-const dearest = Math.max(...shop.map((item) => item.price));
 
 async function start() {
 	$("#made").replaceChildren(...madeNotBought().map(card));
@@ -114,13 +113,14 @@ function price(item) {
 	n.textContent = item.price.toLocaleString();
 	el.append(n, unit());
 
-	// A bar as wide as the price is dear, on a log scale: a straight one puts
-	// everything under 250 on the same hairline and the shop starts at 10.
+	// How far the purse has got towards this, filled in by afford(). Only drawn
+	// for something out of reach: on anything else it is a full bar saying what
+	// the lit border already says.
 	const bar = document.createElement("span");
 	bar.className = "worth";
-	const fill = document.createElement("i");
-	fill.style.width = `${Math.round((Math.log(item.price) / Math.log(dearest)) * 100)}%`;
-	bar.append(fill);
+	bar.hidden = true;
+	bar.setAttribute("aria-hidden", "true");
+	bar.append(document.createElement("i"));
 	el.append(bar);
 	return el;
 }
@@ -238,7 +238,12 @@ function afford() {
 
 		const short = el.querySelector(".short");
 		if (short) short.remove();
-		if (purse !== null && !reach) {
+
+		const bar = el.querySelector(".worth");
+		bar.hidden = reach;
+		if (!reach) {
+			bar.querySelector("i").style.width = `${(purse / item.price) * 100}%`;
+
 			const gap = document.createElement("p");
 			gap.className = "short";
 			gap.textContent = `${(item.price - purse).toLocaleString()} short`;
