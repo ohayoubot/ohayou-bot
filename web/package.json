@@ -14,8 +14,8 @@
   },
   "packageManager": "pnpm@10.22.0",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.9",
-    "wrangler": "^4.123.0"
+    "@biomejs/biome": "^2.5.10",
+    "wrangler": "^4.125.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
